@@ -1,0 +1,49 @@
+[project]
+name = "amfv"
+version = "0.0.1"
+description = "Shared workspace for the AMFV runtime components"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "amfv-datasets",
+    "amfv-decomposer",
+    "amfv-search",
+    "amfv-verifier",
+    "pytest>=8.0",
+    "ruff>=0.11",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+amfv-datasets = { workspace = true }
+amfv-decomposer = { workspace = true }
+amfv-search = { workspace = true }
+amfv-verifier = { workspace = true }
+
+[tool.uv.workspace]
+members = [
+    "datasets",
+    "decomposer",
+    "search",
+    "verifier",
+]
+exclude = [
+    "baseline",
+    "training",
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.pytest.ini_options]
+testpaths = [
+    "datasets/test",
+    "decomposer/test",
+    "search/test",
+    "verifier/test",
+]
