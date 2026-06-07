@@ -14,12 +14,18 @@ import statistics
 from pathlib import Path
 
 from amfv_decomposer.base import split_sentences
-from amfv_decomposer.baselines import FActScoreDecomposer, MedScoreDecomposer, VeriScoreDecomposer
+from amfv_decomposer.baselines import (
+    FActScoreDecomposer,
+    MedScoreDecomposer,
+    VeriScoreDecomposer,
+    VeriScoreOriginalDecomposer,
+)
 
 DECOMPOSER_REGISTRY = {
     "factscore": FActScoreDecomposer,
     "medscore": MedScoreDecomposer,
     "veriscore": VeriScoreDecomposer,
+    "veriscore_original": VeriScoreOriginalDecomposer,
 }
 
 

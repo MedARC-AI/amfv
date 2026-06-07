@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..base import BaseDecomposer, split_sentences, parse_claims
-from ..vllm_client import generate
+from ..vllm_client import QWEN3_8B, chat_generate
 
 # Medical few-shot prompt with verifiability instructions.
 # Source: Huang et al. 2025 / MedScore reference repo (medscore/prompts.py)
@@ -96,7 +96,7 @@ class MedScoreDecomposer(BaseDecomposer):
             for sent in sentences
         ]
 
-        outputs = generate(messages_batch)
+        outputs = chat_generate(messages_batch, model=QWEN3_8B)
 
         all_claims: list[str] = []
         for output in outputs:

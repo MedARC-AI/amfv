@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..base import BaseDecomposer, split_sentences, parse_claims
-from ..vllm_client import generate
+from ..vllm_client import QWEN3_8B, chat_generate
 
 # Original FActScore few-shot prompt (biography-domain examples).
 # Source: Min et al. 2023 / MedScore reference repo (medscore/prompts.py)
@@ -92,7 +92,7 @@ class FActScoreDecomposer(BaseDecomposer):
             for sent in sentences
         ]
 
-        outputs = generate(messages_batch)
+        outputs = chat_generate(messages_batch, model=QWEN3_8B)
 
         all_claims: list[str] = []
         for output in outputs:

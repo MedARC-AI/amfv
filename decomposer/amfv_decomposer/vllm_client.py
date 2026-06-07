@@ -1,32 +1,43 @@
-"""Shared Qwen3-8B vLLM instance used by all decomposers."""
+"""Generic vLLM client supporting both chat and completion models."""
 
 from __future__ import annotations
 
 from vllm import LLM, SamplingParams
 
-MODEL_NAME = "Qwen/Qwen3-8B"
+QWEN3_8B = "Qwen/Qwen3-8B"
+VERISCORE_MISTRAL = "SYX/mistral_based_claim_extractor"
 
-SAMPLING_PARAMS = SamplingParams(
-    temperature=0.0,
-    max_tokens=1024,
-)
+_instances: dict[str, LLM] = {}
 
-_llm: LLM | None = None
-
-
-def get_llm() -> LLM:
-    global _llm
-    if _llm is None:
-        _llm = LLM(model=MODEL_NAME, tensor_parallel_size=1)
-    return _llm
+_CHAT_PARAMS = SamplingParams(temperature=0.0, max_tokens=1024)
+_COMPLETION_PARAMS = SamplingParams(temperature=0.0, max_tokens=1024)
 
 
-def generate(messages_batch: list[list[dict]]) -> list[str]:
-    """Run a batch of chat conversations through Qwen3-8B with thinking disabled."""
-    llm = get_llm()
+def get_llm(model: str) -> LLM:
+    if model not in _instances:
+        _instances[model] = LLM(model=model, tensor_parallel_size=1)
+    return _instances[model]
+
+
+def chat_generate(
+    messages_batch: list[list[dict]],
+    model: str = QWEN3_8B,
+) -> list[str]:
+    """Batch inference for instruction-tuned chat models."""
+    llm = get_llm(model)
     outputs = llm.chat(
         messages_batch,
-        sampling_params=SAMPLING_PARAMS,
+        sampling_params=_CHAT_PARAMS,
         chat_template_kwargs={"enable_thinking": False},
     )
     return [out.outputs[0].text.strip() for out in outputs]
+
+
+def completion_generate(
+    prompts: list[str],
+    model: str = VERISCORE_MISTRAL,
+) -> list[str]:
+    """Batch inference for completion/fine-tuned models (Alpaca format)."""
+    llm = get_llm(model)
+    outputs = llm.generate(prompts, sampling_params=_COMPLETION_PARAMS)
+    return [out.outputs[0].text.strip().replace("</s>", "").strip() for out in outputs]
