@@ -5,6 +5,7 @@
 #SBATCH --ntasks=1
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-gpu=8
+#SBATCH --exclude=n-8
 #SBATCH --export=ALL
 #SBATCH --output="/admin/home/aymane.ouraq/amfv/decomposer/slurm/job_%j.log"
 #SBATCH --error="/admin/home/aymane.ouraq/amfv/decomposer/slurm/job_%j.log"
