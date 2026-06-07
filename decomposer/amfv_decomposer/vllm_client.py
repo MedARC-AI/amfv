@@ -1,32 +1,35 @@
-"""Shared Qwen3-8B vLLM instance used by all decomposers."""
+"""OpenAI-compatible client for the vLLM server (started separately via Singularity container)."""
 
 from __future__ import annotations
 
-from vllm import LLM, SamplingParams
+from concurrent.futures import ThreadPoolExecutor
+from openai import OpenAI
 
 MODEL_NAME = "Qwen/Qwen3-8B"
+SERVER_URL = "http://localhost:8000/v1"
 
-SAMPLING_PARAMS = SamplingParams(
-    temperature=0.0,
-    max_tokens=1024,
-)
-
-_llm: LLM | None = None
+_client: OpenAI | None = None
 
 
-def get_llm() -> LLM:
-    global _llm
-    if _llm is None:
-        _llm = LLM(model=MODEL_NAME, tensor_parallel_size=1)
-    return _llm
+def get_client() -> OpenAI:
+    global _client
+    if _client is None:
+        _client = OpenAI(base_url=SERVER_URL, api_key="EMPTY")
+    return _client
 
 
-def generate(messages_batch: list[list[dict]]) -> list[str]:
-    """Run a batch of chat conversations through Qwen3-8B with thinking disabled."""
-    llm = get_llm()
-    outputs = llm.chat(
-        messages_batch,
-        sampling_params=SAMPLING_PARAMS,
-        chat_template_kwargs={"enable_thinking": False},
+def _call(messages: list[dict]) -> str:
+    response = get_client().chat.completions.create(
+        model=MODEL_NAME,
+        messages=messages,
+        temperature=0.0,
+        max_tokens=1024,
+        extra_body={"chat_template_kwargs": {"enable_thinking": False}},
     )
-    return [out.outputs[0].text.strip() for out in outputs]
+    return response.choices[0].message.content.strip()
+
+
+def generate(messages_batch: list[list[dict]], max_workers: int = 32) -> list[str]:
+    """Send a batch of conversations to the vLLM server in parallel."""
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        return list(executor.map(_call, messages_batch))
