@@ -3,22 +3,31 @@
 from __future__ import annotations
 
 import torch
-from transformers import AutoTokenizer, pipeline
-from peft import AutoPeftModelForCausalLM
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, pipeline
+from peft import PeftModel
 
 _pipelines: dict[str, object] = {}
 
+_BNB_CONFIG = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_compute_dtype=torch.float16,
+)
 
-def get_pipeline(model_id: str):
-    if model_id not in _pipelines:
-        model = AutoPeftModelForCausalLM.from_pretrained(
-            model_id,
-            load_in_4bit=True,
-            torch_dtype=torch.float16,
+# Standard base for SYX/mistral_based_claim_extractor
+# (adapter_config.json references an unsloth repo that is no longer accessible)
+_BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
+
+
+def get_pipeline(adapter_id: str):
+    if adapter_id not in _pipelines:
+        base = AutoModelForCausalLM.from_pretrained(
+            _BASE_MODEL,
+            quantization_config=_BNB_CONFIG,
             device_map="auto",
         )
-        tokenizer = AutoTokenizer.from_pretrained(model_id)
-        _pipelines[model_id] = pipeline(
+        model = PeftModel.from_pretrained(base, adapter_id)
+        tokenizer = AutoTokenizer.from_pretrained(_BASE_MODEL)
+        _pipelines[adapter_id] = pipeline(
             "text-generation",
             model=model,
             tokenizer=tokenizer,
@@ -26,7 +35,7 @@ def get_pipeline(model_id: str):
             temperature=None,
             do_sample=False,
         )
-    return _pipelines[model_id]
+    return _pipelines[adapter_id]
 
 
 def hf_generate(prompts: list[str], model_id: str) -> list[str]:
