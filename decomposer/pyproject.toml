@@ -6,6 +6,10 @@ requires-python = ">=3.12"
 dependencies = [
     "vllm>=0.17,<0.18",
     "spacy>=3.7",
+    # VeriScore-original only (transformers + peft + bitsandbytes)
+    "peft>=0.10",
+    "bitsandbytes>=0.43",
+    "accelerate>=0.27",
 ]
 
 [build-system]

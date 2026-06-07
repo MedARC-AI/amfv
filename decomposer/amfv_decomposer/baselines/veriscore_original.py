@@ -1,13 +1,16 @@
 """VeriScore original: fine-tuned Mistral-7B (SYX/mistral_based_claim_extractor).
 
-Uses the Alpaca prompt format the model was fine-tuned on, with VeriScore's
+Uses transformers + peft + bitsandbytes to load the exact model used in the
+original VeriScore paper (4-bit quantized base + LoRA adapter), with VeriScore's
 sliding-window context strategy (3 sentences before, 1 after).
 """
 
 from __future__ import annotations
 
 from ..base import BaseDecomposer, split_sentences, sliding_window, parse_claims
-from ..vllm_client import VERISCORE_MISTRAL, completion_generate
+from ..hf_client import hf_generate
+
+MODEL_ID = "SYX/mistral_based_claim_extractor"
 
 _INSTRUCTION = (
     "You are given a piece of text and one target sentence from that text marked with "
@@ -30,7 +33,7 @@ _ALPACA_TEMPLATE = (
 
 
 class VeriScoreOriginalDecomposer(BaseDecomposer):
-    """VeriScore with its original fine-tuned Mistral-7B backbone."""
+    """VeriScore with its original fine-tuned Mistral-7B backbone (PEFT + 4-bit)."""
 
     def decompose(self, text: str, context: str = "") -> list[str]:
         sentences = split_sentences(text)
@@ -48,7 +51,7 @@ class VeriScoreOriginalDecomposer(BaseDecomposer):
                 )
             )
 
-        outputs = completion_generate(prompts, model=VERISCORE_MISTRAL)
+        outputs = hf_generate(prompts, model_id=MODEL_ID)
 
         all_claims: list[str] = []
         for output in outputs:
