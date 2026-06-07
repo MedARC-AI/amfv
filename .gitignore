@@ -216,3 +216,36 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Enviromentss
+.venv/
+__pycache__/
+*.pyc
+.env
+
+data/cache/
+data/index/
+data/eval/runs/
+
+*.sqlite
+*.db
+*.json1
+
+.venv/
+__pycache__/
+*.pyc
+.env
+
+data/cache/
+data/index/
+data/eval/runs/
+data/raw/
+data/reports/
+
+*.sqlite
+*.db
+*.json1
+
+data/eval/kiss_nice_asthma_eval.jsonl
+data/eval/kiss_nice_corticosteroid_eval.jsonl
+data/eval/kiss_nice_diabetes_eval.jsonl
