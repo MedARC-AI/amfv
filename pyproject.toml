@@ -4,7 +4,8 @@ version = "0.0.1"
 description = "Shared workspace for the AMFV runtime components"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [ "datasets>=3.0.0",
+]
 
 [dependency-groups]
 dev = [
@@ -46,4 +47,8 @@ testpaths = [
     "decomposer/test",
     "search/test",
     "verifier/test",
+    "baseline/test",
+]
+markers = [
+    "integration: tests that call external APIs or services",
 ]
