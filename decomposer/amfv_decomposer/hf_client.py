@@ -27,6 +27,7 @@ def get_pipeline(adapter_id: str):
         )
         model = PeftModel.from_pretrained(base, adapter_id)
         tokenizer = AutoTokenizer.from_pretrained(_BASE_MODEL)
+        tokenizer.pad_token_id = tokenizer.eos_token_id
         _pipelines[adapter_id] = pipeline(
             "text-generation",
             model=model,
