@@ -3,7 +3,10 @@ name = "amfv-decomposer"
 version = "0.0.1"
 description = "Medical claim decomposition component for AMFV"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "vllm>=0.4.0",
+    "spacy>=3.7",
+]
 
 [build-system]
 requires = ["uv_build>=0.11,<0.12"]
