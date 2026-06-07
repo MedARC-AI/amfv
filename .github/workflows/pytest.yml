@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/ci.yml"
+      - "ruff.toml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "datasets/**"
+      - "decomposer/**"
+      - "search/**"
+      - "verifier/**"
+      - "baseline/**"
+      - "training/**"
+  pull_request:
+    paths:
+      - ".github/workflows/ci.yml"
+      - "ruff.toml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "datasets/**"
+      - "decomposer/**"
+      - "search/**"
+      - "verifier/**"
+      - "baseline/**"
+      - "training/**"
+
+jobs:
+  test:
+    name: ${{ matrix.project.name }} / Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13"]
+        project:
+          - name: workspace
+            directory: "."
+            lint-targets: "datasets decomposer search verifier"
+            test-directories: "datasets/test decomposer/test search/test verifier/test"
+          - name: baseline
+            directory: "baseline"
+            lint-targets: "."
+            test-directories: "test"
+          - name: training
+            directory: "training"
+            lint-targets: "."
+            test-directories: "test"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install Python and uv with caching
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          version: ">=0.11,<0.12"
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+            baseline/pyproject.toml
+            baseline/uv.lock
+            training/pyproject.toml
+            training/uv.lock
+            datasets/pyproject.toml
+            decomposer/pyproject.toml
+            search/pyproject.toml
+            verifier/pyproject.toml
+
+      - name: Install project
+        working-directory: ${{ matrix.project.directory }}
+        run: uv sync --group dev
+
+      - name: Ruff check
+        working-directory: ${{ matrix.project.directory }}
+        env:
+          LINT_TARGETS: ${{ matrix.project.lint-targets }}
+        run: |
+          uv run ruff check --output-format=github $LINT_TARGETS
+          uv run ruff format --check $LINT_TARGETS
+
+      - name: Check for tests
+        id: tests
+        working-directory: ${{ matrix.project.directory }}
+        env:
+          TEST_DIRECTORIES: ${{ matrix.project.test-directories }}
+        run: |
+          found=false
+          for directory in $TEST_DIRECTORIES; do
+            if [ -d "$directory" ]; then
+              found=true
+              break
+            fi
+          done
+          echo "found=$found" >> "$GITHUB_OUTPUT"
+
+      - name: Run pytest
+        if: steps.tests.outputs.found == 'true'
+        working-directory: ${{ matrix.project.directory }}
+        run: uv run pytest -v
+
+      - name: Skip pytest
+        if: steps.tests.outputs.found != 'true'
+        run: echo "No test directories found for ${{ matrix.project.name }}; skipping pytest."
