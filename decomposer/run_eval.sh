@@ -1,24 +1,36 @@
 #!/bin/bash
+
 #SBATCH --job-name=amfv-decomposer-eval
-#SBATCH --output=logs/%j.out
-#SBATCH --error=logs/%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --gpus=1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=32G
-#SBATCH --time=04:00:00
+#SBATCH --gpus-per-task=1
+#SBATCH --cpus-per-gpu=8
+#SBATCH --export=ALL
+#SBATCH --output="/admin/home/aymane.ouraq/amfv/decomposer/slurm/job_%j.log"
+#SBATCH --error="/admin/home/aymane.ouraq/amfv/decomposer/slurm/job_%j.log"
 
 set -euo pipefail
 
-DECOMPOSER_DIR="$HOME/amfv/decomposer"
-PYTHON="$DECOMPOSER_DIR/.venv313/bin/python"
-DATA="/path/to/AskDocs.jsonl"   # <-- update this
+export PROJECT_DIR="/admin/home/aymane.ouraq/amfv"
+export OUTPUT_DIR="$PROJECT_DIR/decomposer"
 
-mkdir -p "$DECOMPOSER_DIR/logs"
-cd "$DECOMPOSER_DIR"
+mkdir -p "$OUTPUT_DIR/slurm" "$OUTPUT_DIR/results"
 
-$PYTHON evaluate.py \
-    --data "$DATA" \
+if [ -f "$PROJECT_DIR/.env" ]; then
+  set -a
+  source "$PROJECT_DIR/.env"
+  set +a
+fi
+
+source "$OUTPUT_DIR/.venv313/bin/activate"
+
+export CUDA_DEVICE_ORDER=PCI_BUS_ID
+export PYTHONUNBUFFERED=1
+export OMP_NUM_THREADS=1
+
+cd "$OUTPUT_DIR"
+
+python evaluate.py \
+    --data "$PROJECT_DIR/datasets/AskDocs.jsonl" \
     --decomposers factscore medscore veriscore \
     --output results/
