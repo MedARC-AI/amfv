@@ -4,7 +4,7 @@ version = "0.0.1"
 description = "Medical claim decomposition component for AMFV"
 requires-python = ">=3.12"
 dependencies = [
-    "openai>=1.0",
+    "vllm>=0.17,<0.18",
     "spacy>=3.7",
 ]
 
