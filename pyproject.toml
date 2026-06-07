@@ -4,7 +4,9 @@ version = "0.0.1"
 description = "Shared workspace for the AMFV runtime components"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "bm25s>=0.3.9",
+]
 
 [dependency-groups]
 dev = [
