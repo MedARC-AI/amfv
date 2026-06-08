@@ -17,7 +17,7 @@ set -euo pipefail
 
 export PROJECT_DIR="${PROJECT_DIR:-$HOME/amfv}"
 export OUTPUT_DIR="${OUTPUT_DIR:-$PROJECT_DIR/decomposer}"
-export HF_HOME="${HF_HOME:-/data/medlm_cache/.hf_cache}"
+export HF_HOME="${HF_HOME:-/data/hf_cache}"
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 
