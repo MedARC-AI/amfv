@@ -116,15 +116,17 @@ def main() -> None:
 
     # Save annotation sample: 20 records with all methods' claims side by side
     sample_records = records[:20]
+    claims_index = {
+        name: {p["id"]: p["claims"] for p in preds}
+        for name, preds in all_predictions.items()
+    }
     sample_path = args.output / f"sample_for_annotation_{args.data.stem}.jsonl"
     with open(sample_path, "w") as f:
         for i, r in enumerate(sample_records):
             rid = r.get("id", str(i))
-            entry: dict = {"id": rid, "response": r[args.text_key]}
+            entry: dict = {"id": rid, args.text_key: r[args.text_key]}
             for name in args.decomposers:
-                entry[name] = next(
-                    (p["claims"] for p in all_predictions[name] if p["id"] == rid), []
-                )
+                entry[name] = claims_index[name].get(rid, [])
             f.write(json.dumps(entry) + "\n")
     print(f"\nAnnotation sample (20 records) → {sample_path}")
 
