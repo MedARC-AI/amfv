@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+import multiprocessing
+
+# Must be called before vLLM is imported.
+# vLLM v1 spawns EngineCore_DP0 as a subprocess; inside Pyxis containers only forked
+# processes inherit the parent's GPU device access — spawned ones cannot init CUDA.
+if multiprocessing.get_start_method(allow_none=True) is None:
+    multiprocessing.set_start_method("fork")
+
 from vllm import LLM, SamplingParams
 
 QWEN3_8B = "Qwen/Qwen3-8B"
