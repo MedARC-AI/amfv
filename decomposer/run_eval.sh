@@ -9,6 +9,7 @@
 #SBATCH --nice=0
 #SBATCH --container-image=/data/pyxis/vllm/latest.sqsh
 #SBATCH --container-mount-home
+#SBATCH --container-mounts=/data/hf_cache:/data/hf_cache
 #SBATCH --container-writable
 #SBATCH --output="/admin/home/%u/amfv/decomposer/slurm/job_%j.log"
 #SBATCH --error="/admin/home/%u/amfv/decomposer/slurm/job_%j.log"
