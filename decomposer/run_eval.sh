@@ -6,6 +6,8 @@
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-gpu=8
 #SBATCH --export=ALL
+#SBATCH --container-image=/data/pyxis/vllm/latest.sqsh
+#SBATCH --container-mounts=/admin/home/aymane.ouraq:/admin/home/aymane.ouraq
 #SBATCH --output="/admin/home/aymane.ouraq/amfv/decomposer/slurm/job_%j.log"
 #SBATCH --error="/admin/home/aymane.ouraq/amfv/decomposer/slurm/job_%j.log"
 
@@ -23,12 +25,12 @@ if [ -f "$PROJECT_DIR/.env" ]; then
   set +a
 fi
 
-source "$OUTPUT_DIR/.venv312/bin/activate"
-
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
 export PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS=1
-export VLLM_WORKER_MULTIPROC_METHOD=spawn
+
+# Install decomposer package into the container's Python environment
+pip install -e "$OUTPUT_DIR" --quiet
 
 cd "$OUTPUT_DIR"
 
