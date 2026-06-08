@@ -28,7 +28,6 @@ if [ -f "$PROJECT_DIR/.env" ]; then
   set +a
 fi
 
-export CUDA_DEVICE_ORDER=PCI_BUS_ID
 export NVIDIA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-all}
 export PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS=1
@@ -36,6 +35,9 @@ export OMP_NUM_THREADS=1
 pip3 install -e "$OUTPUT_DIR" --quiet
 
 cd "$OUTPUT_DIR"
+
+echo "CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES"
+python3 -c "import torch; print('torch CUDA available:', torch.cuda.is_available(), '| devices:', torch.cuda.device_count())"
 
 python3 evaluate.py \
     --data "$PROJECT_DIR/datasets/AskDocs.jsonl" \
