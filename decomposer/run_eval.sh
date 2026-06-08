@@ -10,7 +10,8 @@
 #SBATCH --qos=normal
 #SBATCH --nice=0
 #SBATCH --container-image=/data/pyxis/vllm/latest.sqsh
-#SBATCH --container-mounts=/admin/home:/admin/home
+#SBATCH --container-mount-home
+#SBATCH --container-writable
 #SBATCH --output="/admin/home/%u/amfv/decomposer/slurm/job_%j.log"
 #SBATCH --error="/admin/home/%u/amfv/decomposer/slurm/job_%j.log"
 
@@ -28,16 +29,13 @@ if [ -f "$PROJECT_DIR/.env" ]; then
   set +a
 fi
 
-export NVIDIA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-all}
+export VLLM_WORKER_MULTIPROC_METHOD=fork
 export PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS=1
 
 pip3 install -e "$OUTPUT_DIR" --quiet
 
 cd "$OUTPUT_DIR"
-
-echo "CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES"
-python3 -c "import torch; print('torch CUDA available:', torch.cuda.is_available(), '| devices:', torch.cuda.device_count())"
 
 python3 evaluate.py \
     --data "$PROJECT_DIR/datasets/AskDocs.jsonl" \
