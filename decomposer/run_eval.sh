@@ -1,6 +1,7 @@
 #!/bin/bash
 
 #SBATCH --job-name=amfv-decomposer-eval
+#SBATCH --ntasks=1
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-gpu=8
 #SBATCH --account=root
