@@ -13,6 +13,10 @@ from openai import OpenAI
 
 QWEN3_8B = "Qwen/Qwen3-8B"
 
+# VLLM_MODEL overrides the default model name sent in API requests.
+# Must match the model passed to --model in vllm serve (run_eval.sh).
+_DEFAULT_MODEL = os.environ.get("VLLM_MODEL", QWEN3_8B)
+
 _client = OpenAI(
     base_url=os.environ.get("VLLM_BASE_URL", "http://localhost:8000/v1"),
     api_key="none",
@@ -21,7 +25,7 @@ _client = OpenAI(
 
 def chat_generate(
     messages_batch: list[list[dict]],
-    model: str = QWEN3_8B,
+    model: str = _DEFAULT_MODEL,
 ) -> list[str]:
     """Batch chat completions via the vLLM OpenAI-compatible API."""
 

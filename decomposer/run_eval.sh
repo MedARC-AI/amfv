@@ -39,10 +39,13 @@ pip3 install -e "$OUTPUT_DIR" --quiet
 # on our side (fixes CUDA init failure inside Pyxis containers).
 
 VLLM_PORT=8000
+VLLM_MODEL="${VLLM_MODEL:-Qwen/Qwen3-8B}"
+VLLM_TP="${VLLM_TP:-${SLURM_GPUS_PER_TASK:-1}}"
 
 python3 -m vllm.entrypoints.openai.api_server \
-    --model "Qwen/Qwen3-8B" \
+    --model "$VLLM_MODEL" \
     --port "$VLLM_PORT" \
+    --tensor-parallel-size "$VLLM_TP" \
     --dtype bfloat16 \
     --enforce-eager \
     --max-model-len 4096 \
