@@ -4,6 +4,7 @@
 Usage:
     python evaluate.py --data /path/to/AskDocs.jsonl --decomposers factscore medscore veriscore
     python evaluate.py --data /path/to/AskDocs.demo.jsonl --max-records 5   # quick test
+    python evaluate.py --data /path/to/AskDocs.jsonl --enable-thinking       # Qwen3 think mode
 """
 
 from __future__ import annotations
@@ -11,8 +12,10 @@ from __future__ import annotations
 import argparse
 import json
 import statistics
+from datetime import datetime
 from pathlib import Path
 
+from amfv_decomposer import vllm_client
 from amfv_decomposer.base import split_sentences
 from amfv_decomposer.baselines import (
     FActScoreDecomposer,
@@ -27,6 +30,63 @@ DECOMPOSER_REGISTRY = {
     "veriscore": VeriScoreDecomposer,
     "veriscore_original": VeriScoreOriginalDecomposer,
 }
+
+# Decomposers that require a running vLLM server.
+_VLLM_DECOMPOSERS = frozenset({"factscore", "medscore", "veriscore"})
+
+
+def build_output_dir(
+    base: Path,
+    model_id: str,
+    enable_thinking: bool,
+    dataset_stem: str,
+    timestamp: str,
+) -> Path:
+    shortname = model_id.rsplit("/", 1)[-1]
+    suffix = "-think" if enable_thinking else ""
+    return base / f"{shortname}{suffix}" / dataset_stem / timestamp
+
+
+def make_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Evaluate claim decomposers")
+    parser.add_argument("--data", required=True, type=Path, help="Path to .jsonl dataset")
+    parser.add_argument(
+        "--decomposers",
+        nargs="+",
+        default=list(DECOMPOSER_REGISTRY.keys()),
+        choices=list(DECOMPOSER_REGISTRY.keys()),
+        metavar="METHOD",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("results"),
+        dest="output_base",
+        help="Base results directory. Versioned subdirs are created automatically.",
+    )
+    parser.add_argument("--max-records", type=int, default=None, dest="max_records")
+    parser.add_argument("--text-key", default="response", dest="text_key")
+    parser.add_argument(
+        "--context-key",
+        default=None,
+        dest="context_key",
+        help="Record field to use as context (e.g. 'question').",
+    )
+    parser.add_argument(
+        "--enable-thinking",
+        action="store_true",
+        default=False,
+        dest="enable_thinking",
+        help="Enable Qwen3 chain-of-thought for vLLM-backed decomposers.",
+    )
+    parser.add_argument(
+        "--model-name",
+        default=None,
+        dest="model_name",
+        help="Model name for output path. Auto-queried from the vLLM server when omitted. "
+             "Required for non-vLLM runs (e.g. veriscore_original).",
+    )
+    return parser
 
 
 def load_jsonl(path: Path) -> list[dict]:
@@ -43,7 +103,6 @@ def compute_metrics(records: list[dict], claims_per_record: list[list[str]], tex
     total_sentences = sum(len(split_sentences(r[text_key])) for r in records)
     total_claims = sum(len(c) for c in claims_per_record)
     zero_claim_count = sum(1 for c in claims_per_record if len(c) == 0)
-
     return {
         "n_records": len(records),
         "claims_per_response": statistics.mean(len(c) for c in claims_per_record),
@@ -67,33 +126,33 @@ def format_table(results: dict[str, dict]) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Evaluate claim decomposers")
-    parser.add_argument("--data", required=True, type=Path, help="Path to .jsonl dataset")
-    parser.add_argument(
-        "--decomposers",
-        nargs="+",
-        default=list(DECOMPOSER_REGISTRY.keys()),
-        choices=list(DECOMPOSER_REGISTRY.keys()),
-        metavar="METHOD",
+    args = make_parser().parse_args()
+
+    vllm_client.configure(enable_thinking=args.enable_thinking)
+
+    uses_vllm = any(d in _VLLM_DECOMPOSERS for d in args.decomposers)
+    if args.model_name:
+        model_id = args.model_name
+    elif uses_vllm:
+        model_id = vllm_client.get_served_model()
+    else:
+        raise SystemExit(
+            "ERROR: --model-name is required when no vLLM-backed decomposer is selected."
+        )
+
+    dataset_stem = args.data.stem
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_dir = build_output_dir(
+        args.output_base, model_id, args.enable_thinking, dataset_stem, timestamp
     )
-    parser.add_argument("--output", type=Path, default=Path("results"))
-    parser.add_argument("--max-records", type=int, default=None, dest="max_records")
-    parser.add_argument("--text-key", default="response", dest="text_key")
-    parser.add_argument(
-        "--context-key",
-        default=None,
-        dest="context_key",
-        help="Record field to use as context (e.g. 'question'). "
-             "Used by VeriScore (prepended to sliding window) and MedScore (prepended to answer).",
-    )
-    args = parser.parse_args()
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     records = load_jsonl(args.data)
     if args.max_records:
         records = records[: args.max_records]
 
     print(f"Loaded {len(records)} records from {args.data.name}")
-    args.output.mkdir(parents=True, exist_ok=True)
+    print(f"Output → {output_dir}")
 
     table_results: dict[str, dict] = {}
     all_predictions: dict[str, list[dict]] = {}
@@ -118,18 +177,17 @@ def main() -> None:
         ]
         all_predictions[name] = predictions
 
-        out_path = args.output / f"{name}_{args.data.stem}.json"
+        out_path = output_dir / f"{name}_{dataset_stem}.json"
         with open(out_path, "w") as f:
             json.dump({"method": name, "metrics": metrics, "predictions": predictions}, f, indent=2)
         print(f"  saved → {out_path}")
 
-    # Save annotation sample: up to 20 records with all methods' claims side by side
     sample_records = records[:min(20, len(records))]
     claims_index = {
         name: {p["id"]: p["claims"] for p in preds}
         for name, preds in all_predictions.items()
     }
-    sample_path = args.output / f"sample_for_annotation_{args.data.stem}.jsonl"
+    sample_path = output_dir / f"sample_for_annotation_{dataset_stem}.jsonl"
     with open(sample_path, "w") as f:
         for i, r in enumerate(sample_records):
             rid = r.get("id", str(i))
@@ -139,12 +197,11 @@ def main() -> None:
             f.write(json.dumps(entry) + "\n")
     print(f"\nAnnotation sample ({len(sample_records)} records) → {sample_path}")
 
-    # Summary JSON
-    summary_path = args.output / f"summary_{args.data.stem}.json"
+    summary_path = output_dir / f"summary_{dataset_stem}.json"
     with open(summary_path, "w") as f:
         json.dump(table_results, f, indent=2)
 
-    print(f"\n## Results — {args.data.stem}\n")
+    print(f"\n## Results — {dataset_stem}\n")
     print(format_table(table_results))
 
 
