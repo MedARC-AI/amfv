@@ -11,7 +11,11 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 
+import re
+
 from openai import OpenAI
+
+_THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
 
 _RETRY_ATTEMPTS = 3
 _RETRY_DELAY = 2.0
@@ -60,7 +64,8 @@ def chat_generate(messages_batch: list[list[dict]]) -> list[str]:
                     max_tokens=2048,
                     extra_body={"chat_template_kwargs": {"enable_thinking": _enable_thinking}},
                 )
-                return (resp.choices[0].message.content or "").strip()
+                content = (resp.choices[0].message.content or "").strip()
+                return _THINK_RE.sub("", content).strip()
             except Exception as exc:
                 last_exc = exc
                 if attempt < _RETRY_ATTEMPTS - 1:
