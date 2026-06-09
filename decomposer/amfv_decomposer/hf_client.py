@@ -10,8 +10,11 @@ from typing import Any
 
 _pipelines: dict[str, Any] = {}
 
-# Standard base for SYX/mistral_based_claim_extractor
-# (adapter_config.json references an unsloth repo that is no longer accessible)
+# SYX/mistral_based_claim_extractor was fine-tuned on mistralai/Mistral-7B-v0.1
+# (base, not instruct), but that adapter's config references an unsloth repo
+# that is no longer accessible, so we fall back to Instruct-v0.2.
+# The LoRA delta is applied to a different weight matrix than intended, which
+# may silently degrade claim extraction quality for veriscore_original.
 _BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
 
 
