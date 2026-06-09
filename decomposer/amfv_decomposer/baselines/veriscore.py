@@ -7,7 +7,7 @@ use Qwen3-8B with the same system prompt and input format for a fair prompt comp
 from __future__ import annotations
 
 from ..base import BaseDecomposer, split_sentences, sliding_window, parse_claims
-from ..vllm_client import QWEN3_8B, chat_generate
+from ..vllm_client import chat_generate
 
 # System prompt from VeriScore (Song et al. 2024, github.com/Yixiao-Song/VeriScore)
 _SYSTEM = (
@@ -49,7 +49,7 @@ class VeriScoreDecomposer(BaseDecomposer):
                 {"role": "user", "content": user_content},
             ])
 
-        outputs = chat_generate(messages_batch, model=QWEN3_8B)
+        outputs = chat_generate(messages_batch)
 
         all_claims: list[str] = []
         for output in outputs:

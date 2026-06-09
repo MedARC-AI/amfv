@@ -44,6 +44,7 @@ VLLM_TP="${VLLM_TP:-1}"  # override with VLLM_TP=N at sbatch time for multi-GPU 
 
 python3 -m vllm.entrypoints.openai.api_server \
     --model "$VLLM_MODEL" \
+    --served-model-name "$VLLM_MODEL" \
     --port "$VLLM_PORT" \
     --tensor-parallel-size "$VLLM_TP" \
     --dtype bfloat16 \
