@@ -40,7 +40,7 @@ pip3 install -e "$OUTPUT_DIR" --quiet
 
 VLLM_PORT=8000
 VLLM_MODEL="${VLLM_MODEL:-Qwen/Qwen3-8B}"
-VLLM_TP="${VLLM_TP:-${SLURM_GPUS_PER_TASK:-1}}"
+VLLM_TP="${VLLM_TP:-1}"  # override with VLLM_TP=N at sbatch time for multi-GPU models
 
 python3 -m vllm.entrypoints.openai.api_server \
     --model "$VLLM_MODEL" \
