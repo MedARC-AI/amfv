@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from ..base import BaseDecomposer, split_sentences, parse_claims
-from ..vllm_client import chat_generate
+from ..base import BaseDecomposer
 
 # Medical few-shot prompt with verifiability instructions.
 # Source: Huang et al. 2025 / MedScore reference repo (medscore/prompts.py)
@@ -81,18 +80,15 @@ class MedScoreDecomposer(BaseDecomposer):
 
     default_context_key = "question"  # combined with answer text as full context
 
-    def decompose(self, text: str, context: str = "") -> list[str]:
-        sentences = split_sentences(text)
-        if not sentences:
-            return []
-
+    def build_requests(self, text: str, sentences: list[str], context: str) -> list:
+        """One user message per sentence, each carrying the full-text context line."""
         # MedScore (Huang et al. 2025): "use the answer itself as the answer
         # context, and combine its corresponding user question and the question
         # context as the full question context."
         # When a question is passed as context, prepend it to the answer text.
         full_context = f"{context}\n{text}" if context else text
 
-        messages_batch = [
+        return [
             [{"role": "user", "content": (
                 f"{_PROMPT}"
                 f"Context: {full_context}\n"
@@ -101,10 +97,3 @@ class MedScoreDecomposer(BaseDecomposer):
             )}]
             for sent in sentences
         ]
-
-        outputs = chat_generate(messages_batch)
-
-        all_claims: list[str] = []
-        for output in outputs:
-            all_claims.extend(parse_claims(output))
-        return all_claims

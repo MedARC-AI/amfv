@@ -26,6 +26,8 @@ python evaluate.py --data ../datasets/AskDocs.jsonl --enable-thinking
 
 > Pass all mounts as one comma-separated `--container-mounts` — multiple flags override rather than merge in Pyxis.
 
+> Before the first run on a new home directory, create the log directory — SLURM opens the log file before the job script runs: `mkdir -p ~/amfv/decomposer/slurm`
+
 ```bash
 # No-think (default)
 sbatch \
@@ -48,7 +50,12 @@ sbatch \
 sbatch decomposer/run_eval_mistral.sh
 ```
 
-`--gpus-per-task` must equal `--tp`. Results land in `results/<model>[-think]/<dataset>/<timestamp>/`.
+`--gpus-per-task` must equal `--tp`. Extra vLLM server flags can be passed via the
+`VLLM_EXTRA_ARGS` env var (e.g. `VLLM_EXTRA_ARGS="--gpu-memory-utilization 0.95"`).
+
+Results land in `results/<model>[-think]/<dataset>/<timestamp>/`. Each
+`<method>_<dataset>.json` keeps the raw generations alongside parsed claims, so
+parsing changes can be re-scored offline without re-running inference.
 
 ## Tests
 

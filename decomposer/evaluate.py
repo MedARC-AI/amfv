@@ -11,12 +11,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import statistics
 from datetime import datetime
 from pathlib import Path
 
 from amfv_decomposer import vllm_client
-from amfv_decomposer.base import split_sentences
+from amfv_decomposer.base import RecordResult
 from amfv_decomposer.baselines import (
     FActScoreDecomposer,
     MedScoreDecomposer,
@@ -31,8 +30,8 @@ DECOMPOSER_REGISTRY = {
     "veriscore_original": VeriScoreOriginalDecomposer,
 }
 
-# Decomposers that require a running vLLM server.
-_VLLM_DECOMPOSERS = frozenset({"factscore", "medscore", "veriscore"})
+# veriscore_original needs the [hf] extras and a GPU, so it is opt-in.
+_DEFAULT_DECOMPOSERS = ["factscore", "medscore", "veriscore"]
 
 
 def build_output_dir(
@@ -42,18 +41,20 @@ def build_output_dir(
     dataset_stem: str,
     timestamp: str,
 ) -> Path:
+    """Build the versioned output path: <base>/<model>[-think]/<dataset>/<timestamp>."""
     shortname = model_id.rsplit("/", 1)[-1]
     suffix = "-think" if enable_thinking else ""
     return base / f"{shortname}{suffix}" / dataset_stem / timestamp
 
 
 def make_parser() -> argparse.ArgumentParser:
+    """Build the CLI argument parser."""
     parser = argparse.ArgumentParser(description="Evaluate claim decomposers")
     parser.add_argument("--data", required=True, type=Path, help="Path to .jsonl dataset")
     parser.add_argument(
         "--decomposers",
         nargs="+",
-        default=list(DECOMPOSER_REGISTRY.keys()),
+        default=_DEFAULT_DECOMPOSERS,
         choices=list(DECOMPOSER_REGISTRY.keys()),
         metavar="METHOD",
     )
@@ -64,32 +65,29 @@ def make_parser() -> argparse.ArgumentParser:
         dest="output_base",
         help="Base results directory. Versioned subdirs are created automatically.",
     )
-    parser.add_argument("--max-records", type=int, default=None, dest="max_records")
-    parser.add_argument("--text-key", default="response", dest="text_key")
+    parser.add_argument("--max-records", type=int, default=None)
+    parser.add_argument("--text-key", default="response")
     parser.add_argument(
         "--context-key",
         default=None,
-        dest="context_key",
         help="Record field to use as context (e.g. 'question').",
     )
     parser.add_argument(
         "--enable-thinking",
         action="store_true",
-        default=False,
-        dest="enable_thinking",
         help="Enable Qwen3 chain-of-thought for vLLM-backed decomposers.",
     )
     parser.add_argument(
-        "--model-name",
+        "--run-label",
         default=None,
-        dest="model_name",
-        help="Model name for output path. Auto-queried from the vLLM server when omitted. "
-             "Required for non-vLLM runs (e.g. veriscore_original).",
+        help="Label for the output path. Auto-queried from the vLLM server when "
+             "omitted; required when no vLLM-backed decomposer is selected.",
     )
     return parser
 
 
 def load_jsonl(path: Path) -> list[dict]:
+    """Load one JSON record per non-empty line."""
     records = []
     with open(path) as f:
         for line in f:
@@ -99,21 +97,23 @@ def load_jsonl(path: Path) -> list[dict]:
     return records
 
 
-def compute_metrics(records: list[dict], claims_per_record: list[list[str]], text_key: str) -> dict:
-    total_sentences = sum(len(split_sentences(r[text_key])) for r in records)
-    total_claims = sum(len(c) for c in claims_per_record)
-    zero_claim_count = sum(1 for c in claims_per_record if len(c) == 0)
+def compute_metrics(results: list[RecordResult]) -> dict:
+    """Aggregate claim-count metrics over per-record decomposition results."""
+    total_sentences = sum(res.n_sentences for res in results)
+    total_claims = sum(len(res.claims) for res in results)
+    n_records = max(len(results), 1)
     return {
-        "n_records": len(records),
-        "claims_per_response": statistics.mean(len(c) for c in claims_per_record),
+        "n_records": len(results),
+        "claims_per_response": total_claims / n_records,
         "claims_per_sentence": total_claims / max(total_sentences, 1),
-        "zero_claim_rate": zero_claim_count / len(records),
+        "zero_claim_rate": sum(1 for res in results if not res.claims) / n_records,
         "total_claims": total_claims,
         "total_sentences": total_sentences,
     }
 
 
 def format_table(results: dict[str, dict]) -> str:
+    """Render per-method metrics as a markdown table."""
     header = "| Method    | Claims/Response | Claims/Sentence | 0-claim rate |"
     sep    = "|-----------|----------------|----------------|-------------|"
     rows = [header, sep]
@@ -126,18 +126,19 @@ def format_table(results: dict[str, dict]) -> str:
 
 
 def main() -> None:
+    """Run the selected decomposers over the dataset and write versioned results."""
     args = make_parser().parse_args()
 
     vllm_client.configure(enable_thinking=args.enable_thinking)
 
-    uses_vllm = any(d in _VLLM_DECOMPOSERS for d in args.decomposers)
-    if args.model_name:
-        model_id = args.model_name
+    uses_vllm = any(DECOMPOSER_REGISTRY[d].backend == "vllm" for d in args.decomposers)
+    if args.run_label:
+        model_id = args.run_label
     elif uses_vllm:
         model_id = vllm_client.get_served_model()
     else:
         raise SystemExit(
-            "ERROR: --model-name is required when no vLLM-backed decomposer is selected."
+            "ERROR: --run-label is required when no vLLM-backed decomposer is selected."
         )
 
     dataset_stem = args.data.stem
@@ -155,45 +156,41 @@ def main() -> None:
     print(f"Output → {output_dir}")
 
     table_results: dict[str, dict] = {}
-    all_predictions: dict[str, list[dict]] = {}
+    claims_by_method: dict[str, list[list[str]]] = {}  # aligned with records
 
     for name in args.decomposers:
         print(f"\n[{name}] decomposing {len(records)} records...")
         decomposer = DECOMPOSER_REGISTRY[name]()
-        claims_per_record = decomposer.decompose_batch(
+        results = decomposer.decompose_batch(
             records, text_key=args.text_key, context_key=args.context_key
         )
 
-        metrics = compute_metrics(records, claims_per_record, args.text_key)
+        metrics = compute_metrics(results)
         table_results[name] = metrics
+        claims_by_method[name] = [res.claims for res in results]
 
         print(f"  claims/response : {metrics['claims_per_response']:.2f}")
         print(f"  claims/sentence : {metrics['claims_per_sentence']:.2f}")
         print(f"  0-claim rate    : {metrics['zero_claim_rate']:.1%}")
 
+        # Raw generations are kept so parsing changes can be re-scored offline.
         predictions = [
-            {"id": r.get("id", str(i)), "claims": claims}
-            for i, (r, claims) in enumerate(zip(records, claims_per_record))
+            {"id": r.get("id", str(i)), "claims": res.claims, "raw": res.raw_outputs}
+            for i, (r, res) in enumerate(zip(records, results))
         ]
-        all_predictions[name] = predictions
 
         out_path = output_dir / f"{name}_{dataset_stem}.json"
         with open(out_path, "w") as f:
             json.dump({"method": name, "metrics": metrics, "predictions": predictions}, f, indent=2)
         print(f"  saved → {out_path}")
 
-    sample_records = records[:min(20, len(records))]
-    claims_index = {
-        name: {p["id"]: p["claims"] for p in preds}
-        for name, preds in all_predictions.items()
-    }
+    sample_records = records[:20]
     sample_path = output_dir / f"sample_for_annotation_{dataset_stem}.jsonl"
     with open(sample_path, "w") as f:
         for i, r in enumerate(sample_records):
-            rid = r.get("id", str(i))
-            entry: dict = {"id": rid, args.text_key: r[args.text_key]}
+            entry: dict = {"id": r.get("id", str(i)), args.text_key: r[args.text_key]}
             for name in args.decomposers:
-                entry[name] = claims_index[name].get(rid, [])
+                entry[name] = claims_by_method[name][i]
             f.write(json.dumps(entry) + "\n")
     print(f"\nAnnotation sample ({len(sample_records)} records) → {sample_path}")
 

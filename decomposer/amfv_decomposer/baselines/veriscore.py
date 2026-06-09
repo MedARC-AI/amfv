@@ -6,8 +6,7 @@ use Qwen3-8B with the same system prompt and input format for a fair prompt comp
 
 from __future__ import annotations
 
-from ..base import BaseDecomposer, split_sentences, sliding_window, parse_claims
-from ..vllm_client import chat_generate
+from ..base import BaseDecomposer, sliding_window
 
 # System prompt from VeriScore (Song et al. 2024, github.com/Yixiao-Song/VeriScore)
 _SYSTEM = (
@@ -27,12 +26,9 @@ class VeriScoreDecomposer(BaseDecomposer):
 
     default_context_key = "question"  # prepended to sliding window for QA tasks
 
-    def decompose(self, text: str, context: str = "") -> list[str]:
-        sentences = split_sentences(text)
-        if not sentences:
-            return []
-
-        messages_batch = []
+    def build_requests(self, text: str, sentences: list[str], context: str) -> list:
+        """One system+user message pair per sentence, with sliding-window context."""
+        requests = []
         for i in range(len(sentences)):
             snippet, plain_sent = sliding_window(sentences, i)
             # VeriScore (Song et al. 2024): "For QA tasks, we always prepend
@@ -44,14 +40,8 @@ class VeriScoreDecomposer(BaseDecomposer):
                 f"Sentence to be focused on: {plain_sent}\n"
                 f"Facts:"
             )
-            messages_batch.append([
+            requests.append([
                 {"role": "system", "content": _SYSTEM},
                 {"role": "user", "content": user_content},
             ])
-
-        outputs = chat_generate(messages_batch)
-
-        all_claims: list[str] = []
-        for output in outputs:
-            all_claims.extend(parse_claims(output))
-        return all_claims
+        return requests

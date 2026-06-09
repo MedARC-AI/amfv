@@ -6,9 +6,8 @@ Imports are lazy so this module can be imported without peft/bitsandbytes instal
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any
-
-_pipelines: dict[str, Any] = {}
 
 # SYX/mistral_based_claim_extractor was fine-tuned on mistralai/Mistral-7B-v0.1
 # (base, not instruct), but that adapter's config references an unsloth repo
@@ -18,34 +17,34 @@ _pipelines: dict[str, Any] = {}
 _BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
 
 
+@lru_cache(maxsize=1)
 def get_pipeline(adapter_id: str) -> Any:
-    if adapter_id not in _pipelines:
-        import torch
-        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, pipeline
-        from peft import PeftModel  # type: ignore[import-not-found]
+    """Load and cache a 4-bit base model + LoRA adapter text-generation pipeline."""
+    import torch
+    from peft import PeftModel  # type: ignore[import-not-found]
+    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, pipeline
 
-        bnb_config = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_compute_dtype=torch.float16,
-        )
-        base = AutoModelForCausalLM.from_pretrained(
-            _BASE_MODEL,
-            quantization_config=bnb_config,
-            device_map="auto",
-        )
-        model = PeftModel.from_pretrained(base, adapter_id)
-        tokenizer = AutoTokenizer.from_pretrained(_BASE_MODEL)
-        tokenizer.pad_token_id = tokenizer.eos_token_id
-        _pipelines[adapter_id] = pipeline(
-            "text-generation",
-            model=model,
-            tokenizer=tokenizer,
-            max_new_tokens=512,
-            temperature=None,
-            do_sample=False,
-            return_full_text=False,
-        )
-    return _pipelines[adapter_id]
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_compute_dtype=torch.float16,
+    )
+    base = AutoModelForCausalLM.from_pretrained(
+        _BASE_MODEL,
+        quantization_config=bnb_config,
+        device_map="auto",
+    )
+    model = PeftModel.from_pretrained(base, adapter_id)
+    tokenizer = AutoTokenizer.from_pretrained(_BASE_MODEL)
+    tokenizer.pad_token_id = tokenizer.eos_token_id
+    return pipeline(
+        "text-generation",
+        model=model,
+        tokenizer=tokenizer,
+        max_new_tokens=512,
+        temperature=None,
+        do_sample=False,
+        return_full_text=False,
+    )
 
 
 def hf_generate(prompts: list[str], model_id: str) -> list[str]:

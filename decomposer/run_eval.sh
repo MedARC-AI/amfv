@@ -6,7 +6,6 @@
 #SBATCH --cpus-per-gpu=8
 #SBATCH --account=root
 #SBATCH --qos=normal
-#SBATCH --nice=0
 #SBATCH --container-image=/data/pyxis/vllm/latest.sqsh
 #SBATCH --container-mount-home
 #SBATCH --container-mounts=/data/hf_cache:/data/hf_cache
@@ -57,8 +56,11 @@ export OMP_NUM_THREADS=1
 pip3 install -e "$OUTPUT_DIR" --quiet
 
 # ── vLLM server ───────────────────────────────────────────────────────────────
-VLLM_PORT=8000
+# Derive the port from the job ID so two jobs sharing a node don't collide.
+VLLM_PORT="${VLLM_PORT:-$((8000 + ${SLURM_JOB_ID:-0} % 1000))}"
 
+# VLLM_EXTRA_ARGS: extra server flags, e.g. "--gpu-memory-utilization 0.95".
+# shellcheck disable=SC2086
 python3 -m vllm.entrypoints.openai.api_server \
     --model "$VLLM_MODEL" \
     --served-model-name "$VLLM_MODEL" \
@@ -66,6 +68,7 @@ python3 -m vllm.entrypoints.openai.api_server \
     --tensor-parallel-size "$VLLM_TP" \
     --dtype bfloat16 \
     --max-model-len 16384 \
+    ${VLLM_EXTRA_ARGS:-} \
     &
 VLLM_PID=$!
 
@@ -94,4 +97,5 @@ export VLLM_BASE_URL="http://localhost:${VLLM_PORT}/v1"
 # ── evaluation ────────────────────────────────────────────────────────────────
 cd "$OUTPUT_DIR"
 
-python3 evaluate.py --output results --decomposers factscore medscore veriscore "${EVAL_ARGS[@]}"
+# evaluate.py defaults to the vLLM-backed decomposers and --output results.
+python3 evaluate.py ${EVAL_ARGS[@]+"${EVAL_ARGS[@]}"}

@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from ..base import BaseDecomposer, split_sentences, parse_claims
-from ..vllm_client import chat_generate
+from ..base import BaseDecomposer
 
 # Original FActScore few-shot prompt (biography-domain examples).
 # Source: Min et al. 2023 / MedScore reference repo (medscore/prompts.py)
@@ -82,19 +81,12 @@ Please breakdown the following sentence into independent facts: During his profe
 class FActScoreDecomposer(BaseDecomposer):
     """Sentence-by-sentence decomposition with no context or verifiability filter."""
 
-    def decompose(self, text: str, context: str = "") -> list[str]:
-        sentences = split_sentences(text)
-        if not sentences:
-            return []
-
-        messages_batch = [
-            [{"role": "user", "content": f"{_PROMPT}Please breakdown the following sentence into independent facts: {sent}\n"}]
+    def build_requests(self, text: str, sentences: list[str], context: str) -> list:
+        """One user message per sentence; context is unused by design."""
+        return [
+            [{
+                "role": "user",
+                "content": f"{_PROMPT}Please breakdown the following sentence into independent facts: {sent}\n",
+            }]
             for sent in sentences
         ]
-
-        outputs = chat_generate(messages_batch)
-
-        all_claims: list[str] = []
-        for output in outputs:
-            all_claims.extend(parse_claims(output))
-        return all_claims

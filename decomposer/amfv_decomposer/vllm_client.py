@@ -7,21 +7,30 @@ Set VLLM_BASE_URL to override the default server address.
 from __future__ import annotations
 
 import os
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 
-import re
-
-from openai import OpenAI
+from openai import APIConnectionError, APIStatusError, OpenAI
 
 _THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
 
 _RETRY_ATTEMPTS = 3
 _RETRY_DELAY = 2.0
 # vLLM v1 has a race condition when hundreds of concurrent requests arrive at once.
-# Cap in-flight requests to avoid triggering it.
+# Cap in-flight requests to avoid triggering it. This is the only fan-out point:
+# BaseDecomposer.decompose_batch sends all records through one chat_generate call,
+# so this cap bounds total in-flight requests.
 _MAX_CONCURRENT = int(os.environ.get("VLLM_MAX_CONCURRENT", "32"))
+
+
+def _is_retryable(exc: Exception) -> bool:
+    # Connection errors (including timeouts) and server-side failures are
+    # transient; 4xx like context-length-exceeded will never succeed on retry.
+    if isinstance(exc, APIConnectionError):
+        return True
+    return isinstance(exc, APIStatusError) and (exc.status_code >= 500 or exc.status_code == 429)
 
 _enable_thinking: bool = False
 
@@ -54,7 +63,6 @@ def chat_generate(messages_batch: list[list[dict]]) -> list[str]:
     model = get_served_model()
 
     def _call(messages: list[dict]) -> str:
-        last_exc: Exception | None = None
         for attempt in range(_RETRY_ATTEMPTS):
             try:
                 resp = _get_client().chat.completions.create(
@@ -67,10 +75,10 @@ def chat_generate(messages_batch: list[list[dict]]) -> list[str]:
                 content = (resp.choices[0].message.content or "").strip()
                 return _THINK_RE.sub("", content).strip()
             except Exception as exc:
-                last_exc = exc
-                if attempt < _RETRY_ATTEMPTS - 1:
-                    time.sleep(_RETRY_DELAY)
-        raise RuntimeError(f"chat_generate failed after {_RETRY_ATTEMPTS} attempts") from last_exc
+                if not _is_retryable(exc) or attempt == _RETRY_ATTEMPTS - 1:
+                    raise
+                time.sleep(_RETRY_DELAY)
+        raise AssertionError("unreachable")
 
     with ThreadPoolExecutor(max_workers=_MAX_CONCURRENT) as pool:
         return list(pool.map(_call, messages_batch))

@@ -35,5 +35,5 @@ cd "$OUTPUT_DIR"
 python evaluate.py \
     --data "$PROJECT_DIR/datasets/AskDocs.jsonl" \
     --decomposers veriscore_original \
-    --model-name SYX/mistral_based_claim_extractor \
+    --run-label SYX/mistral_based_claim_extractor \
     --output results

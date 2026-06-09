@@ -7,8 +7,7 @@ sliding-window context strategy (3 sentences before, 1 after).
 
 from __future__ import annotations
 
-from ..base import BaseDecomposer, split_sentences, sliding_window, parse_claims
-from ..hf_client import hf_generate
+from ..base import BaseDecomposer, sliding_window
 
 MODEL_ID = "SYX/mistral_based_claim_extractor"
 
@@ -35,13 +34,12 @@ _ALPACA_TEMPLATE = (
 class VeriScoreOriginalDecomposer(BaseDecomposer):
     """VeriScore with its original fine-tuned Mistral-7B backbone (PEFT + 4-bit)."""
 
+    backend = "hf"
+    model_id = MODEL_ID
     default_context_key = "question"  # prepended to sliding window for QA tasks
 
-    def decompose(self, text: str, context: str = "") -> list[str]:
-        sentences = split_sentences(text)
-        if not sentences:
-            return []
-
+    def build_requests(self, text: str, sentences: list[str], context: str) -> list:
+        """One Alpaca-format prompt string per sentence, with sliding-window context."""
         prompts = []
         for i in range(len(sentences)):
             snippet, plain_sent = sliding_window(sentences, i)
@@ -54,10 +52,4 @@ class VeriScoreOriginalDecomposer(BaseDecomposer):
                     sentence=plain_sent,
                 )
             )
-
-        outputs = hf_generate(prompts, model_id=MODEL_ID)
-
-        all_claims: list[str] = []
-        for output in outputs:
-            all_claims.extend(parse_claims(output))
-        return all_claims
+        return prompts
