@@ -72,9 +72,7 @@ def parse_claims(text: str) -> list[str]:
         lower = line.lower()
         if any(lower.startswith(p) for p in _SKIP_PREFIXES):
             continue
-        line = re.sub(r"^[-•*]\s+", "", line)
-        line = re.sub(r"^\d+[.)]\s+", "", line)
-        line = line.strip()
+        line = re.sub(r"^(?:[-•*]|\d+[.)])\s+", "", line).strip()
         if line and line.lower() not in _NO_CLAIM_PHRASES:
             claims.append(line)
     return claims

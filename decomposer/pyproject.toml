@@ -12,6 +12,7 @@ dependencies = [
 [project.optional-dependencies]
 # Required only for VeriScoreOriginalDecomposer: pip install -e ".[hf]"
 hf = [
+    "transformers>=4.40",
     "peft>=0.10",
     "bitsandbytes>=0.43",
     "accelerate>=0.27",
