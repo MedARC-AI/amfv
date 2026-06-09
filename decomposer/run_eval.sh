@@ -27,6 +27,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --model) VLLM_MODEL="$2"; shift 2 ;;
         --tp)    VLLM_TP="$2";    shift 2 ;;
+        --data)  EVAL_ARGS+=("--data" "$(realpath "$2")"); shift 2 ;;
         *)       EVAL_ARGS+=("$1"); shift ;;
     esac
 done
@@ -93,4 +94,4 @@ export VLLM_BASE_URL="http://localhost:${VLLM_PORT}/v1"
 # ── evaluation ────────────────────────────────────────────────────────────────
 cd "$OUTPUT_DIR"
 
-python3 evaluate.py --output results "${EVAL_ARGS[@]}"
+python3 evaluate.py --output results --decomposers factscore medscore veriscore "${EVAL_ARGS[@]}"

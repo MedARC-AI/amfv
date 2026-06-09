@@ -1,32 +1,7 @@
 # AMFV Decomposer
 
-Breaks long-form text — answers, documents, model outputs, reasoning traces —
-into atomic, independently verifiable medical claims for the
-[verifier](../verifier/README.md), part of the
-[Agentic Medical Fact Verifier](../README.md).
-
-Workspace member (`amfv-decomposer`). Training experiments live in
-[`../training`](../training/README.md).
-
-## Structure
-
-```
-amfv_decomposer/
-  base.py                  BaseDecomposer interface + sentence splitting + sliding window
-  vllm_client.py           Shared Qwen3-8B vLLM singleton
-  baselines/
-    factscore.py           FActScore (Min et al. 2023) — sentence-by-sentence, no context
-    medscore.py            MedScore (Huang et al. 2025) — medical few-shot + full context
-    veriscore.py           VeriScore (Song et al. 2024) — sliding window, conservative filter
-evaluate.py                CLI evaluation script
-```
-
-## Model note
-
-All decomposers use **Qwen3-8B** (thinking disabled) via vLLM. The original MedScore
-paper used GPT-4o-mini and VeriScore used a fine-tuned Mistral-7B. Numbers here are
-not directly comparable — this setup enables a fair **prompt-vs-prompt** comparison
-on the same backbone.
+Breaks long-form text into atomic, independently verifiable medical claims.
+Part of the [Agentic Medical Fact Verifier](../README.md).
 
 ## Setup
 
@@ -34,28 +9,54 @@ on the same backbone.
 uv sync
 ```
 
-## Evaluation
+## Local evaluation
 
 ```bash
-# Quick sanity check (5 records)
-python evaluate.py --data /path/to/AskDocs.demo.jsonl --max-records 5
+# Sanity check (5 records)
+python evaluate.py --data ../datasets/AskDocs.demo.jsonl --max-records 5
 
-# Full AskDocsAI run
-python evaluate.py --data /path/to/AskDocs.jsonl --output results/
+# Full run
+python evaluate.py --data ../datasets/AskDocs.jsonl
 
-# Single decomposer
-python evaluate.py --data /path/to/AskDocs.jsonl --decomposers medscore
+# With Qwen3 thinking enabled
+python evaluate.py --data ../datasets/AskDocs.jsonl --enable-thinking
 ```
 
-Outputs a comparison table:
+## SLURM evaluation
 
-| Method    | Claims/Response | Claims/Sentence | 0-claim rate |
-|-----------|----------------|----------------|-------------|
-| factscore | ...            | ...            | ...         |
-| medscore  | ...            | ...            | ...         |
-| veriscore | ...            | ...            | ...         |
+> Pass all mounts as one comma-separated `--container-mounts` — multiple flags override rather than merge in Pyxis.
 
-Reference numbers from MedScore paper (GPT-4o-mini, AskDocsAI):
+```bash
+# No-think (default)
+sbatch \
+    --container-mounts=/data/aymane.ouraq:/data/aymane.ouraq,/data/hf_cache:/data/hf_cache \
+    --gpus-per-task=1 \
+    decomposer/run_eval.sh \
+    --model Qwen/Qwen3-8B --tp 1 \
+    --data /admin/home/aymane.ouraq/amfv/datasets/AskDocs.jsonl
+
+# With thinking
+sbatch \
+    --container-mounts=/data/aymane.ouraq:/data/aymane.ouraq,/data/hf_cache:/data/hf_cache \
+    --gpus-per-task=1 \
+    decomposer/run_eval.sh \
+    --model Qwen/Qwen3-8B --tp 1 \
+    --data /admin/home/aymane.ouraq/amfv/datasets/AskDocs.jsonl \
+    --enable-thinking
+
+# VeriScore original (Mistral-7B PEFT)
+sbatch decomposer/run_eval_mistral.sh
+```
+
+`--gpus-per-task` must equal `--tp`. Results land in `results/<model>[-think]/<dataset>/<timestamp>/`.
+
+## Tests
+
+```bash
+python3 -m pytest tests/
+```
+
+## Reference numbers (MedScore paper, GPT-4o-mini, AskDocsAI)
 
 | Method    | Claims/Response | Claims/Sentence | 0-claim rate |
 |-----------|----------------|----------------|-------------|
