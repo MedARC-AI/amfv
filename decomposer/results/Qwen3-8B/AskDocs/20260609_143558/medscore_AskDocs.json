@@ -2,10 +2,10 @@
   "method": "medscore",
   "metrics": {
     "n_records": 300,
-    "claims_per_response": 14.77,
-    "claims_per_sentence": 2.1752577319587627,
+    "claims_per_response": 14.81,
+    "claims_per_sentence": 2.1811487481590572,
     "zero_claim_rate": 0.0,
-    "total_claims": 4431,
+    "total_claims": 4443,
     "total_sentences": 2037
   },
   "predictions": [
@@ -18,15 +18,15 @@
         "Anovulatory cycles are a condition where the body does not release an egg during the menstrual cycle.",
         "Primary dysmenorrhea is a condition that causes painful periods.",
         "Your symptoms could be related to anovulatory cycles and primary dysmenorrhea.",
-        "Irregular cycles are not uncommon in women after stopping birth control.",
-        "It may take time for a woman's body to regulate itself after stopping birth control.",
+        "Irregular cycles are not uncommon for women after stopping birth control.",
+        "It may take some time for a woman's body to regulate itself after stopping birth control.",
         "Excess fat tissue can disrupt hormone levels in the body.",
         "Weight may be a contributing factor to symptoms.",
         "Considering alternative birth control options may be helpful for some people.",
         "Taking over-the-counter pain medications such as NSAIDs may help manage cramps.",
         "Losing weight may help alleviate some symptoms.",
+        "PCOS is unlikely in the absence of ovarian cysts.",
         "Multiple scans have shown no cysts on the ovaries.",
-        "The absence of ovarian cysts makes PCOS unlikely.",
         "There could be other underlying causes for the symptoms.",
         "Anovulatory cycles are more likely explanations for the symptoms.",
         "Primary dysmenorrhea is more likely explanations for the symptoms."
@@ -68,6 +68,7 @@
       "id": "4m0cr0_20241101",
       "claims": [
         "A doctor spoke to the patient about their recent blood test results.",
+        "The doctor wanted to clarify aspects of the patient's blood test results.",
         "Your doctor asked about the meaning of \"slightly raised\" in terms of your white blood cell count.",
         "The actual number is important for accurate interpretation of the white blood cell count.",
         "The upper limits of what is considered normal for lab results are based on a large population of healthy individuals.",
@@ -91,8 +92,8 @@
         "Stopping medication abruptly without discussing it with a doctor is not recommended.",
         "Scheduling an appointment to talk about concerns is helpful.",
         "Scheduling an appointment helps determine the best course of action.",
-        "Switching to a different medication that is less likely to cause weight gain is possible.",
-        "Adjusting the current dosage may be an option.",
+        "Switching to a different medication may be helpful for people who experience weight gain.",
+        "Adjusting the current dosage may be helpful for people who experience weight gain.",
         "Reaching out to the office to schedule an appointment is helpful.",
         "Scheduling an appointment to discuss the treatment plan is helpful.",
         "Discussing the treatment plan further is helpful.",
@@ -132,7 +133,8 @@
         "The doctor wanted to address the patient's concerns about their height.",
         "People who haven't grown in the past year may experience distress.",
         "Not growing in the past year can cause distress.",
-        "Being a teenager can make height-related concerns a difficult and sensitive issue.",
+        "Being a teenager can make height-related concerns more difficult and sensitive.",
+        "Height-related concerns can be a difficult and sensitive issue during teenage years.",
         "Height is largely determined by genetics.",
         "There is no guaranteed way to increase height through medication.",
         "There is no guaranteed way to increase height through other means.",
@@ -227,9 +229,9 @@
         "Worse side effects are possible with antibiotic use.",
         "Taking antibiotics unnecessarily can contribute to the development of antibiotic-resistant strains of bacteria.",
         "Antibiotics are only recommended for specific bacterial infections.",
-        "Strep throat is an example of a specific bacterial infection for which antibiotics may be recommended.",
-        "Suspected bacterial superinfections are examples of conditions for which antibiotics may be recommended.",
-        "Diagnoses of conditions for which antibiotics may be recommended should be made by a medical professional.",
+        "Strep throat is an example of a specific bacterial infection that may require antibiotics.",
+        "Suspected bacterial superinfections are examples of conditions where antibiotics may be recommended.",
+        "Diagnoses of bacterial infections should be made by a medical professional.",
         "People should avoid taking antibiotics that belong to others.",
         "Managing cold symptoms is recommended for people with a cold.",
         "Scheduling a consultation with a doctor is helpful for people with concerns about their health.",
@@ -302,7 +304,7 @@
         "Doctors want to explore symptoms.",
         "People with concerns should provide information about symptoms.",
         "Providing information about symptoms helps doctors understand a situation.",
-        "Doctors need information about symptoms to provide an informed opinion.",
+        "Doctors need information about symptoms to provide informed opinions.",
         "Providing more information about symptoms helps doctors understand a patient's situation.",
         "Giving more information about symptoms allows doctors to provide a more informed opinion."
       ]
@@ -315,10 +317,10 @@
         "The patient has a BB lodged in their hand.",
         "Based on the information provided, having a BB lodged in the hand is unlikely to cause significant trouble in the future.",
         "The BB has not caused any issues over the past five years.",
-        "Having a foreign object in the body may pose a potential risk.",
-        "A foreign object in the body could serve as a reservoir for bacteria if an infection develops.",
-        "A foreign object in the body may lead to repeated infections.",
-        "A foreign object in the body may lead to serious illness.",
+        "Having a foreign object in the body may pose potential risks.",
+        "A foreign object in the body could serve as a reservoir for bacteria.",
+        "Bacterial reservoirs in the body may lead to repeated infections.",
+        "Repeated infections from a bacterial reservoir may result in serious illness.",
         "A foreign object in the hand or bloodstream can serve as a reservoir for bacteria.",
         "A foreign object in the hand or bloodstream can lead to repeated infections.",
         "A foreign object in the hand or bloodstream can lead to serious illness.",
@@ -388,7 +390,9 @@
     {
       "id": "ykbilz_20241101",
       "claims": [
-        "A doctor addressed concerns regarding a situation.",
+        "A doctor spoke to the patient.",
+        "The doctor wanted to address the patient's concerns.",
+        "The doctor addressed the patient's situation.",
         "Based on the information provided, being pregnant is likely.",
         "Individuals who are told they have low fertility may still be able to conceive.",
         "Individuals who are told they have trouble getting pregnant may still be able to conceive.",
@@ -416,14 +420,15 @@
         "Doctors prefer to focus on individual health status rather than relying on statistical averages.",
         "People who have been mostly asymptomatic show a positive sign.",
         "Aortic coarctation can be managed.",
-        "Life expectancy can be prolonged with aortic coarctation.",
+        "Managing aortic coarctation can prolong life expectancy.",
         "People with aortic coarctation won't suddenly experience severe complications without warning signs.",
         "If the diagnosis is confirmed, additional lab tests are needed.",
         "If the diagnosis is confirmed, imaging is needed.",
         "If the diagnosis is confirmed, the doctor will work with the patient to develop a management plan.",
         "People should not worry too much about this right now.",
-        "Once the diagnosis is confirmed, developing a plan to manage the condition is helpful.",
-        "A plan to manage the condition is developed by the doctor in collaboration with the patient.",
+        "Once the diagnosis is confirmed, developing a management plan is helpful.",
+        "A management plan is developed by a doctor for a condition.",
+        "The management plan is tailored to the individual's condition.",
         "People receiving care are committed to helping them navigate the process.",
         "People receiving care are committed to ensuring they receive the best possible care.",
         "Letting someone know if they have further questions or concerns is helpful."
@@ -437,7 +442,7 @@
         "Injecting methamphetamine and spring water is associated with serious health risks.",
         "Injecting methamphetamine can cause brain damage.",
         "Brain damage from injecting methamphetamine can appear severely damaged on scans.",
-        "Brain damage can lead to a higher risk of strokes.",
+        "Damage to the brain can lead to a higher risk of strokes.",
         "Strokes can have devastating consequences.",
         "Injecting bacteria-contaminated substances can cause heart infections.",
         "Injecting bacteria-contaminated substances can lead to bleeding in the brain.",
@@ -448,7 +453,7 @@
         "Prioritizing health and well-being is crucial.",
         "Getting clean is essential for saving one's life.",
         "Taking a doctor's warnings seriously is helpful.",
-        "Considering seeking professional help to address addiction is helpful.",
+        "Considering professional help to address addiction is helpful.",
         "The risks associated with current behavior are extremely high.",
         "Taking action to protect health is crucial."
       ]
@@ -465,9 +470,10 @@
         "Purchasing a new bottle of Ibuprofen from a pharmacy is helpful for managing swelling.",
         "It is important not to take expired medications.",
         "Expired medications that are prescribed for a specific duration and reason should not be taken.",
-        "Following their advice is helpful for managing foot injury.",
-        "Getting a new bottle of Ibuprofen ensures safe medication use.",
-        "Ibuprofen is effective for managing foot injury.",
+        "Following their advice and getting a new bottle of Ibuprofen is helpful.",
+        "Taking a new bottle of Ibuprofen ensures safe medication use.",
+        "Taking a new bottle of Ibuprofen ensures effective medication use.",
+        "Ibuprofen is used for managing pain and swelling.",
         "People with concerns or questions should reach out."
       ]
     },
@@ -480,7 +486,7 @@
         "HIV tests are considered part of routine health screenings.",
         "If the HIV test result is positive, there may be additional considerations.",
         "Life insurance companies typically do not have access to testing history.",
-        "Life insurance companies may have access to testing history if a positive result is disclosed when sharing medical conditions.",
+        "Life insurance companies may have access to testing history if a positive result is disclosed.",
         "When applying for life insurance, being truthful is advised.",
         "When applying for life insurance, only sharing necessary information is advised.",
         "People applying for life insurance should answer questions with a simple \"yes\" or \"no\".",
@@ -506,7 +512,7 @@
         "Doctors do not refer patients to a hematologist if they do not think a finding is cause for concern.",
         "The presence of promyelocytes in blood is not necessarily cause for concern.",
         "People may come across worrying information online.",
-        "The presence of promyelocytes is not necessarily an indication of a more serious condition.",
+        "Worrying information online is not necessarily an indication of a more serious condition.",
         "Acute promyelocytic leukemia is a more serious condition."
       ]
     },
@@ -525,7 +531,7 @@
         "The best course of treatment is used to slow disease progression.",
         "People with ankylosing spondylitis will be reassessed at their next appointment.",
         "People with ankylosing spondylitis may discuss further treatment options.",
-        "DMARDs may be considered as part of further treatment options for people with ankylosing spondylitis."
+        "DMARDs may be considered as part of further treatment options for ankylosing spondylitis."
       ]
     },
     {
@@ -669,7 +675,7 @@
         "People's blood sugar can be within normal ranges.",
         "People's BMI can be within normal ranges.",
         "Being within normal ranges is a positive sign.",
-        "Your doctor would like to discuss your results with you further.",
+        "Your doctor would like to discuss your results further.",
         "Your doctor would like to answer any questions you may have.",
         "You should reach out to your doctor when you receive your full report."
       ]
@@ -692,13 +698,12 @@
         "Loperamide helps slow down diarrhea.",
         "Slowing down diarrhea makes it possible for people to leave the house and see a doctor.",
         "Loperamide should be stopped after the appointment.",
-        "Stopping loperamide allows the body to fully recover.",
+        "Continuing loperamide can prevent the body from fully recovering.",
         "Drinking Gatorade helps maintain electrolyte balance.",
         "Drinking only water may not be enough to maintain electrolyte balance.",
         "Tylenol can be used to help manage pain.",
-        "Seeking medical attention as soon as possible is advised.",
-        "Medical attention is advised to determine the cause of symptoms.",
-        "Medical attention is advised to receive proper treatment."
+        "Seeking medical attention as soon as possible is advised for determining the cause of symptoms.",
+        "Receiving proper treatment is advised for the symptoms."
       ]
     },
     {
@@ -713,7 +718,7 @@
         "Glycerin suppository use is sometimes suggested for constipation.",
         "Increasing the dosage of Meralax is sometimes suggested for constipation.",
         "The pressure from stool in the rectum may affect the bladder.",
-        "The pressure from stool in the rectum may cause leaking.",
+        "The pressure from stool in the rectum may cause leaking issues.",
         "Consulting with a pediatrician is helpful to determine next steps.",
         "Consulting with a pediatrician is helpful to discuss whether to give Meralax more time to work.",
         "Consulting with a pediatrician is helpful to discuss trying other options."
@@ -816,8 +821,8 @@
         "The doctor asked about anxiety treatment.",
         "Xanax provides temporary relief from symptoms.",
         "Xanax does not provide long-term control or resolution.",
-        "Doctors want to know if she is taking any other medications for her anxiety disorder.",
-        "Doctors want to know if she is undergoing therapy for her anxiety disorder.",
+        "People with anxiety disorder may be taking other medications.",
+        "People with anxiety disorder may be undergoing therapy.",
         "Providing additional information about anxiety treatment is helpful.",
         "Discussing further is helpful when additional information about anxiety treatment is provided."
       ]
@@ -830,7 +835,7 @@
         "The mention of mild cerebral hypoxia may have come from an automated reading.",
         "The mention of mild cerebral hypoxia may have come from a neurologist's interpretation of the official report.",
         "The distinction between automated readings and neurologist interpretation is important.",
-        "The distinction could significantly impact the understanding of the condition.",
+        "The distinction could significantly impact the understanding of a condition.",
         "It is unusual for someone of a certain age to have impaired cerebral perfusion.",
         "People with type 1 diabetes for about 7 years are unlikely to have significant vascular damage.",
         "If further information about the interpretation of EEG results is provided, discussing it further is helpful."
@@ -846,7 +851,7 @@
         "The doctor emphasizes that exercises should be chosen carefully.",
         "The doctor notes that there is an increased risk of fracture.",
         "A well-planned exercise routine can be helpful for people with osteoporosis and arthritis.",
-        "Prioritizing safety is essential for people with osteoporosis and arthritis.",
+        "Prioritizing safety is essential for people with osteoporosis and arthritis during exercise.",
         "A high-protein diet can be helpful for people with osteoporosis.",
         "Calcium and vitamin D supplementation is recommended as the first step for people with osteoporosis.",
         "Hormone replacement therapy is not typically the first line of treatment for osteoporosis.",
@@ -864,11 +869,11 @@
       "claims": [
         "Your doctor reassured you that, based on the information you provided, you are unlikely to be in immediate danger.",
         "Anxiety may contribute to increased heart rate.",
-        "Anxiety may contribute to increased blood pressure.",
         "Discomfort may contribute to increased heart rate.",
+        "Anxiety may contribute to increased blood pressure.",
         "Discomfort may contribute to increased blood pressure.",
         "Your doctor recommends taking blood pressure at home over the next 5 days.",
-        "Taking blood pressure at home helps track patterns.",
+        "Taking blood pressure at home is recommended to track patterns.",
         "Blood pressure should be taken during relaxed periods.",
         "Relaxed periods for blood pressure measurement include sitting calmly in a chair with legs uncrossed.",
         "Caffeine and nicotine should be avoided before taking blood pressure.",
@@ -984,7 +989,9 @@
         "The doctor suggests that the father's condition may be hepatic encephalopathy.",
         "Hepatic encephalopathy may cause confusion and loss of balance.",
         "Without more information, providing a prognosis is not possible.",
-        "A thorough evaluation is necessary to estimate the likely outcome for your father.",
+        "Without a thorough evaluation, estimating the likely outcome is not possible.",
+        "The doctor is unable to provide a prognosis without more information.",
+        "The doctor is unable to estimate the likely outcome without a thorough evaluation.",
         "The prognosis depends on how well the patient adheres to the recommended treatment plan.",
         "The prognosis depends on the patient making necessary lifestyle changes.",
         "Assessing a person's condition is necessary for an accurate assessment.",
@@ -992,7 +999,7 @@
         "A more accurate assessment requires more detailed information.",
         "Following up with a liver specialist is helpful for people with liver issues.",
         "Following up with a liver specialist can provide a better understanding of liver conditions.",
-        "Following up with a liver specialist can help determine necessary steps to manage liver conditions."
+        "Following up with a liver specialist can help identify necessary steps to manage liver conditions."
       ]
     },
     {
@@ -1056,7 +1063,7 @@
         "It is unlikely that the condition will significantly improve.",
         "Working with a physical therapist is recommended to explore specific exercises.",
         "Specific exercises can help build muscle in the left arm.",
-        "Physical therapists can help develop a personalized exercise plan.",
+        "A physical therapist can help develop a personalized exercise plan.",
         "The exercise plan takes into account limited mobility.",
         "The exercise plan takes into account limited control.",
         "Your doctor did not explicitly advise against continuing to exercise.",
@@ -1125,7 +1132,7 @@
         "The doctor wanted to address the patient's difficulties with anxiety and OCD.",
         "The issue has been long-standing.",
         "The issue is affecting daily life.",
-        "Discussing the possibility of temporary hospital admission with a psychiatrist may be beneficial.",
+        "Discussing the possibility of a temporary hospital admission with a psychiatrist may be beneficial.",
         "Receiving intensive therapy is helpful for people with health anxiety.",
         "Learning coping mechanisms is helpful for people with health anxiety.",
         "Connecting with others who are going through similar experiences is helpful.",
@@ -1138,7 +1145,7 @@
         "People who suffer from OCD may find support from those who understand their experiences.",
         "People with unsupportive family members may find support from others.",
         "People navigating difficult moments may find support from others.",
-        "Your doctor is sorry that you're having to go through this.",
+        "Your doctor is sorry that you're having to go through difficulties.",
         "Your doctor wants to help you find ways to manage your anxiety.",
         "Your doctor wants to help you find ways to manage your OCD."
       ]
@@ -1152,7 +1159,7 @@
         "Tetanus shots are considered standard for certain types of injuries.",
         "The chances of getting tetanus from a cut are low.",
         "Getting a tetanus shot is the standard recommendation for certain types of cuts.",
-        "Being unsure of when the last tetanus shot was received is a reason to consider getting a tetanus shot.",
+        "Being unsure of when the last tetanus shot was received is a reason for considering a tetanus shot.",
         "It is typically standard procedure to receive a tetanus shot after injuries like a biking accident.",
         "Your doctor finds it surprising that you did not receive a tetanus shot after your previous biking accident.",
         "Calling a primary care physician to inquire about getting a tetanus shot is helpful.",
@@ -1196,8 +1203,8 @@
       "id": "7993s8_20241101",
       "claims": [
         "Visiting a pain clinic for further evaluation and treatment is helpful.",
-        "The goal of visiting a pain clinic is to identify the specific nerve causing pain.",
-        "Numbing the specific nerve may provide relief for the pain.",
+        "The goal of the visit is to identify the specific nerve causing the pain.",
+        "Numbing the specific nerve may provide relief.",
         "The groin area can be tricky to treat.",
         "Finding a specialist with experience in nerve treatment is essential.",
         "The specialist should have experience in nerve treatment in the groin area.",
@@ -1245,7 +1252,7 @@
         "A doctor can assess a person's condition.",
         "A doctor can provide guidance on the best course of action.",
         "People with scabies should consult with a doctor to determine the most suitable treatment plan.",
-        "Doctors can assess a person's condition.",
+        "Doctors can assess scabies conditions.",
         "Doctors can provide guidance on the best course of action for scabies."
       ]
     },
@@ -1253,7 +1260,9 @@
       "id": "6xwyzc_20241101",
       "claims": [
         "A doctor was consulted regarding concerns about a person's health.",
-        "The person's health concerns were addressed by the doctor.",
+        "The person in question is a male with a family history of stress and health concerns.",
+        "The person has risk factors including age over 55, diabetes, hypertension, and a smoking history.",
+        "The doctor addressed concerns related to the person's health.",
         "Your father's age is a risk factor for heart health.",
         "Your father has diabetes, which is a risk factor for heart health.",
         "Your father has hypertension, which is a risk factor for heart health.",
@@ -1270,10 +1279,8 @@
         "The doctor emphasizes the importance of managing existing conditions.",
         "Managing existing conditions is done through current medications for diabetes.",
         "Managing existing conditions is done through current medications for hypertension.",
-        "Consulting with a doctor is essential for discussing the best course of action for a specific situation.",
-        "Consulting with a doctor is helpful for determining effective ways to manage stress.",
-        "Consulting with a doctor is helpful for determining effective ways to manage overall health.",
-        "Consulting with a doctor is helpful during challenging times."
+        "Consulting with a doctor is essential for determining the best course of action for a specific situation.",
+        "Consulting with a doctor is helpful for managing stress and overall health during challenging times."
       ]
     },
     {
@@ -1301,7 +1308,6 @@
         "The patient has been experiencing black stool for the past two days.",
         "Upper GI bleeding is typically associated with jet black, tarry stool.",
         "If stool is well-formed and just darker than usual, it is likely not related to bleeding.",
-        "If stool is not jet black, it is likely not related to bleeding.",
         "Getting a medical check-up is recommended as a precautionary measure.",
         "If stool is tarry and jet black, seeing a doctor is helpful.",
         "Upper GI bleeding can have painless causes.",
@@ -1320,9 +1326,9 @@
         "The doctor discussed medical reasons for circumcision.",
         "From a medical standpoint, the benefits of circumcision in preventing urinary tract infections (UTIs) are relatively low.",
         "A large number of circumcisions are required to prevent a single case of urinary tract infection.",
-        "The arguments for circumcision in preventing sexually transmitted infections (STIs) are weak.",
-        "The arguments for circumcision in preventing STIs are based on studies that may not be relevant to the son's situation.",
-        "The relevance of the studies is based on the assumption that the son will receive proper sex education.",
+        "Arguments for circumcision in preventing sexually transmitted infections (STIs) are weak.",
+        "The studies supporting circumcision for STI prevention may not be relevant to your son's situation.",
+        "The relevance of the studies is based on the assumption that your son will receive proper sex education.",
         "There is no strong medical reason to perform circumcision on an anatomically normal penis.",
         "It is essential to consider the child's autonomy regarding surgical procedures.",
         "Cosmetic surgeries on a child's genitals should not be performed without their consent.",
@@ -1362,8 +1368,7 @@
         "Being honest with a prescriber helps in making informed care decisions.",
         "Keeping informed about medical and pharmaceutical details is crucial for safety.",
         "Keeping informed about medical and pharmaceutical details is crucial for effective care.",
-        "Marijuana usage should be disclosed to healthcare providers.",
-        "Disclosing marijuana usage is important for healthcare providers to provide effective care.",
+        "Marijuana usage should be included in medical and pharmaceutical details.",
         "Withholding information from a prescriber can put health at risk.",
         "Lying to a prescriber can damage the relationship with the doctor.",
         "If a doctor finds out that a patient has been dishonest, it may lead to difficulties in finding a new doctor.",
@@ -1408,7 +1413,9 @@
         "Specialized neurologists can provide more insight into MRI results.",
         "Concern about the potential implications of white matter hyperintensities is understandable.",
         "A thorough work-up is needed to determine the cause of white matter hyperintensities.",
-        "Doctors will work closely with specialists to ensure patients receive the best possible care."
+        "Doctors will work closely with specialists.",
+        "Specialists are at Stanford Medical.",
+        "Working closely with specialists ensures best possible care."
       ]
     },
     {
@@ -1463,7 +1470,7 @@
         "Your doctor requires more context to provide information about the article.",
         "Medical professionals should consider all available options to enhance a patient's quality of life.",
         "Medical professionals should consider options for patients with limited life expectancy to enhance their quality of life.",
-        "Your doctor believes that more clarity is needed to determine the best approach for the patient.",
+        "Your doctor believes more clarity is needed to determine the best approach for the patient.",
         "People with medical concerns should provide more information about their medical history.",
         "People with medical concerns should provide more information about the specific circumstances surrounding their care."
       ]
@@ -1511,8 +1518,8 @@
         "The Paris classification is not something to focus on.",
         "A rectal polyp was found during the procedure.",
         "A rectal polyp was successfully removed during the procedure.",
-        "If heavy bleeding occurs, there may be a need to worry about polyp removal.",
-        "If heavy bleeding does not occur, there is no need to worry about polyp removal.",
+        "If heavy bleeding occurs, there may be a need to worry about the polyp removal.",
+        "If heavy bleeding does not occur, there is no need to worry about the polyp removal.",
         "The doctor is waiting for pathology results.",
         "Pathology results are needed to determine if the polyp could be related to iron deficiency.",
         "The polyp is not thought to be the cause of folate deficiency.",
@@ -1553,8 +1560,8 @@
         "Cluster headaches are less likely in cases where pain is not consistent with these characteristics.",
         "Your doctor would like to discuss your symptoms further.",
         "Your doctor wants to explore the possibility of trigeminal neuralgia being the cause of your pain.",
-        "Scheduling a follow-up appointment is helpful for discussing symptoms in more detail.",
-        "Scheduling a follow-up appointment helps determine the best course of action.",
+        "Scheduling a follow-up appointment is helpful for discussing symptoms.",
+        "Discussing symptoms in more detail is helpful for determining the best course of action.",
         "Letting us know about questions or concerns before an appointment is helpful."
       ]
     },
@@ -1575,8 +1582,8 @@
       "id": "zggp0x_20241101",
       "claims": [
         "A doctor spoke to the patient about concerns regarding the feeling of having food stuck in the throat.",
-        "It is possible for food to become lodged in the esophagus.",
-        "Cucumber may become lodged in the esophagus.",
+        "It is possible for a piece of cucumber to become lodged in the esophagus.",
+        "A piece of cucumber becoming lodged in the esophagus can happen.",
         "Food lodged in the esophagus may break down and dislodge on its own in most cases.",
         "If concerning symptoms such as fever occur, immediate medical attention is needed.",
         "If difficulty breathing occurs, immediate medical attention is needed.",
@@ -1591,7 +1598,7 @@
         "Concerning symptoms include difficulty breathing.",
         "Concerning symptoms include food or liquids coming back up.",
         "People should call their doctor in the morning to discuss further steps.",
-        "People with throat discomfort may feel better over time."
+        "People with throat discomfort may feel better with appropriate medical care."
       ]
     },
     {
@@ -1798,9 +1805,9 @@
         "Reflux can be exacerbated by alcohol.",
         "Paying attention to whether other foods trigger similar symptoms is helpful.",
         "Taking an antacid like Zantac before drinking may help alleviate some discomfort.",
-        "IBS may be a sign of an underlying issue.",
-        "Bloody stools may be a sign of an underlying issue.",
-        "Diarrhea-type IBS may be a sign of an underlying issue.",
+        "IBS can be a sign of an underlying issue.",
+        "Bloody stools can be a sign of an underlying issue.",
+        "Diarrhea-type IBS can be a sign of an underlying issue.",
         "Testing has been done to rule out other causes of colitis.",
         "Discussing the results of testing for colitis should be done at the upcoming appointment.",
         "Your doctor does not think the issue is urgent.",
@@ -1861,7 +1868,7 @@
         "Increasing the amount of fiber in the diet is helpful for people with rectal bleeding.",
         "Staying hydrated is helpful for people with rectal bleeding.",
         "Consuming 4-8 shots per night can lead to serious health problems.",
-        "Chronic liver disease is a serious health problem associated with consuming 4-8 shots per night.",
+        "Chronic liver disease is a serious health problem caused by consuming 4-8 shots per night.",
         "Reducing alcohol intake is helpful for people who consume 4-8 shots per night.",
         "People with further questions or concerns should reach out.",
         "People who want to schedule an appointment to discuss symptoms should reach out.",
@@ -1872,7 +1879,7 @@
       "id": "yummfg_20241101",
       "claims": [
         "Your doctor thinks your symptoms could be related to Irritable Bowel Syndrome (IBS).",
-        "IBS with a mix of diarrhea and constipation may be contributing to your stomach pains.",
+        "IBS with a mix of diarrhea and constipation may be contributing to your symptoms.",
         "Irritable Bowel Syndrome (IBS) may contribute to stomach pains.",
         "Treatment options are available to help manage pain associated with IBS.",
         "Dietary changes may help alleviate symptoms associated with IBS.",
@@ -1911,7 +1918,8 @@
         "Oral steroids are not typically used for ear infections.",
         "Your doctor does not see a clear reason for using oral steroids in your case.",
         "If oral steroids have been taken for less than 7 days, stopping them is safe if unpleasant side effects are experienced.",
-        "Doctors may want to know if there is another reason for prescribing steroids that has not been mentioned.",
+        "People who were prescribed steroids may have reasons not mentioned.",
+        "The doctor wants to know if there is another reason for steroid prescription.",
         "People who are feeling overwhelmed and anxious may need help.",
         "Getting to the bottom of what is going on is helpful for people who are feeling overwhelmed and anxious.",
         "Considering stopping the steroid is helpful.",
@@ -1931,7 +1939,7 @@
         "Family history of cancer may cause additional worry.",
         "Family history of cancer is not considered a red flag at this point.",
         "Monitoring the lymph node for changes in size is helpful.",
-        "Developing more lymph nodes without an infectious illness is a reason for further investigation.",
+        "If more lymph nodes develop without an infectious illness, further investigation may be necessary.",
         "If a lymph node changes in size, further investigation may be necessary.",
         "If new lymph nodes appear without an infectious illness, further investigation may be necessary.",
         "For now, the risks of further imaging outweigh the benefits.",
@@ -1956,12 +1964,12 @@
         "Your doctor wants you to be aware of certain symptoms that would require immediate attention at the emergency room.",
         "The symptoms that require immediate attention at the emergency room include a purple rash on the skin.",
         "The symptoms that require immediate attention at the emergency room include unexplained bruising.",
-        "The symptoms that require immediate attention at the emergency room include any type of bleeding.",
+        "The symptoms that require immediate attention at the emergency room include any type of bleeding aside from normal menstrual bleeding.",
         "The symptoms that require immediate attention at the emergency room include a headache.",
-        "A purple rash on the skin is a symptom that requires immediate attention.",
-        "Unexplained bruising is a symptom that requires immediate attention.",
-        "Any type of bleeding, except for normal menstrual bleeding, is a symptom that requires immediate attention.",
-        "A headache is a symptom that requires immediate attention.",
+        "A purple rash on the skin is a symptom that requires immediate medical attention.",
+        "Unexplained bruising is a symptom that requires immediate medical attention.",
+        "Any type of bleeding, except for normal menstrual bleeding, is a symptom that requires immediate medical attention.",
+        "A headache is a symptom that requires immediate medical attention.",
         "If you experience a purple rash on your skin, seek medical attention right away.",
         "If you experience unexplained bruising, seek medical attention right away.",
         "If you experience any type of bleeding (aside from normal menstrual bleeding), seek medical attention right away.",
@@ -1979,7 +1987,8 @@
         "Cipro is one of the most effective oral medications for treating pseudomonas infections.",
         "Pseudomonas infections were previously present in the patient.",
         "Dermatologists regularly take swab cultures to determine the best antibiotic for the bacteria present.",
-        "Swab cultures help determine the best antibiotic for the bacteria present.",
+        "Taking swab cultures helps determine the best antibiotic for the bacteria present.",
+        "Swab cultures are used to determine the best antibiotic for the bacteria present.",
         "Cipro is likely the best option for the bacteria present.",
         "Cipro is considered one of the best options for certain bacterial infections.",
         "Keeping taking the medication as directed is helpful.",
@@ -1991,7 +2000,7 @@
       "id": "xh2jxx_20241101",
       "claims": [
         "People with recent concerning experiences may feel overwhelmed.",
-        "Medical professionals may acknowledge how concerning and overwhelming recent experiences can be for patients.",
+        "Medical professionals may acknowledge how concerning and overwhelming a patient's experience is.",
         "People dealing with a range of symptoms are being helped by their doctor.",
         "People dealing with abnormal test results are being helped by their doctor.",
         "Their doctor wants to help people navigate their situation.",
@@ -2035,15 +2044,15 @@
         "Making a list of symptoms is helpful for preparing for an appointment.",
         "The initial doctor visit is typically 30 minutes long.",
         "The doctor may not be able to address everything during the initial visit.",
-        "People experiencing unintentional weight loss should mention this during their appointment.",
-        "People experiencing fatigue should mention this during their appointment.",
-        "People experiencing vaginal growth should mention this during their appointment.",
+        "People experiencing unintentional weight loss should mention this to their doctor.",
+        "People experiencing fatigue should mention this to their doctor.",
+        "People experiencing vaginal growth should mention this to their doctor.",
         "Unintentional weight loss is likely to be of most interest to the doctor.",
         "Fatigue is likely to be of most interest to the doctor.",
         "Vaginal growth is likely to be of most interest to the doctor.",
-        "If it is going to be a while before getting an appointment with a primary care doctor, scheduling a visit with an OB/GYN may be considered.",
-        "An OB/GYN can address vaginal complaints.",
-        "An OB/GYN may also address lower abdominal pain."
+        "If it will be a while before getting a primary care doctor appointment, scheduling an OB/GYN visit is helpful.",
+        "The OB/GYN can address vaginal complaints.",
+        "The OB/GYN may also address lower abdominal pain."
       ]
     },
     {
@@ -2056,8 +2065,7 @@
         "The timing for removing a stitch depends on the length of the wound.",
         "A stitch can be removed 3 to 5 days after it was put in.",
         "Seeing a picture of the wound is helpful to assess healing.",
-        "A picture of the wound can help determine if the stitch can be safely removed.",
-        "Assessing healing through a picture helps decide if the stitch is ready for removal.",
+        "Assessing healing of the wound helps determine if the stitch can be safely removed.",
         "A picture of the wound should be reviewed before advising on the best course of action."
       ]
     },
@@ -2124,7 +2132,7 @@
         "Obesity is a lifestyle factor that increases cancer risk.",
         "Discussing concerns with a radiologist is helpful for determining the best course of action.",
         "Discussing concerns with a primary care physician is helpful for determining the best course of action.",
-        "Determining the best course of action should be based on the specific situation."
+        "Determining the best course of action should be done for a specific situation."
       ]
     },
     {
@@ -2215,8 +2223,8 @@
         "Alveoli are the tiny air sacs in the lungs where gas exchange occurs.",
         "Emphysema is more common in smokers.",
         "Emphysema can occur in non-smokers.",
-        "A CT scan can show damage to lung tissue.",
-        "Damage to lung tissue is more consistent with emphysema.",
+        "A CT scan showed damage to lung tissue.",
+        "The damage to lung tissue is more consistent with emphysema.",
         "Your diagnosis may need to be reevaluated.",
         "Your doctor may want to discuss your diagnosis further.",
         "Reviewing test results in more detail is helpful.",
@@ -2227,10 +2235,11 @@
     {
       "id": "4z65ux_20241101",
       "claims": [
-        "A Holter monitor is recommended to understand the cause of strong and fast heartbeat.",
-        "Wearing a Holter monitor helps record heart activity over a 24-hour period.",
-        "Analyzing data from a Holter monitor can determine if symptoms are caused by harmless conditions like extrasystole.",
-        "Analyzing data from a Holter monitor can determine if symptoms are caused by more serious heart rhythm issues.",
+        "Wearing a Holter monitor is recommended to understand the cause of strong and fast heartbeat.",
+        "A Holter monitor continuously records heart activity over a 24-hour period.",
+        "Analyzing data from a Holter monitor helps determine the cause of heart symptoms.",
+        "A Holter monitor can detect harmless conditions like extrasystoles.",
+        "A Holter monitor can identify serious heart rhythm issues.",
         "A Holter monitor continuously records heart activity over a 24-hour period.",
         "A Holter monitor captures episodes of palpitations during the recording period.",
         "Analyzing data from a Holter monitor can help determine if symptoms are caused by an extrasystole.",
@@ -2249,6 +2258,7 @@
         "Losing consciousness for a brief period of time, approximately 20 seconds, is not sufficient to cause brain damage.",
         "Individuals selling CBD products often lack medical training.",
         "Individuals selling CBD products should not be advising on their use.",
+        "The salesperson's recommendation caused frustration.",
         "Your doctor's primary concern is alleviating anxiety about potential brain damage.",
         "Your doctor believes the incident is unlikely to have caused any lasting harm."
       ]
@@ -2262,7 +2272,7 @@
         "The nonspecific pattern can be caused by viral pneumonia.",
         "The nonspecific pattern can be caused by fluid or edema.",
         "The nonspecific pattern can be caused by interstitial inflammation.",
-        "If a person is not experiencing respiratory symptoms and is feeling fine otherwise, mentioning chest X-ray results to a primary care doctor during the next visit is helpful.",
+        "If a person is not experiencing respiratory symptoms and is feeling fine otherwise, mentioning chest X-ray results to a primary care doctor during a next visit is helpful.",
         "Your primary care doctor may decide to repeat the chest X-ray.",
         "Your primary care doctor may decide to monitor the condition clinically.",
         "The decision to repeat the chest X-ray or monitor the condition depends on the assessment of the image.",
@@ -2297,7 +2307,7 @@
         "Doxycycline is often used to treat Chlamydia.",
         "Lymecycline might have some effectiveness against Chlamydia.",
         "Getting tested is recommended to confirm whether Chlamydia infection is present.",
-        "Taking antibiotics may result in a false negative test result for Chlamydia.",
+        "Taking antibiotics may result in a false negative test result.",
         "Letting us know if further questions exist is helpful.",
         "Scheduling a test is helpful if desired."
       ]
@@ -2319,7 +2329,7 @@
         "Breaking 30mg Cymbalta tablets in half and taking 15mg per day may help minimize the severity of withdrawal symptoms.",
         "Letting the patient know if they have further questions or concerns is helpful.",
         "Assisting the patient with their questions or concerns is helpful.",
-        "The message ends with a sign-off indicating the sender's identity."
+        "The message ends with a sign-off indicating the sender's professional identity."
       ]
     },
     {
@@ -2327,8 +2337,8 @@
       "claims": [
         "The muscle tension in the forearm is likely not a cause for serious concern.",
         "Giving it some time is helpful for resolving forearm muscle tension.",
-        "It may take about a week or two for forearm muscle tension to resolve.",
-        "Forearm muscle tension may resolve on its own.",
+        "A week or two is a reasonable timeframe for resolving forearm muscle tension.",
+        "Forearm muscle tension may resolve on its own without intervention.",
         "Once symptoms pass, people may feel relieved that the issue was not serious.",
         "If symptoms persist, scheduling a follow-up appointment is helpful.",
         "A follow-up appointment is recommended to further discuss concerns.",
@@ -2381,7 +2391,7 @@
         "The doctor discussed the relationship between urination and pre-ejaculatory fluid.",
         "Urinating can help flush out sperm.",
         "Urinating is not a guarantee that all sperm will be eliminated.",
-        "If a person urinates at 10:00 AM and then masturbates at 2:00 PM, it is possible that a few sperm may still be present in the pre-ejaculatory fluid.",
+        "If a person urinates at 10:00 AM and then masturbates at 2:00 PM, it is possible that a few sperm may still be present in pre-ejaculatory fluid.",
         "The number of sperm present in pre-ejaculatory fluid after urination is likely to be very low.",
         "The presence of sperm in pre-ejaculatory fluid after urination is not guaranteed.",
         "The number of sperm in pre-ejaculatory fluid is likely very low after urination.",
@@ -2395,7 +2405,7 @@
         "A doctor addressed concerns about a current diet.",
         "The diet involves consuming one fast food meal per day.",
         "The diet includes meals from KFC, Hungry Jacks, or McDonalds.",
-        "The diet may include small nibbles at home but not full meals.",
+        "The diet may include small nibbles at home but not proper meals.",
         "The doctor mentioned that the diet may increase the risk of cardiovascular problems.",
         "The doctor noted that vitamin deficiency is less likely with this diet.",
         "The doctor recommended exploring ways to improve overall eating habits.",
@@ -2424,17 +2434,18 @@
       "claims": [
         "A doctor spoke to the patient about concerns related to propofol sedation used during a recent endoscopy.",
         "The doctor addressed the patient's concerns regarding the propofol sedation during the endoscopy.",
-        "It is possible that the anesthetist did not give a larger dose of propofol due to concerns about the patient's airway.",
-        "It is possible that the anesthetist did not give a larger dose of propofol due to concerns about the patient's blood pressure.",
+        "It is possible that the anesthetist did not give a larger dose of propofol due to concerns about the airway.",
+        "It is possible that the anesthetist did not give a larger dose of propofol due to concerns about blood pressure.",
         "The sedation may not have been sufficient to keep the person comfortable during the procedure.",
         "The actual risk of intubation is very low.",
         "Your doctor wanted to reassure you about the risks of intubation.",
-        "People who are concerned about not wanting to be put fully to sleep are understood.",
-        "Ensuring necessary care for worsening symptoms is important.",
+        "Doctors understand concerns about not wanting to be put fully to sleep.",
+        "Doctors want to ensure necessary care is provided for worsening symptoms.",
         "Updating your gastroenterologist about your current condition is helpful.",
         "Discussing the best course of action for your next endoscopy is helpful.",
-        "Your doctor is open to exploring options that make people feel comfortable during procedures.",
-        "Your doctor is open to exploring options that ensure safety during procedures."
+        "Your doctor is open to exploring options.",
+        "The options are intended to make people feel comfortable.",
+        "The options are intended to ensure safety during the procedure."
       ]
     },
     {
@@ -2454,7 +2465,7 @@
         "Your usual blood pressure is 13/9.",
         "Today's elevated blood pressure reading may be an isolated incident.",
         "A proper evaluation is recommended before considering blood pressure medication.",
-        "Taking medication without a proper evaluation is not recommended.",
+        "Taking someone else's medication without a proper evaluation is not recommended.",
         "Determining the underlying cause of elevated blood pressure is essential.",
         "Starting medication without consulting a medical professional is not recommended.",
         "Monitoring blood pressure is helpful.",
@@ -2524,7 +2535,7 @@
       "id": "4clz7f_20241101",
       "claims": [
         "A doctor recommended waiting at least 48 hours after vomiting and diarrhea have stopped before resuming normal activities or interacting with others.",
-        "The standard guideline for staff returning to work after a stomach virus is to wait at least 48 hours after vomiting and diarrhea have stopped.",
+        "The standard guideline for staff returning to work after a stomach virus is to wait 48 hours after vomiting and diarrhea have stopped.",
         "Thoroughly cleaning and disinfecting the bathroom is important to reduce the risk of transmission.",
         "Thoroughly cleaning and disinfecting frequently touched surfaces is important to reduce the risk of transmission.",
         "Door handles are frequently touched surfaces that should be cleaned and disinfected to reduce the risk of transmission.",
@@ -2604,14 +2615,17 @@
         "A common reaction to amoxicillin does not necessarily indicate a true allergy to penicillin.",
         "Following up with a physician is helpful for confirming a diagnosis.",
         "Discussing the best course of action is helpful for confirming a diagnosis.",
-        "Confirming a diagnosis is important for determining appropriate treatment."
+        "Confirming a diagnosis is important for determining the appropriate treatment."
       ]
     },
     {
       "id": "y0s3k3_20241101",
       "claims": [
         "Exploring various treatment options to remove a wart is helpful.",
-        "A doctor can provide guidance on removing a wart.",
+        "A doctor can recommend treatment options for a wart.",
+        "Treatment options for a wart may include cryotherapy.",
+        "Over-the-counter treatments may be used for a wart.",
+        "A doctor's assessment is helpful in determining the best treatment for a wart.",
         "Cryotherapy is a possible approach for removing warts.",
         "Cryotherapy can be performed in a doctor's office.",
         "Cryotherapy can be done with over-the-counter treatments.",
@@ -2642,7 +2656,6 @@
         "The ER is primarily focused on treating life-threatening emergencies.",
         "Seeing a primary care physician is helpful for a comprehensive evaluation.",
         "Seeing a gastroenterologist (GI doctor) is helpful for a comprehensive evaluation.",
-        "A primary care physician can refer to a gastroenterologist (GI doctor) if necessary.",
         "A comprehensive evaluation can help develop a plan to address symptoms.",
         "Continuing to take medication as prescribed is helpful.",
         "Managing anxiety as best as possible is helpful.",
@@ -2660,7 +2673,8 @@
         "Stopping chiropractic treatment is advised.",
         "Chiropractic treatment may be causing more harm than good.",
         "Chiropractic adjustments may be linked to new symptoms.",
-        "The \"pulsing\" sensation in the head and hands may be linked to chiropractic adjustments.",
+        "The new symptoms include a pulsing sensation in the head.",
+        "The new symptoms include a pulsing sensation in the hands.",
         "Your doctor recommends considering finding a new primary care physician.",
         "Your doctor is concerned that your current doctor may not be providing the best guidance for your care.",
         "Seeking a second opinion from a reputable medical professional is helpful.",
@@ -2680,7 +2694,7 @@
       "id": "5g6snf_20241101",
       "claims": [
         "A doctor helped clarify the results of an x-ray report.",
-        "The doctor wanted to help clarify the results of the x-ray report.",
+        "The x-ray report was discussed with a doctor.",
         "The report indicates early signs of joint degeneration.",
         "Joint degeneration is typically seen in people in their 50s or 60s.",
         "The report shows mild to moderate degenerative changes in the right SI joint.",
@@ -2714,7 +2728,7 @@
         "Providing additional details helps doctors better understand symptoms.",
         "People with abdominal pain should describe the location of their pain.",
         "The time when the pain was first noticed is relevant for medical evaluation.",
-        "Describing the sensation of the pain is relevant for medical evaluation.",
+        "The sensation of the pain is relevant for medical evaluation.",
         "Pain may move or radiate to other areas.",
         "Pain may stay in one place.",
         "People may experience fever as a symptom.",
@@ -2724,14 +2738,12 @@
         "People may experience urinary issues as a symptom.",
         "People may experience changes in bowel movements as a symptom.",
         "The duration of the pain is relevant for diagnosis.",
-        "The pain may ease off at some point.",
+        "Whether the pain eases off is relevant for diagnosis.",
         "People are asked to rate the severity of their pain on a scale of 1-10.",
         "Knowing a person's age is helpful for medical evaluation.",
         "Knowing if a person has pre-existing medical conditions is helpful for medical evaluation.",
         "Knowing if a person takes regular medications is helpful for medical evaluation.",
-        "Having more information helps doctors provide better advice.",
-        "Doctors need additional information to determine next steps.",
-        "Providing information enables doctors to advise on appropriate next steps."
+        "Having more information helps doctors advise on next steps."
       ]
     },
     {
@@ -2740,8 +2752,8 @@
         "Your doctor reassured you that based on the information you provided, there is no immediate indication that you need to visit the emergency room.",
         "Doctors understand concerns about potential miscarriage.",
         "Determining the cause of bleeding is difficult without further evaluation.",
-        "If severe bleeding or pain is not experienced, waiting for a scheduled OB/GYN appointment is recommended.",
-        "The scheduled OB/GYN appointment is on the 26th.",
+        "If severe bleeding or pain is not experienced, waiting for a scheduled appointment with an OB/GYN is recommended.",
+        "The scheduled appointment with an OB/GYN is on the 26th.",
         "If people are feeling anxious or concerned, reaching out to an OB/GYN's office is helpful.",
         "An OB/GYN's office can provide guidance and advice.",
         "Guidance and advice can be provided before an appointment.",
@@ -2789,14 +2801,14 @@
         "The suitability of core decompression with or without bone grafting depends on the individual case.",
         "The suitability of core decompression with or without bone grafting depends on the surgeon's recommendations.",
         "Requesting a referral to an orthopedic surgeon is helpful for people with osteonecrosis in the pre-collapse stage.",
-        "Time is important in addressing osteonecrosis in the pre-collapse stage."
+        "Timely intervention is important for people with osteonecrosis in the pre-collapse stage."
       ]
     },
     {
       "id": "ysilh1_20241101",
       "claims": [
         "A doctor spoke to the patient.",
-        "The doctor wanted to clarify points regarding the patient's condition.",
+        "The doctor wanted to clarify some points regarding the patient's condition.",
         "The typical duration of strep throat symptoms is 5-7 days.",
         "Antibiotics usually reduce the duration of strep throat symptoms by 12-24 hours.",
         "It is unlikely that antibiotics would completely eliminate strep throat symptoms in just one day.",
@@ -2804,8 +2816,7 @@
         "Overuse of antibiotics can cause changes in the gut microbiome.",
         "Antibiotics should only be prescribed for a sore throat after a positive strep test.",
         "A negative strep test suggests that strep throat may not be present.",
-        "It is possible to not have strep throat despite a positive appearance of the throat.",
-        "A negative strep test does not confirm the absence of strep throat.",
+        "It is possible to not have strep throat despite certain symptoms.",
         "Antibiotics were prescribed based on the appearance of the throat.",
         "If people experience frequent infections, it is essential to consider the possibility of colonization with streptococcal bacteria.",
         "Colonization with streptococcal bacteria may not require antibiotics for every sore throat episode.",
@@ -2876,8 +2887,8 @@
       "id": "yaxfnl_20241101",
       "claims": [
         "People with a tiny blister near a scratch should continue to monitor the blister.",
-        "Since the cat was in the bath when the scratch occurred, it is likely that his paws were relatively clean.",
-        "Relatively clean paws reduce the risk of infection.",
+        "Since the cat was in the bath when the scratch occurred, it is likely that the cat's paws were relatively clean.",
+        "Clean paws reduce the risk of infection.",
         "Cleaning the site with soap and water is helpful for promoting healing.",
         "Keeping the site clean helps promote healing.",
         "Applying Mupirocin to the area is helpful.",
@@ -2960,16 +2971,15 @@
         "The specialist is more familiar with the results of rare or uncommon tests.",
         "Your doctor wants to ensure that tests are properly interpreted.",
         "Your doctor wants to ensure that you receive the best possible care.",
-        "Your doctor wants more information about the tests you are interested in having done."
+        "A doctor may request more information about specific tests a patient is interested in having done."
       ]
     },
     {
       "id": "zwyr7i_20241101",
       "claims": [
         "A doctor acknowledged concerns about a breast cancer scare.",
-        "The doctor understood the situation to be frightening.",
-        "The doctor wanted to reassure the patient.",
-        "The doctor mentioned that the GP had examined the patient in person.",
+        "The doctor understood that the situation can be frightening.",
+        "The doctor wanted to reassure the patient that their GP had examined them in person.",
         "The doctor stated that the GP did not find anything to be worried about.",
         "A frightening situation can be understood by medical professionals.",
         "A general practitioner has examined the patient in person.",
@@ -3011,8 +3021,8 @@
         "The brain has a remarkable ability to recover in young people.",
         "Meaningful progress can be made within 1-2 years after the injury.",
         "The extent of recovery from central pontine myelinolysis largely depends on current level of function.",
-        "The extent of recovery from central pontine myelinolysis depends on the effectiveness of rehabilitation efforts.",
-        "Avoiding future complications is important for recovery from central pontine myelinolysis.",
+        "The extent of recovery from central pontine myelinolysis largely depends on the effectiveness of rehabilitation efforts.",
+        "The extent of recovery from central pontine myelinolysis largely depends on avoiding future complications.",
         "The doctor has limited experience with mild cases of central pontine myelinolysis.",
         "Mild cases of central pontine myelinolysis often do not require neurosurgical consultation.",
         "To better understand prognosis, knowing current abilities is helpful.",
@@ -3137,7 +3147,7 @@
         "A doctor spoke to the patient about their concerns regarding chest aches.",
         "The doctor wanted to follow up with the patient about their concerns regarding chest aches.",
         "Previous tests, including EKGs and stress tests, have come back negative.",
-        "Negative results from EKGs and stress tests indicate that the issue is not related to the heart.",
+        "Negative results from EKGs and stress tests indicate the issue is not related to the heart.",
         "There could be other non-cardiac causes of chest pain.",
         "Inflammation can cause chest pain.",
         "Pain in the chest wall can cause chest pain.",
@@ -3155,14 +3165,14 @@
     {
       "id": "yglie4_20241101",
       "claims": [
-        "People with a mass described as hard, non-painful, and not changing in size are likely not to have anything to be concerned about.",
+        "People with a mass described as hard, non-painful, and not significantly changing in size are likely not to have anything to be concerned about.",
         "A swollen lymph node is a normal part of the body's immune system.",
         "Lymph nodes can swell from time to time.",
         "Keeping an eye on a mass is helpful.",
         "If a mass is still present after a month or two, scheduling a routine appointment with a family doctor is helpful.",
         "If a mass grows significantly in size, scheduling a routine appointment with a family doctor is helpful.",
         "Scheduling a routine appointment with a family doctor to have a mass checked out is helpful.",
-        "Your doctor does not think the mass is something to worry about."
+        "Your doctor does not think there is anything to worry about."
       ]
     },
     {
@@ -3188,7 +3198,7 @@
       "id": "71gak1_20241101",
       "claims": [
         "A doctor addressed concerns about getting an MRI or CT scan for the head.",
-        "The doctor mentioned that the likelihood of finding something significant on a brain MRI is relatively low given the patient's age and symptoms.",
+        "The doctor mentioned the likelihood of finding something significant on a brain MRI is relatively low given the patient's age and symptoms.",
         "The doctor recommended discussing concerns in more detail before scheduling imaging tests.",
         "The doctor suggested scheduling an appointment to talk through concerns rather than going to the hospital or trying to schedule a walk-in appointment for imaging tests.",
         "The likelihood of finding something significant on a brain MRI is relatively low for people of a certain age.",
@@ -3241,9 +3251,8 @@
     {
       "id": "y0yzo5_20241101",
       "claims": [
-        "A doctor spoke to the patient about suicidal thoughts.",
-        "The patient has been experiencing suicidal thoughts since starting amoxicillin.",
-        "The doctor wanted to address the patient's concerns about the suicidal thoughts.",
+        "A doctor addressed concerns about suicidal thoughts experienced since starting amoxicillin.",
+        "The doctor was consulted regarding suicidal thoughts that began after starting amoxicillin.",
         "Antibiotics may disrupt the balance of bacteria in the gut.",
         "Disruption of gut bacteria can affect how the body absorbs certain medications.",
         "Wellbutrin is a medication that can be affected by changes in gut bacteria.",
@@ -3253,9 +3262,9 @@
         "Your doctor wants to reassure you that the issue is temporary.",
         "Once you've finished the antibiotics, you should start to feel better.",
         "Once your gut bacteria has a chance to recover, you should return to your baseline.",
-        "Doctors are looking forward to discussing medical concerns with patients.",
-        "Doctors are looking forward to exploring options for managing symptoms with patients.",
-        "The discussion is scheduled for an appointment tomorrow."
+        "Doctors are looking forward to discussing medical issues with patients.",
+        "Doctors plan to discuss medical issues with patients at a future appointment.",
+        "Doctors plan to explore options for managing symptoms with patients."
       ]
     },
     {
@@ -3313,7 +3322,7 @@
       "id": "xo7dky_20241101",
       "claims": [
         "Scheduling an appointment with a doctor for a thorough evaluation is helpful.",
-        "A thorough evaluation is recommended to determine the cause of numbness and loss of consciousness.",
+        "A thorough evaluation is recommended for people who experience numbness and loss of consciousness.",
         "Fainting caused by physical exertion may be related to the symptoms.",
         "Fainting caused by physical exertion warrants further investigation.",
         "Having an electrocardiogram (EKG) is helpful for checking heart function.",
@@ -3329,8 +3338,8 @@
         "Historical data shows that gay men had a significantly higher rate of HIV infection compared to other groups.",
         "The regulation is largely based on historical data regarding HIV infection rates among gay men.",
         "In the past, methods for detecting HIV infection were less reliable than current methods.",
-        "The regulation regarding blood donation for men who have sex with men (MSM) may change in the future.",
         "Men who have sex with men (MSM) still have one of the highest rates of HIV infection.",
+        "The regulation regarding blood donation for MSM may change in the future.",
         "The regulation is in place to ensure the safety of the blood supply.",
         "The regulation is in place to protect recipients from potential harm.",
         "Your doctor did not provide a specific comment on using the term \"STP\" instead of STD or STI.",
@@ -3344,7 +3353,8 @@
         "Your doctor thinks it's possible that you might be experiencing postpartum depression.",
         "People managing well without medication should schedule a visit to discuss potential scenarios.",
         "People managing well without medication should schedule a visit to discuss warning signs to look out for.",
-        "Being prepared for potential changes or worsening of symptoms is helpful.",
+        "Being prepared for potential changes in symptoms is helpful.",
+        "Being prepared for potential worsening of symptoms is helpful.",
         "Letting a trusted family member or friend know how you're feeling is helpful.",
         "Trusted family members or friends can keep an eye on you.",
         "Trusted family members or friends can offer support when needed.",
@@ -3370,7 +3380,7 @@
         "A pulmonologist is a specialist who deals with lung conditions.",
         "Consulting a pulmonologist can help further evaluate chronic cough.",
         "Ongoing symptoms are a factor in recommending specialized care.",
-        "A history of exposure to dust while working at Frito-Lay is a factor in recommending specialized care.",
+        "A history of exposure to dust while working at Frito-lay is a factor in recommending specialized care.",
         "A recent instance of coughing up blood is a factor in recommending specialized care.",
         "Seeking specialized care is recommended for individuals with ongoing symptoms, a history of dust exposure, and a recent instance of coughing up blood.",
         "It is possible that more advanced treatment for allergies may be needed.",
@@ -3402,7 +3412,7 @@
         "Focusing on risk reduction strategies helps minimize stroke risk.",
         "Taking prescribed medications as directed is part of risk reduction strategies.",
         "Maintaining a healthy diet is part of risk reduction strategies.",
-        "Regular exercise is part of risk reduction strategies.",
+        "Exercising regularly is part of risk reduction strategies.",
         "Achieving weight loss if necessary is part of risk reduction strategies.",
         "Avoiding alcohol is part of risk reduction strategies.",
         "Avoiding tobacco is part of risk reduction strategies.",
@@ -3412,7 +3422,7 @@
         "Achieving weight loss is helpful for reducing stroke risk if necessary.",
         "Avoiding alcohol is helpful for reducing stroke risk.",
         "Avoiding tobacco is helpful for reducing stroke risk.",
-        "If a person does not have Atrial Fibrillation and is not taking Warfarin, the recommendations for risk reduction should be the primary focus.",
+        "If a person does not have Atrial Fibrillation and is not taking Warfarin, the above recommendations should be the primary focus.",
         "If a person has Atrial Fibrillation and is taking Warfarin, maintaining normal INR levels is essential.",
         "Transient ischemic attacks (TIAs) are a warning sign.",
         "Working with a doctor helps reduce the risk of stroke.",
@@ -3426,7 +3436,7 @@
         "It is unusual for specialists to refuse to remove a Pilar cyst.",
         "Some patients are hesitant to have cysts removed if it may result in scarring.",
         "Your case may be treated differently for reasons that were not specified.",
-        "Evaluating a situation is necessary to provide a more informed recommendation.",
+        "Evaluating a situation is necessary to provide an informed recommendation.",
         "Scheduling a consultation with a doctor is helpful for discussing treatment options."
       ]
     },
@@ -3436,9 +3446,9 @@
         "A doctor spoke to the patient about managing Hidradenitis suppurativa.",
         "The patient has concerns about managing Hidradenitis suppurativa.",
         "The doctor wanted to address the patient's concerns about managing Hidradenitis suppurativa.",
-        "The antibiotics prescribed by a dermatologist are helping with the current flare-up.",
-        "The patient is experiencing side effects like yeast infections.",
-        "The patient is experiencing potential urinary tract infections (UTIs).",
+        "The antibiotics prescribed by a dermatologist are helping with the current flare-up of Hidradenitis suppurativa.",
+        "The patient is experiencing side effects from the antibiotics, including yeast infections.",
+        "The patient is experiencing potential urinary tract infections as a side effect of the antibiotics.",
         "Systemic antibiotics are usually the first line of treatment for Hidradenitis suppurativa.",
         "Other treatment options are available if systemic antibiotics are not effective.",
         "Other treatment options are available if systemic antibiotics cause intolerable side effects.",
@@ -3485,8 +3495,8 @@
         "Headphones can exert pressure on the ears.",
         "A vacuum and pressure from headphones can cause discomfort.",
         "Discomfort from headphones is due to a pressure mismatch in the middle ear space.",
-        "If you need to use headphones, continuing to do so is acceptable.",
-        "Using headphones may cause discomfort to persist until the underlying issue is treated.",
+        "If headphones are needed, continuing their use is acceptable.",
+        "Discomfort may persist until the underlying issue is treated.",
         "Flonase may help reduce inflammation in the Eustachian tube.",
         "Inflammation in the Eustachian tube may contribute to symptoms.",
         "Starting Flonase may be considered to help with symptoms.",
@@ -3503,8 +3513,8 @@
       "id": "ygdixm_20241101",
       "claims": [
         "A doctor spoke to the patient about concerns regarding the hospital's pain management policy.",
-        "The hospital's pain management policy was discussed by the doctor.",
-        "The patient had concerns about the hospital's pain management policy.",
+        "The hospital's pain management policy was the subject of discussion.",
+        "The doctor addressed the patient's concerns about the policy.",
         "Aspirin is a good pain medication.",
         "Aspirin is not typically the first choice in emergency departments.",
         "Aspirin has potential side effects.",
@@ -3561,8 +3571,8 @@
         "Feeling of coldness in the affected limb indicates the need for immediate medical attention.",
         "Blue discoloration in the limb could indicate a problem.",
         "Feeling of coldness in the limb could indicate a problem.",
-        "Keeping us updated on progress is helpful.",
-        "Letting us know about further questions or concerns is helpful."
+        "Keeping updated on progress is helpful.",
+        "Letting others know about further questions or concerns is helpful."
       ]
     },
     {
@@ -3598,7 +3608,8 @@
         "Medical professionals are here to help patients.",
         "Ensuring patient safety is a primary goal of medical professionals.",
         "Going to the emergency room (ER) is recommended for people in certain conditions.",
-        "Emergency room (ER) visits are recommended regardless of location.",
+        "Emergency room (ER) visits are recommended immediately for people in certain conditions.",
+        "Emergency room (ER) visits are recommended regardless of location for people in certain conditions.",
         "Emphasizing that seeking care is crucial for well-being.",
         "Receiving care and support is necessary for well-being.",
         "People may experience symptoms of schizophrenia.",
@@ -3730,8 +3741,8 @@
         "People who eat vegetables frequently may also consume meat.",
         "People who eat vegetables frequently may also consume protein sources.",
         "People who eat vegetables frequently may also consume dairy products.",
-        "Eating a meal and a half per day may not be sufficient for some people.",
-        "Even if meals are large, eating a meal and a half per day may not be sufficient.",
+        "A meal and a half per day may not be sufficient for some people.",
+        "Even if meals are large, a meal and a half per day may not be sufficient.",
         "People with a relationship with food may need more information to better understand their relationship with food."
       ]
     },
@@ -3764,8 +3775,8 @@
         "Your doctor recommends trying an experiment to help understand breathing symptoms.",
         "Taking deep breaths can help assess chest expansion.",
         "Assessing chest expansion can reveal the physical limit of rib cage expansion.",
-        "Deep breathing is sufficient for oxygen intake.",
-        "Regular breathing is usually sufficient for oxygen needs.",
+        "The physical limit of rib cage expansion is not a sign of insufficient oxygen.",
+        "Regular breathing is usually sufficient to meet oxygen needs.",
         "People may reach a point where they cannot breathe in any deeper.",
         "Not being able to take a deep breath is not a sign of insufficient oxygen.",
         "The inability to take a deep breath is due to the physical limit of the rib cage's expansion.",
@@ -3779,10 +3790,10 @@
       "id": "57idnh_20241101",
       "claims": [
         "A doctor would like to know more about the vita-pack supplement from GNC.",
-        "The doctor is specifically interested in the amount of niacin in the vita-pack supplement.",
+        "A doctor is interested in the amount of niacin in the vita-pack supplement.",
         "Flushing is a sudden reddening of the skin.",
         "Flushing is a common reaction to niacin.",
-        "Flushing can occur when niacin is taken in large doses.",
+        "Flushing is more common with large doses of niacin.",
         "Stopping vitamin supplements is helpful for some conditions.",
         "Scheduling an appointment with a doctor for a full evaluation is helpful for some conditions.",
         "Scheduling an appointment with a doctor for an examination is helpful for some conditions.",
@@ -3879,12 +3890,12 @@
         "Herpesviruses enter the system, trigger an initial immune response, and then remain dormant.",
         "Herpesviruses come in many forms.",
         "The type usually referred to as herpes is the HSV-1 virus.",
-        "The HSV-1 virus typically affects the mouth area.",
+        "HSV-1 virus typically affects the mouth area.",
         "Herpesviruses include types that cause chickenpox.",
         "Herpesviruses include types that cause shingles.",
         "Herpesviruses include types that cause mononucleosis.",
         "Herpesviruses enter the body.",
-        "Herpesviruses trigger an initial response from the body.",
+        "Herpesviruses trigger an initial immune response.",
         "Herpesviruses remain dormant after entering the body.",
         "It is possible for someone to carry the HSV-1 virus without showing symptoms.",
         "The virus can reactivate and cause a cold sore in some cases.",
@@ -3908,8 +3919,8 @@
         "The severe abdominal pain from diverticulitis worsens when pressing on the abdomen.",
         "In cases where pain is only experienced when pressing on the lower left abdomen and other signs of infection are not present, the likelihood of diverticulitis is relatively low.",
         "Waiting for the results of a CT scan provides more information about a condition.",
-        "Continuing with antibiotics prescribed by a GP is helpful.",
-        "Following up with a GP as scheduled is helpful."
+        "Continuing with prescribed antibiotics is helpful.",
+        "Following up with the GP as scheduled is helpful."
       ]
     },
     {
@@ -3976,10 +3987,8 @@
     {
       "id": "4dft8b_20241101",
       "claims": [
-        "A doctor addressed concerns about taking hydrocortisone 5mg for adrenal fatigue.",
-        "The doctor wanted to determine if the patient actually has adrenal insufficiency.",
-        "The doctor emphasized the need for confirmation of adrenal insufficiency through tests.",
-        "The doctor mentioned that without tests, it is unclear if the patient has secondary adrenal insufficiency.",
+        "A doctor spoke to the patient about concerns regarding taking hydrocortisone 5mg for adrenal fatigue.",
+        "The doctor wanted to address concerns about taking hydrocortisone 5mg for adrenal fatigue.",
         "Adrenal insufficiency can only be confirmed by an endocrinologist.",
         "Adrenal insufficiency can be confirmed through a morning cortisol test.",
         "Adrenal insufficiency can be confirmed through an ACTH stimulation test if necessary.",
@@ -3993,7 +4002,7 @@
     {
       "id": "xo4rhs_20241101",
       "claims": [
-        "A doctor reassured the patient that they are probably okay.",
+        "Your doctor reassured you that you're probably okay.",
         "Combination pills do not have the same strict time limit as other types of birth control pills.",
         "Anxiety about the timing of taking combination pills is understood.",
         "Combination pills are over 99% effective in preventing pregnancy with perfect use.",
@@ -4013,8 +4022,8 @@
         "Telling people that you don't want to drink is a recommended approach.",
         "People do not owe an explanation when declining to drink.",
         "Saying no can be as easy as someone asking why.",
-        "Not getting caught in a lie is helpful for people who want to avoid drinking.",
-        "People may understand and respect the decision to avoid drinking.",
+        "Not lying can prevent being caught in a lie.",
+        "People may understand and respect decisions to not drink.",
         "Holiday heart syndrome is a condition where heavy drinking can cause irregular heartbeats.",
         "The treatment for holiday heart syndrome is to avoid drinking.",
         "Abstaining from drinking altogether for a while is reasonable for recovery from holiday heart syndrome.",
@@ -4054,7 +4063,7 @@
       "claims": [
         "A doctor spoke to someone about clarifying points regarding a brother's diagnosis.",
         "The doctor wanted to clarify a few points regarding a brother's diagnosis.",
-        "The doctor was unsure about the statement regarding agreement on placement without prior discussion.",
+        "The doctor was unsure about the statement regarding agreement on placement without discussion.",
         "The doctor would like more information about the meaning of the statement.",
         "Your doctor is deferring to colleagues in orthopedics for further guidance.",
         "Your doctor is unsure if there is a difference in management between a bruised bone and a cracked iliac crest.",
@@ -4142,6 +4151,7 @@
         "Acetaminophen is also known as Tylenol or Paracetamol.",
         "Acetaminophen can be taken in addition to prescribed Ibuprofen.",
         "Your doctor recommended taking straight Acetaminophen.",
+        "Your doctor advised against taking combination medications.",
         "Taking a combination medication is not recommended.",
         "Plain Acetaminophen is recommended.",
         "Using an ice pack can help alleviate facial pain.",
@@ -4150,7 +4160,7 @@
         "Your doctor would like to know what antibiotic you were prescribed.",
         "Your doctor would like to confirm the safety of consuming alcohol.",
         "Your doctor would like to confirm if you have any liver disorders.",
-        "Your doctor would like to confirm if you have any medical conditions beyond the dental issue."
+        "Your doctor would like to confirm if you have any other medical conditions beyond the dental issue."
       ]
     },
     {
@@ -4166,8 +4176,8 @@
         "Physical therapy for Patellofemoral Pain Syndrome includes strengthening exercises.",
         "Physical therapy exercises are likened to medicine.",
         "Stopping physical therapy exercises reduces their effectiveness in managing pain.",
-        "If you have questions or concerns about your exercises, a physical therapist can be a valuable resource.",
-        "If you are experiencing difficulty or pain while doing your exercises, a physical therapist can be a valuable resource.",
+        "If you have questions or concerns about your exercises, your physical therapist can be a valuable resource.",
+        "If you are experiencing difficulty or pain while doing your exercises, your physical therapist can be a valuable resource.",
         "Physical therapists can review form.",
         "Physical therapists can explain the mechanics behind exercises.",
         "Physical therapists can help understand what you're trying to accomplish.",
@@ -4180,7 +4190,7 @@
         "The musculoskeletal specialist includes feet in their evaluation.",
         "Identifying underlying issues can help with pain management.",
         "Regenerative treatments like Platelet-Rich Plasma (PRP) therapy may be discussed with a doctor.",
-        "Seeking a second opinion is recommended if it has not been done.",
+        "Seeking a second opinion may be recommended if it has not been done.",
         "People may still experience chronic pain despite trying all available treatments.",
         "Meeting with a pain psychologist can help develop coping strategies.",
         "Coping strategies can help minimize the stress caused by pain.",
@@ -4343,8 +4353,8 @@
         "Occupational therapy is part of rehabilitation therapy.",
         "Physical therapy is part of rehabilitation therapy.",
         "Speech therapy is part of rehabilitation therapy.",
-        "The doctor couldn't provide a definitive answer about your mother's ability to live independently at home.",
-        "A more thorough assessment is needed to determine your mother's ability to live independently at home.",
+        "The doctor couldn't provide a definitive answer about the mother's ability to live independently at home.",
+        "A more thorough assessment is needed to determine the mother's ability to live independently at home.",
         "People may be cautiously optimistic about achieving a goal.",
         "Cautious optimism about achieving a goal is possible.",
         "Observing the exercises and therapies your mother receives in the hospital is helpful for her recovery.",
@@ -4386,7 +4396,7 @@
       "id": "y3xxes_20241101",
       "claims": [
         "Your doctor acknowledged that you've made incredible progress in overcoming depression.",
-        "Feeling better does not necessarily mean things will no longer seem dull and uninteresting.",
+        "Feeling better does not necessarily mean that things will no longer seem dull and uninteresting.",
         "Dullness and lack of interest are common symptoms of depression.",
         "Anhedonia is a known symptom of depression.",
         "Your doctor believes you are on the right path.",
@@ -4396,7 +4406,7 @@
         "Medication may be beneficial for depression.",
         "Medication may be beneficial even if improvements are already being seen.",
         "Your doctor is confident that things can get significantly better.",
-        "There are ways to help people regain their enjoyment of the things they used to love.",
+        "There are ways to help people regain their enjoyment of things they used to love.",
         "Music is one of the things people used to love.",
         "Movies are one of the things people used to love.",
         "Spending time with family and friends is one of the things people used to love.",
@@ -4449,9 +4459,9 @@
     {
       "id": "68up8v_20241101",
       "claims": [
-        "Doctors are concerned about prolonged balance issues.",
-        "Doctors are concerned about nausea.",
-        "Doctors are concerned about the prolonged duration of balance issues and nausea.",
+        "Prolonged balance issues are a concern for your girlfriend.",
+        "Nausea is a concern for your girlfriend.",
+        "Your girlfriend is experiencing prolonged balance issues and nausea.",
         "If symptoms persist for more than 72 hours, a CT scan of the head is recommended.",
         "A CT scan of the head is recommended to rule out potential complications.",
         "Your doctor is a chest surgeon.",
@@ -4472,17 +4482,18 @@
         "The antibiotics prescribed are appropriate for the situation.",
         "If there is a deep abscess, antibiotics may not be sufficient to treat it.",
         "If there is a deep abscess, further treatment may be needed.",
-        "Further treatment for a deep abscess could include draining the pus.",
+        "Further treatment for a deep abscess may include draining the pus.",
         "Your doctor has a few questions for you to better assess your condition.",
         "People with a swollen finger should gently straighten it using their opposite hand.",
-        "Gently straightening a swollen finger using the opposite hand can help assess pain.",
+        "Gently straightening a swollen finger using the opposite hand can help assess pain levels.",
         "If straightening a swollen finger causes severe pain on the underside of the finger, it is helpful to let others know.",
         "People with wounds on their fingers should describe the location of the wounds.",
         "The location of the wounds on the finger can be on the fleshy part of the fingertip.",
         "The location of the wounds on the finger can be in the crease of a joint.",
         "The location of the wounds on the finger is either on the fleshy part of the fingertip or in the crease of a joint.",
         "A picture of the wounds is helpful.",
-        "Letting the patient know their answers will help guide the next steps."
+        "People should let others know their answers to questions.",
+        "Others can guide people on next steps based on answers."
       ]
     },
     {
@@ -4684,7 +4695,7 @@
         "It is not impossible to have the flu.",
         "Having the flu is less likely in this case.",
         "No specific amount of time was specified for staying home.",
-        "Discussing the best course of action with a healthcare provider is recommended."
+        "Discussing further with the doctor is helpful to determine the best course of action."
       ]
     },
     {
@@ -4708,6 +4719,9 @@
       "id": "51984l_20241101",
       "claims": [
         "A doctor is concerned about potential complications from a kidney stone.",
+        "Potential complications from a kidney stone include infection.",
+        "Potential complications from a kidney stone include blockage of the ureter.",
+        "Blockage of the ureter can have serious consequences if left untreated.",
         "The two main risks associated with kidney stones are infection.",
         "The two main risks associated with kidney stones are blockage of the ureter.",
         "Blockage of the ureter can have serious consequences if left untreated.",
@@ -4731,8 +4745,8 @@
         "The doctor's initial impression is that rectal pressure may not be directly related to internal hemorrhoids.",
         "A GI specialist has a more detailed understanding of digestive health.",
         "A GI specialist is the best person to provide insight and advice on specific digestive health situations.",
-        "Giving a call is helpful for discussing concerns.",
-        "Sending a message is helpful for discussing concerns.",
+        "Giving a call to discuss concerns is helpful.",
+        "Sending a message to discuss concerns is helpful.",
         "Discussing concerns helps get a more informed opinion."
       ]
     },
@@ -4783,7 +4797,7 @@
         "Visiting a walk-in clinic may help obtain a temporary refill of blood pressure medication.",
         "A temporary refill of blood pressure medication may be obtained in this situation.",
         "Visiting a local emergency room or a walk-in clinic can help manage blood pressure condition.",
-        "Managing blood pressure condition can be done until seeing a new doctor on the 30th.",
+        "Visiting a local emergency room or a walk-in clinic can help manage condition until seeing a new doctor on the 30th.",
         "When doctors deny refills, it is often because patients have not come in for their regular blood tests.",
         "Regular blood tests are a standard part of patient care.",
         "Your doctor is not an attorney.",
@@ -4795,9 +4809,7 @@
       "id": "zg4hg7_20241101",
       "claims": [
         "A doctor addressed concerns regarding changes experienced after an incident.",
-        "The doctor is not a urologist.",
-        "The doctor recommended seeking a second opinion from another urologist.",
-        "The doctor recommended a more specialized evaluation of the condition.",
+        "The changes experienced after the incident were the focus of the doctor's discussion.",
         "The bend in the shaft of the penis is considered the primary abnormality.",
         "If someone is not a urologist, seeking a second opinion from another urologist is helpful.",
         "Seeking a second opinion allows for a more specialized evaluation of a condition."
@@ -4811,8 +4823,8 @@
         "Azithromycin may not be the best choice for upper respiratory symptoms.",
         "Further antibiotics are not recommended at this time.",
         "People with a ruptured eardrum should wait about 2 weeks before scheduling a follow-up appointment.",
-        "Keeping your ear dry is essential for promoting healing.",
-        "Looking up \"dry ear precautions\" online is helpful for proper guidance.",
+        "Keeping the ear dry is essential for promoting healing.",
+        "Looking up \"dry ear precautions\" online provides guidance on how to keep ears dry.",
         "Blowing the nose too hard can put additional pressure on the eardrum.",
         "Proper care can lead to healing of the eardrum.",
         "The eardrum can heal on its own with proper care.",
@@ -4828,11 +4840,7 @@
       "id": "xdj0mc_20241101",
       "claims": [
         "A doctor addressed concerns about treatment options for gallbladder sludge and gallstones.",
-        "The doctor recommended gallbladder removal as the most effective way to alleviate abdominal pain caused by gallstones and sludge.",
-        "The doctor mentioned that medications are not very effective in dissolving gallstones.",
-        "The doctor noted that stopping medications would likely lead to the formation of new sludge and stones.",
-        "The doctor emphasized that supplements like LV-GB complex are not a proven solution for improving bile flow or addressing gallbladder issues.",
-        "The doctor is open to discussing concerns and exploring the best course of treatment for the specific situation.",
+        "The doctor discussed treatment options for gallbladder sludge and gallstones.",
         "Gallbladder removal is recommended as the most effective way to alleviate abdominal pain caused by gallstones and sludge.",
         "Medications are not very effective in dissolving gallstones.",
         "Medications for gallstones would require long-term use.",
@@ -4920,7 +4928,7 @@
         "Neosporin contains bacitracin.",
         "Polysporin contains polymyxin B.",
         "Polysporin contains bacitracin.",
-        "Neosporin and polysporin are not the same.",
+        "Neosporin and polysporin are not exactly the same.",
         "Neosporin and polysporin are not exactly the same.",
         "It can be difficult to determine whether a previous rash was caused by neomycin or another factor.",
         "The flu shot does not contain antibiotics in the classical sense.",
@@ -4937,7 +4945,7 @@
       "id": "y9048e_20241101",
       "claims": [
         "A doctor addressed concerns about the potential connection between Levofloxacin eye drops and Achilles tendinitis.",
-        "The doctor mentioned that Levofloxacin eye drops are unlikely to cause systemic issues.",
+        "The doctor mentioned that the eye drops are unlikely to cause systemic issues.",
         "The doctor noted that Fluoroquinolones, the class of medication that Levofloxacin belongs to, can cause tendinitis in certain cases.",
         "The doctor stated that the association between Fluoroquinolones and tendinitis is relatively rare in adults.",
         "The doctor mentioned that the link between Fluoroquinolones and tendinitis is more convincing in animal studies.",
@@ -5020,8 +5028,8 @@
       "claims": [
         "A doctor spoke to the patient.",
         "The doctor wanted to address concerns raised by recent CT scan results.",
-        "Your doctor wants to review the full report, not just the impressions.",
-        "Your doctor wants to get a better understanding of the situation with your kidney.",
+        "Reviewing the full report is helpful for understanding the situation with the kidney.",
+        "Reviewing the full report, rather than just impressions, is helpful for understanding the situation with the kidney.",
         "There is a concern about a possible renal cell carcinoma.",
         "More information is needed to confirm the presence of renal cell carcinoma.",
         "Imaging tests can sometimes clearly identify medical issues.",
@@ -5046,14 +5054,14 @@
         "Discussing concerns with parents or guardians is important before considering a visit to the emergency room.",
         "Constipation is a common issue.",
         "Constipation can often be managed with the help of a primary care doctor.",
-        "General practitioners can provide guidance on dietary changes.",
-        "General practitioners can provide guidance on medications.",
-        "General practitioners can provide guidance on enemas that can be done at home.",
+        "General practitioners can provide guidance on dietary changes for constipation.",
+        "General practitioners can provide guidance on medications for constipation.",
+        "General practitioners can provide guidance on enemas that can be done at home for constipation.",
         "Enemas that can be done at home can help alleviate constipation symptoms.",
         "People should talk to their parents about scheduling an appointment with a GP.",
         "Visiting a pharmacy with a parent to get an enema is a step taken to address constipation.",
         "The enema was successful in resolving constipation.",
-        "People with further concerns or issues should reach out to their GP for guidance."
+        "If you have further concerns or issues, reaching out to your GP is helpful."
       ]
     },
     {
@@ -5092,7 +5100,7 @@
         "A more detailed timeline of symptoms is helpful.",
         "Information about tests that have been done is helpful.",
         "Results of tests that have been done are helpful.",
-        "Based on previous posts, your dentist may not have found significant issues with your teeth.",
+        "Your dentist may not have found significant issues with your teeth.",
         "Doctors are looking forward to receiving more information from patients.",
         "Receiving more information helps doctors assist patients in finding a way forward."
       ]
@@ -5125,7 +5133,7 @@
         "The doctor explained that the flu vaccine reduces the severity of the illness.",
         "The doctor explained that the flu vaccine reduces the number of people who need hospitalization.",
         "The doctor mentioned that the flu vaccine is developed based on predictions of prevalent influenza strains.",
-        "The doctor mentioned that the flu vaccine predictions are not always 100% accurate.",
+        "The doctor mentioned that the predictions for influenza strains are not always 100% accurate.",
         "The doctor explained that the flu vaccine is effective in reducing hospitalizations and deaths from the flu.",
         "The doctor understood that it can be disappointing to get sick despite being vaccinated.",
         "The doctor reassured that the vaccine is still worth getting every year.",
@@ -5137,7 +5145,7 @@
         "The flu vaccine may help prevent a more severe outcome.",
         "A more severe outcome may include a longer hospital stay.",
         "A more severe outcome may include a more serious condition.",
-        "The flu vaccine is developed based on predictions of which strains of influenza will be most prevalent during the season.",
+        "The flu vaccine is developed based on predictions of which influenza strains will be most prevalent during the season.",
         "The flu vaccine is developed based on predictions of which influenza strains will be most prevalent during the season.",
         "The predictions for influenza strains are not always 100% accurate.",
         "The flu vaccine is effective in reducing the overall number of hospitalizations from the flu.",
@@ -5161,8 +5169,8 @@
         "Abnormal areas can be missed between cervical screenings.",
         "Aggressive, fast-growing cancers can develop between cervical screenings.",
         "A normal pap test three years ago makes it unlikely that a carcinoma would have developed since then.",
-        "No new sexual partners since a normal pap test three years ago makes it unlikely that a carcinoma would have developed since then.",
-        "The chances of a recent pap test coming back as cancerous are low for someone with a normal pap test three years ago and no new sexual partners since then.",
+        "No new sexual partners since a normal pap test and negative HPV test reduces the risk of cervical cancer.",
+        "The chances of a recent pap test coming back as cancerous are low in individuals with a normal pap and negative HPV test three years ago and no new sexual partners.",
         "Staying vigilant for signs and symptoms of cervical cancer is crucial.",
         "Signs and symptoms of cervical cancer should be monitored regardless of test results.",
         "Your doctor will be in touch with the results of your recent pap test.",
@@ -5190,8 +5198,10 @@
         "A person's condition may become increasingly unpredictable.",
         "There may come a time when a person does not have the strength to address matters.",
         "There may come a time when a person does not have the interest to address matters.",
-        "The doctor is committed to providing the best possible care for your father.",
-        "The doctor is committed to providing support for your father during a challenging time.",
+        "The doctor is committed to providing the best possible care.",
+        "The doctor is committed to providing support during a challenging time.",
+        "The doctor is committed to supporting the patient's care.",
+        "The doctor is committed to supporting the patient during a challenging time.",
         "If you have any further questions or concerns, reaching out is helpful."
       ]
     },
@@ -5212,7 +5222,7 @@
         "The colonoscopy will provide information about the cause of anemia.",
         "Your doctor cannot provide specific information about treatment options.",
         "Treatment options such as medication or blood transfusions cannot be determined until the results of the colonoscopy are available.",
-        "Guidance and recommendations for treating anemia can be provided after the evaluation is complete."
+        "Guidance and recommendations for anemia can be provided after the evaluation is complete."
       ]
     },
     {
@@ -5231,14 +5241,14 @@
         "Problems related to weight gain may include snoring.",
         "Problems related to weight gain may include possible sleep apnea.",
         "Considering the long-term effects of using anabolic steroids is important.",
-        "The long-term effects of anabolic steroids may be more significant when use is stopped.",
+        "The long-term effects of anabolic steroids may be more significant when the substances are stopped.",
         "Addison's disease may not significantly complicate the use of anabolic steroids if well-treated.",
         "Addison's disease could become an issue when the anabolic cycle is stopped.",
         "People with pre-existing conditions should consult with a medical professional.",
         "Consulting with an endocrinologist is recommended for people with pre-existing conditions.",
         "People with pre-existing conditions should discuss the potential risks of using substances with a medical professional.",
         "People with pre-existing conditions should discuss the consequences of using substances with a medical professional.",
-        "Having an open and honest conversation with a healthcare professional is helpful for ensuring safety and well-being.",
+        "Having an open and honest conversation with a healthcare professional is essential for ensuring safety and well-being.",
         "Supporting someone in seeking medical advice is helpful.",
         "Facilitating a discussion with a doctor is helpful if needed."
       ]
@@ -5248,8 +5258,9 @@
       "claims": [
         "A doctor addressed issues related to eyes and breathing.",
         "The doctor spoke to the patient about their concerns.",
+        "The patient is experiencing issues with their eyes and breathing.",
         "Anxiety may be playing a role in the symptoms.",
-        "Discussing the symptoms further with a doctor or mental health provider is beneficial.",
+        "Discussing the symptoms further with a doctor or a mental health provider is beneficial.",
         "People may blink less often when they are concentrating.",
         "Reduced blinking during concentration can lead to quicker tear film evaporation.",
         "The tear film can evaporate more quickly in dry environments.",
@@ -5257,9 +5268,9 @@
         "The tear film can evaporate more quickly when using air conditioners.",
         "People may get caught in a cycle where they concentrate, notice dryness, and focus on that.",
         "Focusing on dryness may make the problem worse.",
-        "Using artificial tears regularly can help break the cycle of dry eyes.",
+        "Using artificial tears regularly is helpful for breaking the cycle.",
         "Artificial tears should be used four times a day.",
-        "The recommended duration for using artificial tears is two weeks.",
+        "Artificial tears should be used for a short period of two weeks.",
         "Soothe XP is recommended for use.",
         "Addressing anxiety is important for people with concerns about their health.",
         "Healthcare providers can help people address anxiety.",
@@ -5276,9 +5287,10 @@
         "Trusting professional judgment is important.",
         "Professionals have seen numerous cases.",
         "Professionals are trained to identify potential issues.",
-        "The dermatologist may have considered overall skin health when deciding not to perform a biopsy.",
-        "The dermatologist may have considered medical history when deciding not to perform a biopsy.",
-        "The dermatologist may have considered other factors when deciding not to perform a biopsy.",
+        "Dermatologists may consider overall skin health when deciding whether to perform a biopsy.",
+        "Dermatologists may consider medical history when deciding whether to perform a biopsy.",
+        "Dermatologists may consider other factors when deciding whether to perform a biopsy.",
+        "Dermatologists may decide not to perform a biopsy based on their evaluation.",
         "Feeling anxious about changes in moles is understandable.",
         "Your doctor advises against demanding a biopsy based solely on personal assessment.",
         "If you still have concerns, discussing them openly with a dermatologist is helpful.",
@@ -5296,10 +5308,10 @@
       "claims": [
         "A doctor recommended adjustments to alleviate discomfort while taking metformin.",
         "Adjustments may help alleviate discomfort while taking metformin.",
-        "The doctor recommended adjustments for people taking metformin who experience discomfort.",
+        "A doctor recommended adjustments for people taking metformin who experience discomfort.",
         "Starting with a low dose of metformin is helpful for people experiencing discomfort.",
         "Gradually increasing the dose of metformin allows the body to adjust.",
-        "Switching from immediate release metformin to modified release metformin may help reduce side effects.",
+        "Switching from immediate release to modified release metformin may help reduce side effects.",
         "Some patients have reported fewer side effects with the immediate release (IR) version of metformin.",
         "If a patient is already on the modified release (MR) version of metformin, trying the immediate release (IR) version may be worth considering.",
         "Metformin is the first line of treatment for type 2 diabetes.",
@@ -5314,7 +5326,7 @@
       "id": "y4o2x3_20241101",
       "claims": [
         "Double-voiding is a technique that can help with the sensation of leaking.",
-        "Double-voiding involves standing up after finishing urination and then sitting down again to try urinating again.",
+        "Double-voiding involves standing up after urinating and then sitting down again to try urinating again.",
         "Double-voiding may help ensure the bladder is fully emptied.",
         "Double-voiding may help alleviate the sensation of leaking.",
         "Double-voiding involves standing up after finishing urination.",
@@ -5342,9 +5354,9 @@
         "Your symptoms may be lingering from the initial infection.",
         "Using over-the-counter medications is helpful for managing symptoms.",
         "When visiting next week, additional testing may be needed.",
-        "The additional testing may include a strep test.",
-        "The additional testing may include a mono test.",
-        "The additional testing is to rule out other potential causes of symptoms.",
+        "Additional testing may include a strep test.",
+        "Additional testing may include a mono test.",
+        "Additional testing is done to rule out other potential causes of symptoms.",
         "Doctors do not think people should be overly worried about certain symptoms.",
         "Doctors will be able to further assess a person's condition during an upcoming visit."
       ]
@@ -5385,7 +5397,7 @@
         "Considering counseling is helpful for processing feelings.",
         "Counseling can be used to work through challenges.",
         "Turning a difficult experience into a positive step can contribute to healing.",
-        "Healing can involve growth from difficult experiences."
+        "Healing can involve growth as a result of processing difficult experiences."
       ]
     },
     {
@@ -5446,15 +5458,17 @@
       "claims": [
         "A doctor addressed concerns about chest X-rays.",
         "The doctor explained that acute bronchitis typically does not show up on a chest X-ray.",
-        "The chest X-rays were likely done to rule out pneumonia.",
+        "The chest X-rays were done to rule out pneumonia.",
         "The X-rays appeared normal and clear.",
         "Acute bronchitis typically does not show up on a chest X-ray.",
         "Chest X-rays can appear normal and clear in cases of acute bronchitis.",
         "Normal and clear chest X-rays can occur despite symptoms of acute bronchitis.",
         "The X-rays were done to rule out pneumonia.",
         "The ER checked for life-threatening conditions.",
-        "Following up with a primary care doctor helps ensure symptoms resolve.",
-        "Following up with a primary care doctor provides continuity of care.",
+        "Following up with a primary care doctor is helpful for resolving symptoms.",
+        "Primary care doctors can provide continuity of care.",
+        "Continuity of care helps with managing symptoms.",
+        "Continuity of care supports full recovery.",
         "Ongoing support helps manage symptoms.",
         "Ongoing support helps with recovery."
       ]
@@ -5647,12 +5661,13 @@
         "People who drink 3-4 liters of water may urinate frequently.",
         "Frequent urination can occur in people who consume 12-15 times a day.",
         "Drinking a significant amount of water is associated with increased frequency of urination.",
-        "If you are not feeling satisfied despite drinking a significant amount of water, investigating further may be helpful.",
+        "If you're not feeling satisfied despite drinking a significant amount of water, investigating further may be helpful.",
         "Investigating further may help rule out underlying conditions.",
         "Diabetes is an underlying condition that may be ruled out through investigation.",
         "Your doctor did not mention that masturbation habits are a cause for concern.",
-        "Considering a check-up is helpful to rule out underlying issues.",
-        "A check-up may help identify underlying issues contributing to symptoms."
+        "Considering a check-up is helpful for people with symptoms.",
+        "A check-up may help identify underlying issues.",
+        "Underlying issues may contribute to symptoms."
       ]
     },
     {
@@ -5700,8 +5715,8 @@
         "Daily blood pressure readings at home can help assess reading accuracy.",
         "Blood pressure readings at different machines can help assess reading accuracy.",
         "Grocery stores and pharmacies may have machines for blood pressure readings.",
-        "Taking daily blood pressure readings at home can help determine if a reading taken at the cardiologist's office was an anomaly.",
-        "Blood pressure readings taken at different machines can help determine if a reading taken at the cardiologist's office was an anomaly.",
+        "Taking daily blood pressure readings at home can help determine if a reading was an anomaly.",
+        "Taking blood pressure readings on different machines can help determine if a reading was an anomaly.",
         "Light beta blockers are generally considered safe.",
         "Light beta blockers are often prescribed to treat high blood pressure.",
         "Not missing a potential hypertension diagnosis is important.",
@@ -5753,11 +5768,9 @@
     {
       "id": "xfvp24_20241101",
       "claims": [
-        "The doctor expressed condolences for the difficult situation.",
-        "The doctor recognized the frustration and desperation associated with the situation.",
-        "The doctor acknowledged the challenging situation faced by the patient and their mother.",
-        "People facing an unknown illness may experience frustration.",
-        "People facing an unknown illness may experience desperation.",
+        "The doctor expressed condolences for the difficult situation the patient and their mother are facing.",
+        "People experiencing uncertainty about the cause of an illness may feel frustration.",
+        "People experiencing uncertainty about the cause of an illness may feel desperation.",
         "Your doctor has reviewed the extensive testing your mother has undergone.",
         "Your mother has undergone checks for common infections.",
         "Your mother has undergone checks for uncommon infections.",
@@ -5766,7 +5779,7 @@
         "Steroids were started for the patient's mother.",
         "The use of steroids may have contributed to the recent improvement in the patient's mother's condition.",
         "If a cause is found, your mother's condition is critical.",
-        "The focus is on supporting your mother through a challenging time.",
+        "The focus is on supporting your mother through this challenging time.",
         "The medical team appreciates the updates provided.",
         "The medical team is glad to hear that the fever has subsided.",
         "The patient is showing signs of slow recovery.",
@@ -5782,7 +5795,7 @@
         "Doctors typically recommend wearing a sling for 4-5 weeks after a clavicle fracture.",
         "Doctors may suggest resuming the use of a sling if pain persists.",
         "Doctors may suggest an alternative support, such as a figure of 8 clavicle support, if the sling is not absolutely necessary.",
-        "Doctors may recommend a follow-up appointment if pain persists and X-rays are not reviewed.",
+        "Doctors may recommend a follow-up appointment if pain persists.",
         "A sling is typically recommended for 4-5 weeks after a clavicle fracture to ensure proper healing.",
         "If people experience current pain, resuming wearing a sling is helpful.",
         "Wearing a sling is recommended unless it's absolutely necessary to remove it.",
@@ -5802,7 +5815,7 @@
         "Many pain medications contain opioids.",
         "Opioids may contribute to adverse reactions.",
         "Sensitivity to narcotics could be the common thread among medications that have caused problems.",
-        "This sensitivity may explain adverse reactions to different medications.",
+        "This sensitivity may explain adverse reactions to various medications.",
         "There doesn't seem to be a single overarching reason for similar reactions to different classes of medications.",
         "The reactions to different classes of medications, such as SSRIs, are not easily explained by a single cause.",
         "Each medication works on different receptors in the body.",
@@ -5834,7 +5847,7 @@
       "id": "yezxzp_20241101",
       "claims": [
         "A doctor spoke to the person about monitoring their father's oxygen levels.",
-        "The doctor wanted to address the person's concerns about monitoring their father's oxygen levels.",
+        "The doctor wanted to address the person's concerns regarding monitoring their father's oxygen levels.",
         "Doctors are not familiar with a specific device that meets the requirements.",
         "Doctors suggested exploring options that can provide remote monitoring.",
         "Doctors suggested exploring options that can provide alerts.",
@@ -5868,7 +5881,7 @@
     {
       "id": "z5sy2n_20241101",
       "claims": [
-        "General guidance on the recovery time frame for ganglion removal surgery is provided by the doctor.",
+        "A doctor provided general guidance on the recovery time frame for ganglion removal surgery.",
         "Most surgeons recommend taking 4-8 weeks off from high-demand physical jobs after surgery.",
         "Massage therapy is considered a high-demand physical job.",
         "Checking with your surgeon is important for specific recommendations.",
@@ -5898,7 +5911,6 @@
         "Healthcare professionals can offer support for underlying conditions.",
         "Healthcare professionals can be consulted online or in-person.",
         "Continuing to work on reducing stress and anxiety naturally is important.",
-        "People who are working on reducing stress and anxiety naturally should continue doing so.",
         "If symptoms worsen or do not improve, consulting a doctor is helpful.",
         "If symptoms worsen or do not improve, consulting a psychiatrist is helpful.",
         "Consulting a doctor or psychiatrist is helpful for further guidance and support."
@@ -5937,7 +5949,7 @@
         "If fasting is still a concern, a doctor may provide a lab order.",
         "A lab order can be taken to the lab at a more convenient time.",
         "The lab order is for a time when the person has been able to fast.",
-        "Having blood work done at a time that works better for you is helpful."
+        "Having blood work done at a time that works better for you is possible."
       ]
     }
   ]

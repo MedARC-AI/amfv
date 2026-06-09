@@ -174,12 +174,12 @@
         "The doctor stated that antibiotics will not help with a viral upper respiratory tract infection.",
         "The doctor mentioned that antibiotics may cause side effects like an allergic reaction.",
         "The doctor indicated that antibiotics may cause side effects like diarrhea.",
-        "The doctor warned that antibiotics may cause side effects that are worse than the infection.",
+        "The doctor warned that antibiotics may cause more severe side effects.",
         "Taking antibiotics unnecessarily can contribute to the development of antibiotic-resistant strains of bacteria.",
         "The doctor noted that antibiotics are only recommended for specific bacterial infections.",
         "The doctor mentioned strep throat as an example of a specific bacterial infection where antibiotics may be recommended.",
-        "The doctor stated that suspected bacterial superinfections are examples of conditions where antibiotics might be recommended.",
-        "The doctor emphasized that diagnoses for which antibiotics are recommended should be made by a medical professional.",
+        "The doctor stated that suspected bacterial superinfections are examples of conditions where antibiotics might be considered.",
+        "The doctor emphasized that diagnoses determining the need for antibiotics should be made by a medical professional.",
         "The text recommends avoiding taking one's partner's antibiotics.",
         "The text suggests focusing on managing cold symptoms instead of using antibiotics.",
         "The sentence advises scheduling a consultation with a doctor for personalized advice if there are concerns about health or the impact of a cold on an upcoming job."
@@ -204,8 +204,8 @@
         "The healthcare provider advises against adjusting the dosage of Lorazepam without consulting them first.",
         "A healthcare provider suggested taking a usual dose of 0.5mg of Lorazepam and combining it with relaxation techniques like deep breathing or light exercise to manage anxiety.",
         "The approach of taking the usual dose of Lorazepam and combining it with relaxation techniques is suggested to help feel more calm and focused.",
-        "This approach is advised to not increase the risk of drowsiness or other side effects.",
-        "The approach is recommended to not impact the ability to drive safely."
+        "This approach is recommended to avoid increasing the risk of drowsiness.",
+        "This approach is advised to prevent other side effects that could impact the ability to drive safely."
       ]
     },
     {
@@ -269,7 +269,7 @@
         "Propranolol is likely not playing a role in the patient's PR shortening.",
         "Lown-Ganong-Levine Syndrome (LGL) is a very rare condition.",
         "Lown-Ganong-Levine Syndrome (LGL) can potentially cause PR shortening without a delta wave.",
-        "Lown-Ganong-Levine Syndrome (LGL) might be what the urgent care doctor was considering.",
+        "The urgent care doctor might have been considering Lown-Ganong-Levine Syndrome (LGL) as a possible explanation for the PR shortening.",
         "The doctor emphasized that Lown-Ganong-Levine Syndrome is extremely rare.",
         "The doctor stated that conclusions about the condition should not be made based on a single EKG reading."
       ]
@@ -306,7 +306,8 @@
       "claims": [
         "A doctor spoke to the person and addressed their concerns about the possibility of having an undiagnosed aortic coarctation.",
         "The doctor understands the patient's anxiety regarding the potential diagnosis of aortic coarctation.",
-        "The doctor acknowledges the patient's concern about the average life expectancy for someone with aortic coarctation who did not receive treatment as an infant.",
+        "The patient has read about the average life expectancy for someone with aortic coarctation who did not receive treatment as an infant.",
+        "The average life expectancy for someone with aortic coarctation who did not receive treatment as an infant is 35 years old.",
         "A doctor wants to reassure a patient that they cannot confirm a diagnosis of aortic coarctation without a thorough examination, an ankle brachial index test, and an echocardiogram.",
         "The doctor stated that they will need to review the results of specific tests before making a diagnosis.",
         "The doctor emphasized that the average life expectancy for someone with undiagnosed aortic coarctation who did not receive treatment as an infant is a statistical figure and not a prediction of an individual's outcome.",
@@ -342,8 +343,7 @@
         "The doctor considers it crucial to take action to protect the individual's health.",
         "The medical professionals want to emphasize the risks associated with injecting methamphetamine and spring water.",
         "The medical professionals state that the risks of the current behavior are extremely high.",
-        "The medical professionals advise taking action to protect one's health.",
-        "The medical professionals encourage seeking professional help to address the addiction."
+        "The medical professionals advise that it is crucial to take action to protect one's health."
       ]
     },
     {
@@ -515,7 +515,8 @@
         "The sentence states that one does not have to disclose HSV diagnosis immediately.",
         "The sentence states that an individual can choose to share their HSV status with someone when they feel comfortable and ready to do so.",
         "The doctor advises avoiding sex during an outbreak to minimize the risk of transmission.",
-        "The test mentioned is a blood test that detects the presence of antibodies.",
+        "The test mentioned is likely a blood test.",
+        "The blood test detects the presence of antibodies.",
         "The test does not diagnose an active outbreak.",
         "Your doctor wants to reassure you that your life can continue as usual.",
         "Your doctor wants to reassure you that this diagnosis doesn't have to hold you back from forming meaningful connections with others."
@@ -565,10 +566,10 @@
       "claims": [
         "The doctor recommended calling the pediatrician to discuss the daughter's ongoing constipation issue.",
         "The doctor thinks there may be a large amount of stool in the child's rectum.",
-        "The doctor thinks the large amount of stool in the child's rectum may need assistance to pass.",
-        "The doctor thinks the large amount of stool in the child's rectum could be causing her discomfort and pain.",
+        "The doctor thinks the large amount of stool in the rectum may need assistance to pass.",
+        "The doctor thinks the large amount of stool in the rectum could be causing the child's discomfort and pain.",
         "The doctor suggests using a glycerin suppository or increasing the dosage of Meralax in situations involving constipation and related symptoms.",
-        "The doctor believes that the pressure from the stool in the rectum may be affecting the bladder.",
+        "The doctor believes that the pressure from the stool in her rectum may be affecting her bladder.",
         "The sentence advises consulting with a pediatrician to determine the next steps and to discuss whether to give the Meralax more time to work or to try other options."
       ]
     },
@@ -717,7 +718,7 @@
         "The individual is being exposed to illnesses through their niece and other family members.",
         "Your doctor wants to reassure you that the current situation with frequent colds and flu is not uncommon.",
         "Your doctor mentions that collective immunity will eventually catch up.",
-        "The sentence mentions that the doctor encourages the individual to stay positive.",
+        "The sentence mentions that the doctor encourages staying positive.",
         "The sentence states that the doctor reminds the individual that the difficult season will pass."
       ]
     },
@@ -742,9 +743,10 @@
       "claims": [
         "The doctor recommended taking Tylenol to manage the pain while waiting for the diagnosis.",
         "The medical professional assured that Tylenol is safe to take even if an ulcer is present.",
-        "The medical professionals suggested avoiding fatty foods to prevent irritation of the stomach.",
-        "The medical professionals suggested avoiding spicy foods to prevent irritation of the stomach.",
-        "The medical professionals indicated that fatty and spicy foods can exacerbate stomach pain, particularly after eating."
+        "The medical professionals suggested avoiding fatty foods",
+        "The medical professionals suggested avoiding spicy foods",
+        "Fatty and spicy foods can irritate the stomach",
+        "Fatty and spicy foods can exacerbate pain, especially after eating"
       ]
     },
     {
@@ -753,7 +755,7 @@
         "The speaker spoke to their doctor.",
         "The doctor wanted to address the speaker's concerns.",
         "The concerns were about having trouble with bowel movements.",
-        "The medical term for the issue of not being able to have a bowel movement is constipation.",
+        "The medical term for the issue described is constipation.",
         "Your doctor understands that you have been taking Magnesium pills after meals to help with constipation.",
         "Your doctor does not recommend relying on Magnesium as a long-term solution for constipation.",
         "The doctor suggests making changes to the diet to help stimulate the bowels.",
@@ -809,6 +811,9 @@
       "claims": [
         "The doctor spoke to the patient.",
         "The doctor wanted to address the patient's concerns about their symptoms.",
+        "The doctor believed the symptoms were likely related to hormones.",
+        "The doctor mentioned the patient's age as a factor in their assessment.",
+        "The doctor acknowledged the frustration of being told the symptoms are related to hormones.",
         "The doctor understands that being told symptoms are likely related to hormones can be frustrating.",
         "The doctor believes the most probable explanation for the symptoms is related to hormones.",
         "The doctor's belief is based on the patient's age and the symptoms they are describing.",
@@ -882,11 +887,13 @@
       "claims": [
         "The doctor spoke to the individual.",
         "The doctor wanted to address the individual's difficulties with anxiety and OCD.",
-        "The doctor understood that the individual has been facing these difficulties for a long time.",
+        "The doctor acknowledged that the individual has been facing these difficulties for a long time.",
         "The doctor recognized that the individual's anxiety and OCD are affecting their daily life.",
         "The doctor understands that the individual has been dealing with the issue for a long time.",
         "The doctor recognizes that the individual's anxiety and OCD are impacting their daily life.",
-        "Your doctor suggests discussing the possibility of a temporary hospital admission with your psychiatrist.",
+        "Your doctor suggests considering temporary hospital admission as a potential option.",
+        "The doctor believes discussing temporary hospital admission could be beneficial for the individual.",
+        "The recommendation is to consult with a psychiatrist regarding the possibility of temporary hospital admission.",
         "The sentence states that temporary hospital admission would provide an opportunity to receive intensive therapy.",
         "The sentence mentions that temporary hospital admission would allow learning coping mechanisms for health anxiety.",
         "The doctor understands that lack of emotional support at home can exacerbate the individual's struggles with anxiety and OCD.",
@@ -908,8 +915,8 @@
         "The recommendation is made because the person is unsure of when they last received a tetanus shot.",
         "Your doctor finds it surprising that you did not receive a tetanus shot after your previous biking accident.",
         "It is typically standard procedure to receive a tetanus shot for injuries resulting from a biking accident.",
-        "They suggest calling your primary care physician to inquire about the possibility of getting the shot without a full office visit.",
-        "Some doctors may accommodate the request to get the shot without a full office visit."
+        "The primary care physician is suggested to be contacted to inquire about getting a tetanus shot without a full office visit.",
+        "Some doctors may accommodate the request for a tetanus shot without a full office visit."
       ]
     },
     {
@@ -997,8 +1004,8 @@
         "The father's health is a concern due to his risk factors.",
         "The current medical guidelines do not recommend giving a daily low-dose aspirin to prevent a heart attack unless the individual has already had a heart attack, stroke, or heart surgery.",
         "The doctor believes that the father would benefit from taking a cholesterol-lowering medication.",
-        "The doctor advises against giving the father aspirin because it may not provide the desired benefits",
-        "The doctor advises against giving the father aspirin because it could increase his risk of bruising and bleeding",
+        "The doctor advises against giving the father aspirin because it may not provide the desired benefits.",
+        "The doctor advises against giving the father aspirin because it could increase his risk of bruising and bleeding.",
         "The doctor emphasizes the importance of managing the father's existing conditions through his current medications for diabetes and hypertension.",
         "The sentence emphasizes the importance of consulting with a doctor directly to discuss the best course of action for an individual's specific medical situation."
       ]
@@ -1036,9 +1043,9 @@
         "The doctor stated that the studies supporting circumcision for STI prevention may not be relevant to a son's situation.",
         "The doctor noted that the relevance of these studies is based on the assumption that the son will receive proper sex education.",
         "Your doctor emphasized that there is no strong medical reason to perform circumcision on an anatomically normal penis.",
-        "A doctor emphasized that it is essential to consider a child's autonomy regarding surgical alterations to their genitals.",
-        "A doctor suggested that cosmetic surgeries on a child's genitals should not be performed without their consent.",
-        "A doctor highlighted the importance of considering the child's future ability to make their own medical decisions.",
+        "A doctor emphasized the importance of considering a child's autonomy regarding surgical alterations to their genitals.",
+        "The doctor suggested that cosmetic surgeries on a child's genitals should not be performed without the child's consent.",
+        "The doctor highlighted the issue of consent as a critical factor in deciding whether to perform circumcision on a child.",
         "The sentence states that children should not be treated as objects for surgical alteration.",
         "The sentence states that children should be regarded as individuals who will eventually make their own medical decisions."
       ]
@@ -1063,7 +1070,7 @@
         "The primary care physician is allowed to share patient information with a psychiatrist without needing the patient's consent under HIPAA.",
         "The statement mentions that care coordination is part of ensuring the patient receives the best possible care.",
         "Your doctor emphasized the importance of honesty with your prescriber.",
-        "The sentence states that keeping medical and pharmaceutical details, including marijuana usage, informed is crucial for safety and effective care.",
+        "The sentence states that informing healthcare providers about medical and pharmaceutical details, including marijuana usage, is crucial for patient safety and effective care.",
         "Patient-doctor confidentiality may be compromised if a patient withholds information or lies to their prescriber.",
         "Withholding information or lying to a prescriber can put the patient's health at risk.",
         "Withholding information or lying to a prescriber may damage the patient's relationship with their doctor.",
@@ -1077,8 +1084,7 @@
         "The doctor advised the individual to prioritize the healing of their incision.",
         "The statement mentions that there isn't a foolproof way to completely protect the stitches.",
         "The statement indicates that any strenuous activity may pose a risk to the incision site.",
-        "Your doctor understands that taking time off from training might not be feasible for you.",
-        "Your doctor understands that your upcoming competition is a factor in the difficulty of taking time off from training.",
+        "The doctor understands that taking time off from training might not be feasible for the individual, especially due to their upcoming competition.",
         "A doctor emphasized that ripping the incision open during training is not a catastrophic situation.",
         "A doctor stated that ripping the incision open during training will likely prolong the healing process.",
         "The text states that they recommend being cautious and gentle with the finger as much as possible during training."
@@ -1161,7 +1167,7 @@
         "The doctor does not believe the individual should worry excessively about developing asthma.",
         "The doctor believes that the odds are in the patient's favor",
         "The doctor thinks it is likely that the patient won't develop asthma",
-        "The doctor states it is impossible to quantify the patient's exact risk of developing asthma",
+        "It is impossible to quantify the patient's exact risk of developing asthma",
         "The medical professionals acknowledged that developing asthma is possible for the individual.",
         "The medical professionals advised the individual not to be overly concerned about developing asthma at this time."
       ]
@@ -1238,10 +1244,10 @@
       "claims": [
         "The doctor recommended considering two possible underlying factors that may be contributing to the father's irritability.",
         "Depression is a common condition among older adults.",
-        "Depression is more prevalent in older adults dealing with chronic health issues.",
-        "Diabetes is a chronic health issue associated with an increased risk of depression in older adults.",
-        "High blood pressure is a chronic health issue associated with an increased risk of depression in older adults.",
-        "Kidney problems are a chronic health issue associated with an increased risk of depression in older adults.",
+        "Depression is more common in older adults dealing with chronic health issues.",
+        "Diabetes is a chronic health issue associated with increased risk of depression in older adults.",
+        "High blood pressure is a chronic health issue associated with increased risk of depression in older adults.",
+        "Kidney problems are a chronic health issue associated with increased risk of depression in older adults.",
         "The second possibility is a type of dementia that can affect a person's personality.",
         "The doctor suggests that a specialist in elderly care should be consulted for the father's condition.",
         "A specialist can assess the father's overall health",
@@ -1285,10 +1291,7 @@
         "The adverse reaction occurred while taking ADHD medication prescribed by a primary care doctor.",
         "The individual stopped taking Adderall by choice and switched to a weaker stimulant.",
         "The individual has bipolar disorder.",
-        "The psychiatrist called the primary care doctor to discuss the adverse reaction.",
-        "The individual initially refused the psychiatrist's request to call the primary care doctor.",
-        "The psychiatrist called the primary care doctor despite the initial refusal.",
-        "The individual later gave full permission for the psychiatrist to call the primary care doctor.",
+        "The psychiatrist called the primary care doctor after obtaining permission from the individual.",
         "The primary care doctor was unaware of the individual's bipolar disorder or other mental health issues.",
         "The primary care doctor emphasized the importance of sharing medical history with healthcare providers.",
         "The primary care doctor suggested that not sharing information may have contributed to the hypomanic episode.",
@@ -1347,8 +1350,8 @@
         "The speaker spoke to their doctor.",
         "The doctor wanted to clarify how genital herpes typically presents itself.",
         "The initial outbreak of genital herpes usually appears as a cluster of tender, fluid-filled blisters rather than a single spot.",
-        "Genital herpes symptoms can vary greatly in subsequent episodes",
-        "Genital herpes symptoms may not always appear as blisters in subsequent episodes",
+        "Subsequent episodes of genital herpes can present with varying symptoms.",
+        "Symptoms of genital herpes in subsequent episodes may not always appear as blisters.",
         "In some cases, genital herpes may present with a tingling sensation without any visible signs."
       ]
     },
@@ -1358,11 +1361,11 @@
         "A doctor expressed concern about the swelling and pain around the eye.",
         "The medical professionals requested a photo of the eye to better assess the situation.",
         "A medical professional is worried that the individual might be developing a serious infection called orbital cellulitis.",
-        "The text advises that if someone is experiencing increased swelling, pain, and pain when moving their eye, they should go to the ER immediately.",
+        "The sentence advises that if someone is experiencing increased swelling, pain, and pain when moving their eye, they should go to the ER immediately.",
         "The condition requires prompt treatment",
         "The treatment includes CT scans",
         "The treatment may involve IV antibiotics",
-        "The treatment is intended to prevent serious complications",
+        "The purpose of the treatment is to prevent serious complications",
         "Your doctor emphasizes the need to seek emergency care tonight if symptoms persist."
       ]
     },
@@ -1377,14 +1380,15 @@
         "The text identifies E. coli as an example of ordinary bacteria commonly found in restrooms.",
         "The thorough cleaning and disinfecting performed after the incident would have significantly reduced the risk of infection.",
         "Your doctor recommends keeping an eye out for any signs of infection.",
-        "At this point, there is no specific action you need to take beyond what you've already done."
+        "Your doctor states that there is no specific action needed beyond what has already been done."
       ]
     },
     {
       "id": "5qbk8f_20241101",
       "claims": [
-        "A 43-year-old woman can faint after delivering twins without receiving any labor pain relief medication.",
+        "A 43-year-old woman can faint after delivering twins without receiving labor pain relief medication.",
         "Fainting after delivering twins without labor pain relief medication typically has an underlying reason.",
+        "A doctor mentioned the possibility of fainting in a 43-year-old woman after delivering twins without labor pain relief medication.",
         "A postpartum hemorrhage could be a plausible cause for fainting due to blood loss."
       ]
     },
@@ -1398,16 +1402,17 @@
         "The doctor suggests trying a different variety of beer or non-alcoholic beer to determine if the pain persists.",
         "The doctor mentioned that an allergic reaction could be a possible cause of the intense pain when drinking alcohol.",
         "The doctor mentioned that reflux could be a possible cause of the intense pain when drinking alcohol.",
-        "The doctor indicated that reflux can be made worse by alcohol consumption.",
+        "The doctor indicated that alcohol can exacerbate an allergic reaction.",
+        "The doctor indicated that alcohol can exacerbate reflux.",
         "The doctor recommends paying attention to whether other foods trigger similar symptoms as the intense pain experienced when drinking alcohol.",
         "The doctor recommends taking an antacid like Zantac before drinking alcohol to help alleviate some discomfort.",
         "The doctor is concerned that the user's IBS and bloody stools could be a sign of an underlying issue.",
         "The doctor specifically mentions concern if the user has diarrhea-type IBS.",
         "The doctor assumes the patient has had testing to rule out other causes of colitis.",
         "The doctor recommends discussing the issue further at the patient's upcoming appointment.",
-        "The doctor does not consider the patient's condition to be urgent.",
+        "The doctor does not consider the patient's condition to be an urgent issue.",
         "The doctor recommends avoiding alcohol until the patient can discuss the issue further with them.",
-        "The patient has a scheduled appointment with the doctor in a month.",
+        "The patient has a scheduled appointment with their doctor in another city.",
         "The sentence advises that individuals who are concerned or experience worsening symptoms should consider visiting a clinic or urgent care center for further evaluation."
       ]
     },
@@ -1418,8 +1423,8 @@
         "The sentence states that many cold medications come in various formulations.",
         "The sentence emphasizes the importance of double-checking the ingredients of cold medications.",
         "The doctor suggests that the husband can consider taking non-Tylenol pain relievers such as Aleve, Advil, Motrin, or ibuprofen.",
-        "The doctor did not specifically mention Pseudoephedrine hydrochloride as a medication to avoid for someone allergic to acetaminophen.",
-        "It is recommended to verify the ingredients of any medication before taking it for someone allergic to acetaminophen.",
+        "The doctor did not specifically mention Pseudoephedrine hydrochloride as a medication to avoid for the husband due to his allergy to acetaminophen.",
+        "It is recommended to verify the ingredients of any medication before taking it to ensure it does not contain acetaminophen or paracetamol.",
         "The sentence suggests looking up the active ingredients of specific medications online to find information on acetaminophen-related drugs that should be avoided.",
         "The sentence emphasizes the importance of checking ingredients to ensure safety for someone with an acetaminophen allergy."
       ]
@@ -1455,7 +1460,8 @@
         "The doctor believes that Irritable Bowel Syndrome (IBS) may be contributing to the stomach pains the patient has been experiencing.",
         "The doctor suggests treatment options are available to manage pain associated with IBS",
         "The doctor suggests dietary changes may help alleviate symptoms of IBS",
-        "The gastroenterologist recommends following up to discuss treatment options for IBS and addressing specific concerns."
+        "The gastroenterologist recommends following up to discuss potential recommendations for treating IBS.",
+        "The gastroenterologist recommends addressing specific concerns related to IBS."
       ]
     },
     {
@@ -1465,8 +1471,8 @@
         "The doctor understands that the individual has been experiencing anxiety and pregnancy scares.",
         "The doctor thinks it is a great idea for the individual to see a psychologist to help manage these feelings.",
         "The doctor believes that starting a stable contraceptive therapy could be helpful in regulating periods.",
-        "The upcoming ultrasound will provide more insight into what is going on with the body.",
-        "The doctor will be able to discuss the results of the ultrasound with the patient.",
+        "The upcoming ultrasound will provide more insight into what is happening with the individual's body.",
+        "The individual's doctor will be able to discuss the results of the ultrasound.",
         "The doctor will determine the best course of action based on the ultrasound results."
       ]
     },
@@ -1499,7 +1505,7 @@
         "The doctor does not consider the family history of cancer to be a red flag in the patient's case.",
         "The doctor recommends monitoring the lymph node for changes in size",
         "The doctor recommends monitoring the lymph node if more lymph nodes develop without an infectious illness",
-        "A doctor recommends further investigation if there are changes in the size of the lymph node or the development of additional lymph nodes without an infectious illness.",
+        "A doctor recommends further investigation if there are changes in the size of the lymph node or if new lymph nodes appear without an infectious illness.",
         "The doctor believes that the risks associated with further imaging and potential biopsy are greater than the benefits at this time.",
         "The medical professionals want to reassure the patient that they are confident in their assessment.",
         "The medical professionals would like to continue monitoring the patient's symptoms."
@@ -1547,15 +1553,15 @@
         "The doctor asked for information about the patient's symptoms.",
         "The doctor requested details on the patient's lab results.",
         "The doctor asked for information about any treatments the patient has received.",
-        "The individual experienced abnormal test results and was hospitalized due to severe illness that began a couple of days ago.",
+        "The individual experienced abnormal test results and was hospitalized due to severe illness a couple of days ago.",
         "The individual has had strange symptoms for more than a year.",
         "The individual was admitted to the ER due to difficulty breathing and an inability to keep fluids or medicine down.",
-        "The individual had a fever, severe chest pain, and wheezing.",
+        "The individual had a fever and experienced severe chest pain and wheezing.",
         "The individual has a history of asthma, PCOS, IBS, and undiagnosed hypertension.",
         "The individual was not given fluids or a breathing treatment for six hours upon arrival at the hospital.",
         "The individual was diagnosed with bronchitis, an unknown infection, rhinovirus, and asthma exacerbation.",
         "The individual received abnormal test results the next day, including an inferior infarct of undetermined age.",
-        "The individual had white blood cell counts three times the normal amount.",
+        "The individual's white blood cell count was three times the normal amount.",
         "Klebsiella pneumoniae was found in the individual's urinary tract.",
         "The individual's lung X-ray showed fluid.",
         "The individual's trachea was slightly deviated to the right.",
@@ -1566,18 +1572,16 @@
         "The individual's mother, an RT, expressed concern about the individual's lungs and noted that the right lung was moving almost no air into it.",
         "The individual has been experiencing pelvic pressure for months.",
         "Ketones and bilirubin were found in the individual's urine.",
-        "The individual's doctor acknowledged the concerning and overwhelming nature of the recent experience.",
-        "The individual's doctor requested a detailed and organized account of the medical history, including symptoms, lab results, and treatments.",
-        "The individual's doctor asked for a timeline of symptoms, including when they started and how they have progressed.",
-        "The individual's doctor asked for all lab results, including the abnormal test results mentioned.",
-        "The individual's doctor asked for a list of treatments or medications the individual has been prescribed or taken.",
+        "The individual was advised to compile a timeline of symptoms, including when they started and how they have progressed.",
+        "The individual was advised to provide all lab results, including the abnormal test results mentioned.",
+        "The individual was advised to list all treatments or medications they have been prescribed or taken.",
         "The individual has been prescribed or taken medications for asthma",
         "The individual has been prescribed or taken medications for PCOS",
         "The individual has been prescribed or taken medications for IBS",
         "The individual has been prescribed or taken medications for hypertension",
         "The individual has a pre-existing medical condition of asthma",
-        "The individual has a pre-existing medical condition of polycystic ovary syndrome (PCOS)",
-        "The individual has a pre-existing medical condition of irritable bowel syndrome (IBS)",
+        "The individual has a pre-existing medical condition of PCOS (Polycystic Ovary Syndrome)",
+        "The individual has a pre-existing medical condition of IBS (Irritable Bowel Syndrome)",
         "The individual has a pre-existing medical condition of hypertension"
       ]
     },
@@ -1621,11 +1625,11 @@
         "Specific tests can help determine the extent to which the nasal valve contributes to breathing issues compared to a deviated septum.",
         "Your current ENT physician has evaluated you in person.",
         "Your current ENT physician is in a better position to predict the benefit of straightening the septum alone.",
-        "Your current ENT physician can assess the benefit of straightening the septum versus additional procedures.",
+        "Your current ENT physician is in a better position to predict the benefit of straightening the septum versus additional procedures.",
         "The use of Afrin provides significant relief from breathing difficulties.",
         "The significant relief from breathing difficulties is attributed to the inferior turbinates being a major contributor.",
         "According to the doctor, correcting the septum alone may not fully address the patient's breathing issue.",
-        "The sentence suggests that if someone were to consult healthcare professionals, they would likely be advised to consider reducing the turbinates or exploring alternative treatments such as topical medications if they haven't already tried them."
+        "The sentence suggests that if someone were to consult healthcare professionals, they would likely be advised to consider reducing the turbinates or exploring alternative treatments like topical medications."
       ]
     },
     {
@@ -1637,7 +1641,7 @@
         "If the results of a Pap test are negative, the test can be done every 5 years according to the US guidelines.",
         "Your doctor is open to discussing the option of following US guidelines for Pap tests with your gynecologist.",
         "The gynecologist can document your agreement to follow the US guidelines for Pap tests.",
-        "The gynecologist can understand the potential risks of having fewer Pap tests.",
+        "The gynecologist can understand the potential risks of fewer Pap tests.",
         "Your doctor emphasizes that HPV is the primary cause of cervical cancer.",
         "Your doctor emphasizes that cervical cancer has causes other than HPV.",
         "Humira suppresses the immune system.",
@@ -1645,7 +1649,7 @@
         "The text states that detecting potential precancerous cells early is crucial to prevent them from spreading.",
         "The doctor understands that the patient's history of rectal surgery and fistulas due to Crohn's disease may make the Pap test procedure more uncomfortable.",
         "The doctor suggests discussing the option of requesting pre-procedural analgesia with the patient.",
-        "The text suggests requesting pre-procedural analgesia, such as Xanax, to help with anxiety or pain during a Pap smear.",
+        "The text mentions requesting pre-procedural analgesia, such as Xanax, to help with anxiety or pain.",
         "The patient is asking their doctor if they would be willing to prescribe an opioid for pain management.",
         "The sentence mentions that if a patient is seeing an OB/GYN, they can ask about the possibility of having the procedure done under anesthesia in the operating room."
       ]
@@ -1682,7 +1686,9 @@
       "id": "yzir29_20241101",
       "claims": [
         "The speaker spoke to their doctor about concerns regarding hearing aids and current hearing issues.",
-        "The test results indicate a combination of conductive hearing loss in the right ear, which may be related to a potential cholesteatoma, and age-related high-frequency sensorineural hearing loss in both ears.",
+        "The test results indicate a combination of conductive hearing loss in the right ear.",
+        "The conductive hearing loss in the right ear may be related to a potential cholesteatoma.",
+        "There is age-related high-frequency sensorineural hearing loss in both ears.",
         "Your doctor's primary concern is the potential cholesteatoma.",
         "A cholesteatoma is a benign skin cyst.",
         "A cholesteatoma can grow and erode surrounding structures over time.",
@@ -1768,9 +1774,9 @@
       "claims": [
         "The individual spoke to their doctor about concerns regarding the chest X-ray results.",
         "The doctor stated that the pattern described in the radiologist's report is nonspecific.",
-        "The doctor mentioned that the pattern could be caused by viral pneumonia.",
-        "The doctor indicated that fluid or edema could be a potential cause of the pattern.",
-        "The doctor noted that interstitial inflammation might also be a cause of the pattern.",
+        "The doctor mentioned that the pattern can be caused by viral pneumonia.",
+        "The doctor indicated that fluid or edema can be a cause of the described pattern.",
+        "The doctor noted that interstitial inflammation can also be a cause of the pattern.",
         "The doctor suggests that if a patient is not experiencing any respiratory symptoms and is feeling fine otherwise, they can mention the chest X-ray results to their primary care doctor during their next visit.",
         "Your primary care doctor may decide to repeat the chest X-ray or monitor your condition clinically based on their assessment of the image."
       ]
@@ -1807,14 +1813,15 @@
         "A doctor advised against the current plan for managing Cymbalta withdrawal while traveling.",
         "A doctor advised against the user's plan for managing Cymbalta withdrawal while traveling.",
         "The doctor emphasized the importance of establishing a more stable and sensible schedule for weaning off the medication.",
-        "A doctor recommends finding a local doctor in the current country to explain the situation.",
+        "Your doctor recommends finding a local doctor in the country you are currently in.",
+        "Your doctor recommends explaining your situation to the local doctor.",
         "A local doctor in the country the person is currently in may be able to provide assistance with obtaining Cymbalta.",
         "A local doctor in the country the person is currently in may be able to offer guidance on managing the person's withdrawal symptoms.",
         "The doctor suggests that taking Cymbalta every other day will likely worsen withdrawal symptoms.",
         "A psychiatrist recommends breaking 30mg Cymbalta tablets in half to take 15mg per day.",
         "The recommended approach of taking 15mg of Cymbalta per day is expected to last for 12 days.",
         "The approach of breaking 30mg Cymbalta tablets in half and taking 15mg per day may help minimize the severity of withdrawal symptoms.",
-        "[Your Doctor's Name] advised against the outlined plan for managing Cymbalta withdrawal while traveling."
+        "[Your Doctor's Name] advised against the current plan for managing Cymbalta withdrawal while traveling."
       ]
     },
     {
@@ -1822,7 +1829,7 @@
       "claims": [
         "The doctor reassured the individual that the muscle tension in their forearm is likely not a cause for serious concern.",
         "The doctor recommends giving the muscle tension in the forearm some time, about a week or two, and it will probably resolve on its own.",
-        "Your doctor believes that relief will be felt once the symptoms pass.",
+        "Your doctor believes that relief from the symptoms will lead to a sense of reassurance that the condition was not serious.",
         "The doctor recommends scheduling a follow-up appointment if the symptoms persist."
       ]
     },
@@ -1861,7 +1868,7 @@
         "A doctor indicated that urinating is not a guarantee that all sperm will be eliminated.",
         "A doctor stated that urinating at 10:00 AM and masturbating at 2:00 PM could still result in a few sperm being present in pre-ejaculatory fluid.",
         "The doctor noted that the number of sperm in pre-ejaculatory fluid after urination would likely be very low.",
-        "The doctor stated that the low number of sperm would not be enough to cause a pregnancy."
+        "The doctor noted that the number of sperm in pre-ejaculatory fluid after urination would not be enough to cause a pregnancy."
       ]
     },
     {
@@ -1955,9 +1962,9 @@
         "Your doctor emphasized how the radiologist applies those results to your specific situation.",
         "The technician's comments were described as unhelpful and inappropriate.",
         "The doctor acknowledged that the technician's comments caused the patient unnecessary stress.",
-        "The doctor suggests that if the patient feels the need to address the issue further, they should consider lodging a complaint.",
+        "The doctor suggests that lodging a complaint is an option if the patient feels the need to address the issue further.",
         "The sentence advises the patient to try not to worry and wait for their follow-up appointment.",
-        "The follow-up appointment is scheduled where the patient's doctor will discuss the official results with them."
+        "The follow-up appointment will be where the patient's doctor will discuss the official results with them."
       ]
     },
     {
@@ -1981,11 +1988,11 @@
         "Your doctor is uncertain whether the calcification mentioned in the ultrasound report is fixed or loose.",
         "Your doctor emphasizes that it is not entirely clear if the calcification is indeed the source of your pain.",
         "Ultrasound findings may not accurately identify the cause of pain in many cases.",
-        "It is possible that there might be another underlying reason for the discomfort.",
+        "It is possible that there might be another underlying reason for the discomfort experienced.",
         "The urologist recommends asking more questions about the nature of the calcification.",
         "The urologist recommends asking more questions about the potential relationship between the calcification and the patient's pain.",
-        "The patient is advised to inquire about the risks and benefits of surgical removal.",
-        "The patient is advised to inquire about alternative treatment options that may be available."
+        "The patient is advised to inquire about the risks and benefits of surgical removal of the calcification in the Tunica Albuginea.",
+        "The patient is advised to inquire about alternative treatment options available for the calcification in the Tunica Albuginea."
       ]
     },
     {
@@ -2016,7 +2023,7 @@
         "The text mentions that the individual is actively working on losing weight.",
         "The text states that losing weight can have a positive impact on the menstrual cycle.",
         "The doctor recommends running tests to determine the underlying cause of the absent periods.",
-        "The medical professionals want to schedule an appointment to discuss the patient's situation further."
+        "The medical professionals want to schedule an appointment with the patient to discuss further concerns and determine the best course of action."
       ]
     },
     {
@@ -2040,7 +2047,7 @@
         "Cryotherapy can be performed in a doctor's office.",
         "Cryotherapy can be done with over-the-counter treatments.",
         "A doctor suggests scheduling an appointment to assess the wart's location and discuss how to proceed with treatment.",
-        "The doctor will provide guidance on how to effectively remove the wart.",
+        "The doctor will provide more guidance on how to effectively remove the wart.",
         "The doctor did not provide a specific recommendation regarding the HPV vaccine in their response."
       ]
     },
@@ -2067,8 +2074,7 @@
         "The medical professionals advise stopping chiropractic adjustments immediately.",
         "The medical professionals believe chiropractic treatment may be causing more harm than good.",
         "A medical professional is concerned that chiropractic adjustments may be linked to the \"pulsing\" sensation in the head and hands.",
-        "Your doctor recommends considering a new primary care physician.",
-        "Your doctor is concerned that your current doctor may not be providing the best guidance for your care.",
+        "Your doctor recommends considering a new primary care physician due to concerns that the current physician may not be providing optimal care.",
         "They suggest seeking a second opinion from a reputable medical professional.",
         "They suggest the medical professional should help determine the cause of the symptoms.",
         "They suggest the medical professional should develop a treatment plan that is evidence-based.",
@@ -2175,7 +2181,6 @@
         "The overuse of antibiotics can cause changes in the gut microbiome.",
         "The doctor emphasized that antibiotics should only be prescribed for a sore throat after a positive strep test.",
         "The individual had a negative strep test.",
-        "The doctor prescribed antibiotics based on the appearance of the throat.",
         "It is possible that the individual may not have had strep throat.",
         "The doctor prescribed antibiotics based on the appearance of the throat.",
         "The doctor wants to reiterate that if someone experiences frequent infections, it is essential to consider the possibility of colonization with streptococcal bacteria.",
@@ -2210,8 +2215,8 @@
         "The doctor states that verifying the diagnosis through lab results is important to ensure accuracy.",
         "Some conditions can cause symptoms similar to those of a urinary tract infection (UTI).",
         "The doctor recommends verifying the UTIs through lab results before considering a referral to a urologist for further evaluation.",
-        "The medical professionals want to discuss the situation further",
-        "The medical professionals aim to explore other possible causes of the recurring infections"
+        "The medical professionals want to discuss the situation further.",
+        "The medical professionals aim to explore other possible causes of the recurring urinary tract infections."
       ]
     },
     {
@@ -2257,7 +2262,7 @@
       "id": "yr3umh_20241101",
       "claims": [
         "The individual spoke to a doctor who is a specialist in Reproductive Psychiatry.",
-        "The doctor assured the individual that the feelings they were experiencing are not uncommon.",
+        "The doctor assured the individual that the feelings they are experiencing are not uncommon.",
         "Your doctor thinks that you may be experiencing symptoms of Premenstrual Dysphoric Disorder (PMDD)",
         "Premenstrual Dysphoric Disorder (PMDD) is a condition that many women struggle with",
         "The doctor recommends considering treatment with a type of medication called an SSRI.",
@@ -2279,7 +2284,7 @@
         "A plain skull X-ray was recommended to determine if there is any metal left in the father's ear from his previous surgery.",
         "A standard procedure can provide an answer in just a minute.",
         "The X-ray can help identify the presence of metal implants in the ear.",
-        "Dr. Alan Austin Scheer performed ear surgery in 2002 that may have involved metal implants.",
+        "Dr. Alan Austin Scheer performed an ear surgery in 2002 that may have involved metal implants.",
         "Some metal implants are compatible with MRI machines.",
         "Obtaining the surgeon's records is helpful to determine the type of implants present."
       ]
@@ -2294,8 +2299,8 @@
         "Low vitamin D levels can lead to higher calcium levels",
         "The body may start taking calcium from bones when vitamin D levels are low",
         "Low vitamin D levels can cause the body to absorb less calcium from food",
-        "Your doctor has prescribed a Vitamin D supplement to improve your Vitamin D levels.",
-        "Your doctor believes the prescribed Vitamin D supplement is safe for you to take as directed."
+        "Your doctor has prescribed the supplement to help improve your Vitamin D levels.",
+        "Your doctor believes it is safe for you to take the supplement as directed."
       ]
     },
     {
@@ -2415,8 +2420,8 @@
       "id": "57g8mz_20241101",
       "claims": [
         "The individual spoke to a doctor.",
-        "The doctor congratulated the individual on taking steps to address drinking habits.",
-        "The doctor mentioned the individual's efforts to improve overall health.",
+        "The doctor congratulated the individual on taking steps to address their drinking habits.",
+        "The doctor mentioned the individual's efforts to improve their overall health.",
         "The healthcare provider attributes the weight loss to a decrease in caloric intake resulting from reduced alcohol consumption.",
         "The doctor recommends scheduling an appointment with a primary care physician for a thorough evaluation.",
         "Your doctor wants to ensure there are no underlying health issues.",
@@ -2441,10 +2446,10 @@
         "EKGs and stress tests have come back negative",
         "The negative results from EKGs and stress tests indicate that the issue is not related to the heart",
         "Your doctor believes there could be other non-cardiac causes of chest pain",
-        "Your doctor believes inflammation could be a cause of chest pain",
-        "Your doctor believes pain in the chest wall could be a cause of chest pain",
-        "Your doctor believes pain in the pleura could be a cause of chest pain",
-        "Your doctor believes pain in the ribs could be a cause of chest pain",
+        "Your doctor mentions inflammation as a possible non-cardiac cause of chest pain",
+        "Your doctor includes pain in the chest wall as a possible non-cardiac cause of chest pain",
+        "Your doctor specifies the pleura as a potential source of non-cardiac chest pain",
+        "Your doctor mentions the ribs as a potential source of non-cardiac chest pain",
         "The text mentions that the symptoms are similar to a condition called precordial catch syndrome.",
         "Precordial catch syndrome is described as often benign and not related to heart problems.",
         "Your doctor wants to reassure you that having already consulted with cardiologists, it's unlikely that your symptoms are related to a heart issue."
@@ -2485,9 +2490,9 @@
         "The individual spoke to their doctor.",
         "The doctor addressed the individual's concerns about getting an MRI or CT scan for their head.",
         "The likelihood of finding something significant on a brain MRI is relatively low given the person's age and symptoms.",
-        "The medical professionals recommend discussing concerns in detail before scheduling any imaging tests.",
-        "Discussing concerns in detail is recommended to determine the best course of action.",
-        "Discussing concerns in detail is recommended to ensure accurate interpretation of any tests.",
+        "The medical professionals recommend discussing concerns in more detail before scheduling any imaging tests.",
+        "Discussing concerns in more detail is said to help determine the best course of action.",
+        "Discussing concerns in more detail is said to ensure that any tests are interpreted accurately.",
         "The sentence states that it is best to schedule an appointment with a doctor to discuss concerns rather than going to the hospital or attempting to schedule a walk-in appointment for imaging tests."
       ]
     },
@@ -2533,7 +2538,7 @@
         "This decrease in Wellbutrin levels may have caused a worsening of depression symptoms.",
         "Your doctor wants to reassure you that the issue caused by the antibiotics is temporary.",
         "Your doctor states that once you finish the antibiotics and your gut bacteria recover, you should start to feel better.",
-        "Your doctor mentions that returning to your baseline is expected once the gut bacteria has had a chance to recover."
+        "Your doctor mentions that returning to your baseline is expected once the gut bacteria have had a chance to recover."
       ]
     },
     {
@@ -2545,9 +2550,7 @@
         "According to the doctor, the process of donating blood to a family member typically takes more than 5 weeks.",
         "According to the doctor, the process of donating blood to a family member can be quite expensive.",
         "The doctor mentioned that having the same blood type is not the only factor in determining blood compatibility.",
-        "The sentence states that having the same blood type is not the only factor in determining compatibility for blood donation between a donor and a recipient.",
-        "The sentence mentions that other antibodies need to be considered when determining compatibility for blood donation between a donor and a recipient.",
-        "The sentence indicates that even if a donor and a recipient have the same blood type, they may not be compatible donors.",
+        "The sentence states that having the same blood type is not the only factor in determining compatibility as other antibodies need to be considered.",
         "The doctor suggests asking about the possibility of directed donation since the father's surgery is still a few weeks away.",
         "The doctor assured that the vaccination status should not be disclosed unless there is a specific local policy that requires it."
       ]
@@ -2563,7 +2566,7 @@
         "Your doctor's plan involves prescribing progesterone tablets to induce a period.",
         "The induced period is intended to allow the endometrial lining to shed.",
         "A follow-up pelvic ultrasound scan is planned to check if the endometrial thickening persists.",
-        "The purpose of this plan is to confirm whether the endometrial thickening decreases after menstruation resumes.",
+        "The purpose of the recheck is to confirm whether the endometrial thickness decreases after menstruation resumes.",
         "The medical professionals want to reassure the patient that there is no cause for concern at this point."
       ]
     },
@@ -2608,7 +2611,7 @@
         "A doctor stated that it is possible the individual might be experiencing postpartum depression (PPD).",
         "The doctor recommends scheduling a visit to discuss potential scenarios and warning signs to look out for.",
         "The doctor recommends scheduling a visit to discuss potential scenarios and warning signs to look out for.",
-        "A doctor suggests informing a trusted family member or friend about one's emotional state to allow for monitoring and support.",
+        "Your doctor suggests informing a trusted family member or friend about your feelings so they can monitor you and provide support when needed.",
         "Loved ones can notice changes in behavior or mood before the individual themselves.",
         "Having someone to check in with regularly can be helpful for an individual's well-being.",
         "The doctor suggests considering talking to a therapist or counselor about how the individual is feeling.",
@@ -2625,7 +2628,7 @@
         "The doctor recommended consulting a pulmonologist to further evaluate the chronic cough.",
         "A pulmonologist is a specialist who deals with lung conditions.",
         "The recommendation was made due to ongoing symptoms and a history of exposure to dust while working at Frito-lay.",
-        "The recommendation was also influenced by the recent instance of coughing up blood.",
+        "The recommendation was made after the individual experienced coughing up blood.",
         "The individual has a history of exposure to dust while working at Frito-Lay.",
         "The individual has experienced ongoing symptoms.",
         "The individual has a recent instance of coughing up blood.",
@@ -2642,7 +2645,7 @@
         "A doctor diagnosed a possible buildup of earwax in the left ear as a potential cause of muffled hearing.",
         "The text mentions that a DIY earwax removal kit is recommended.",
         "The recommendation specifies that the DIY earwax removal kit should only be tried if there is no pain or other ear issues.",
-        "The recommended method to enhance the effectiveness of an earwax removal kit involves soaking the ear with mineral oil, such as olive oil, for approximately one hour prior to rinsing.",
+        "The recommended method for using a DIY earwax removal kit involves soaking the ear with a mineral oil, such as olive oil, for about an hour before rinsing.",
         "If pain is experienced during earwax removal, a doctor's appointment is advised for further evaluation."
       ]
     },
@@ -2728,8 +2731,7 @@
       "claims": [
         "The doctor spoke to the patient to address their concerns about the pain management policy at the hospital where they were treated.",
         "The doctor explained that aspirin is not typically the first choice in emergency departments.",
-        "The doctor mentioned that aspirin has potential side effects, including stomach upset.",
-        "The doctor noted that aspirin can cause bleeding complications.",
+        "The doctor mentioned that aspirin has potential side effects, including stomach upset and bleeding complications.",
         "The hospital's policy of trying non-narcotic pain medication first is not widespread.",
         "The hospital's policy of trying non-narcotic pain medication first exists in some emergency departments.",
         "The hospital's policy of trying non-narcotic pain medication first is more common in areas with high rates of opioid use disorder.",
@@ -2743,8 +2745,8 @@
     {
       "id": "yd8eie_20241101",
       "claims": [
-        "The individual spoke to their doctor about the ultrasound situation.",
-        "The doctor wanted to help clarify the issue with the ultrasound.",
+        "I spoke to your doctor.",
+        "Your doctor wanted to help clarify the situation with my ultrasound.",
         "The issue with visibility during the ultrasound is likely due to the limited depth that the sound waves can penetrate.",
         "In the case of a surface ultrasound, sound waves can only image approximately 3-4 inches beneath the skin.",
         "High BMI can limit the penetration depth of sound waves during an ultrasound, leading to reduced visibility of internal organs.",
@@ -2761,7 +2763,8 @@
       "claims": [
         "A doctor mentioned that the symptoms could be related to a subluxation.",
         "A subluxation is described as a partial dislocation of the shoulder joint.",
-        "The medical professionals recommend considering a visit to the emergency room for an X-ray to confirm the diagnosis of a subluxation and possibly have the joint reset.",
+        "The medical professionals recommend visiting the emergency room for an X-ray to confirm the diagnosis of a subluxation.",
+        "The emergency room visit may involve the possibility of resetting the shoulder joint.",
         "The text states that immediate medical attention at the ER should be sought if numbness, tingling, or poor circulation is experienced in the affected arm.",
         "A blue discoloration in the limb can indicate poor circulation.",
         "A feeling of coldness in the limb can indicate poor circulation."
@@ -2772,7 +2775,7 @@
       "claims": [
         "The doctor mentioned that a concussion may be possible.",
         "The ER might not have done a CT scan initially.",
-        "The reason given for not doing a CT scan was the absence of loss of consciousness.",
+        "The reason given for not performing a CT scan initially was the absence of loss of consciousness.",
         "The ER doctor stated that the patient seemed neurologically okay.",
         "The medical professionals recommend returning to the ER and asking for a CT scan due to persistent symptoms.",
         "A CT scan may not definitively rule out a concussion.",
@@ -2830,7 +2833,7 @@
         "The doctor recommends wearing sunscreen when in direct sunlight",
         "The doctor recommends reapplying sunscreen frequently",
         "A lifeguard is likely to be exposed to some UV light.",
-        "UV light exposure may cause tanning to occur slowly.",
+        "Exposure to UV light may cause tanning to occur slowly.",
         "The approach of using short periods of sun exposure with breaks is safer than intentionally seeking out direct sunlight for extended periods.",
         "A doctor advises against continuing the current method of tanning.",
         "The doctor recommends prioritizing sun protection over tanning."
@@ -2888,8 +2891,7 @@
       "id": "78m0ev_20241101",
       "claims": [
         "The speaker spoke to a doctor.",
-        "The doctor is interested in understanding the speaker's eating habits.",
-        "The doctor is specifically curious about the speaker's avoidance of sugar.",
+        "The doctor expressed an interest in understanding the speaker's eating habits better.",
         "The healthcare provider is interested in understanding the reasons for the avoidance of sugar.",
         "The doctor is asking if the person avoids sweets and treats or also limits other types of food like carbohydrates, bread, and rice.",
         "The doctor wants to understand the user's overall diet better.",
@@ -2925,7 +2927,7 @@
         "The doctor suggests that hyperfocusing on breathing can make the sensation of not being able to take deep enough breaths worse.",
         "The sentence suggests an experiment involving taking deep breaths and assessing the extent of chest expansion.",
         "The sentence states that taking deep breaths will eventually reach a point where one cannot breathe in any deeper.",
-        "The doctor explained that the inability to take a deep breath beyond a certain point is due to the physical limit of the rib cage's expansion.",
+        "The doctor explained that the inability to take a deeper breath beyond a certain point is due to the physical limit of the rib cage's expansion.",
         "Your doctor wants to reassure you that regular breathing is usually enough to get the oxygen you need.",
         "Your doctor wants to reassure you that you don't always need to take the deepest possible breaths."
       ]
@@ -3003,7 +3005,7 @@
         "The medical professionals will need to assess Cedric Jones' knee.",
         "The medical professionals will need to review Cedric Jones' medical history.",
         "The medical professionals will need to determine the best course of action for Cedric Jones.",
-        "The medical professional offers to schedule a follow-up appointment to discuss treatment options if the patient has any questions or concerns."
+        "The medical provider offers to schedule a follow-up appointment to discuss treatment options if the patient has questions or concerns."
       ]
     },
     {
@@ -3031,8 +3033,8 @@
     {
       "id": "za6ysa_20241101",
       "claims": [
-        "The individual spoke to their doctor.",
-        "The doctor wanted to address the individual's concerns about the possibility of diverticulitis.",
+        "I spoke to your doctor.",
+        "Your doctor wanted to address my concerns about the possibility of diverticulitis.",
         "According to the doctor, diverticulitis typically presents with symptoms such as fevers.",
         "According to the doctor, diverticulitis typically presents with symptoms such as chills.",
         "According to the doctor, diverticulitis typically presents with symptoms such as severe abdominal pain.",
@@ -3046,10 +3048,8 @@
       "claims": [
         "The doctor recommended waiting the full 12 hours before taking the next dose of ciprofloxacin.",
         "The doctor recommended waiting the full 12 hours before taking the next dose of ciprofloxacin.",
-        "The patient took the antibiotic at 9:00 AM.",
-        "The current time is 7:30 PM.",
-        "The patient is advised that if they plan on going to bed early tonight, they can take the antibiotic at 7:30 PM.",
-        "The original schedule for the next dose was 9:00 PM.",
+        "The patient took the antibiotic at 9am and is considering taking it at 7:30pm.",
+        "The patient is advised that if they plan on going to bed early tonight, they can take the antibiotic at 7:30pm.",
         "The original schedule for taking ciprofloxacin 500mg is every 12 hours.",
         "The recommendation is to take the next dose of ciprofloxacin at 9:00 PM if possible.",
         "If someone will still be awake at 9:00 PM, they should take the next dose of ciprofloxacin then."
@@ -3110,7 +3110,7 @@
         "The confirmation of adrenal insufficiency may require an ACTH stimulation test if necessary.",
         "The doctor wants to emphasize that without specific tests, it is unclear if the patient has secondary adrenal insufficiency.",
         "Your doctor wants you to be aware of the potential risks associated with long-term steroid use.",
-        "Your doctor mentions the risk of an acute adrenal crisis during periods of illness as a potential risk of long-term steroid use.",
+        "Your doctor specifically mentions the risk of an acute adrenal crisis during periods of illness.",
         "The doctor believes it is essential to confirm whether the patient has adrenal insufficiency."
       ]
     },
@@ -3124,7 +3124,7 @@
         "The effectiveness of combination pills like Aurovela FE 1/20 is 91% with typical use.",
         "The doctor states that pregnancy is possible but highly unlikely.",
         "Your doctor recommends continuing with the daily routine as usual.",
-        "The sentence suggests that a pregnancy test should be taken if the period is late.",
+        "The sentence states that if a period is late, a pregnancy test should be taken at that time.",
         "The doctor mentioned that taking multiple home pregnancy tests before a missed period might not be necessary.",
         "Home pregnancy tests may not accurately detect the pregnancy hormone until later."
       ]
@@ -3159,7 +3159,7 @@
         "An ectopic pregnancy is a serious condition.",
         "An ectopic pregnancy requires prompt treatment.",
         "Your doctor emphasized the importance of erring on the side of caution in situations involving potential health complications.",
-        "The emergency room is described as being equipped to handle any potential complications related to the patient's condition.",
+        "The emergency room is described as being equipped to handle any potential complications.",
         "The text mentions the importance of prioritizing health and getting checked out as soon as possible."
       ]
     },
@@ -3169,7 +3169,7 @@
         "The doctor was unsure about the statement \"they agreed on placement without talking about it first\"",
         "The doctor requested more information about the meaning of the statement \"they agreed on placement without talking about it first\"",
         "Your doctor is deferring to their colleagues in orthopedics for further guidance.",
-        "Your doctor is unsure if there is a difference in management between a bruised bone and a cracked iliac crest.",
+        "Your doctor is unsure if there's a difference in management between a bruised bone and a cracked iliac crest.",
         "The treatment for a bruised bone and a cracked iliac crest is assumed to be similar and nonsurgical.",
         "Their recommendation is to obtain copies of all the X-rays and CT scans done on your brother.",
         "Their recommendation is to obtain copies of the radiology reports done on your brother.",
@@ -3199,7 +3199,7 @@
         "The doctor wanted to clarify the reason behind prescribing amoxicillin for the Group B strep (GBS) found in the urine culture.",
         "According to the doctor, the presence of Group B strep (GBS) in the urine indicates a urinary tract infection.",
         "The doctor believes it is essential to treat the GBS infection now despite the absence of symptoms.",
-        "The doctor's rationale for treating the infection now is to prevent potential complications during pregnancy.",
+        "The doctor considers pregnancy as a key factor in the decision to treat the GBS infection now.",
         "The goal is to prevent potential complications from untreated infection during pregnancy.",
         "Your doctor confirmed that you will receive IV antibiotics during labor as an additional precaution."
       ]
@@ -3244,15 +3244,15 @@
         "The individual spoke to their doctor.",
         "The doctor emphasized the importance of consistently doing physical therapy exercises.",
         "The physical therapy exercises are for both Greater Trochanteric Pain Syndrome (GTPS) and Patellofemoral Pain Syndrome (PFPS).",
-        "The doctor recommended performing these exercises every day.",
+        "The doctor recommended doing these exercises every day.",
         "The doctor mentioned that physical therapy for Greater Trochanteric Pain Syndrome (GTPS) and Patellofemoral Pain Syndrome (PFPS) includes not just stretching but also strengthening exercises.",
         "Your doctor compared the exercises for managing Greater Trochanteric Pain Syndrome (GTPS) and Patellofemoral Pain Syndrome (PFPS) to medicine.",
         "The doctor stated that discontinuing the exercises would reduce their effectiveness in managing pain.",
-        "A physical therapist can review form",
-        "A physical therapist can explain the mechanics behind exercises",
-        "A physical therapist can help understand the goals of exercises",
-        "A physical therapist is a valuable resource for questions or concerns about exercises",
-        "A physical therapist can address difficulty or pain experienced during exercises",
+        "A physical therapist can review form during exercises.",
+        "A physical therapist can explain the mechanics behind exercises.",
+        "A physical therapist can help understand the goals of exercises.",
+        "A physical therapist is a valuable resource for addressing questions or concerns about exercises.",
+        "A physical therapist can assist with difficulty or pain experienced during exercises.",
         "A physical therapist can review an individual's form",
         "A physical therapist can explain the mechanics behind exercises",
         "A physical therapist can help an individual understand their treatment goals",
@@ -3263,10 +3263,10 @@
         "The purpose of the evaluation is to identify any underlying issues contributing to the pain.",
         "The sentence states that evaluating overall movement patterns and joint health can help identify underlying issues contributing to pain.",
         "The doctor suggests asking about the potential role of regenerative treatments like Platelet-Rich Plasma (PRP) therapy.",
-        "The doctor recommends seeking a second opinion if the patient hasn't already done so.",
-        "The doctor mentioned that some individuals may still experience chronic pain even after trying all available treatments.",
+        "The doctor recommends seeking a second opinion if it has not already been obtained.",
+        "The doctor mentioned that some people may still experience chronic pain even after trying all available treatments.",
         "A pain psychologist is recommended to help develop coping strategies and techniques to minimize the stress caused by chronic pain.",
-        "Research has shown that consistent physical therapy can help reduce the severity of chronic pain."
+        "Research has shown that the approach of meeting with a pain psychologist can help reduce the severity of chronic pain."
       ]
     },
     {
@@ -3291,7 +3291,7 @@
         "The doctor reassured the individual that their daughter's situation is not unique.",
         "There have been similar cases in the US where children have received incorrect COVID vaccine doses.",
         "A doctor stated that none of the cases where children received incorrect COVID vaccine doses have resulted in major complications.",
-        "The doctor believes the worst-case scenario for the 2-year-old daughter is a stronger immune response.",
+        "The doctor believes the worst-case scenario for the 2-year-old daughter might involve a stronger immune response.",
         "The stronger immune response could lead to more noticeable side effects.",
         "The doctor emphasized that the incident of a 2 year old receiving a bivalent Pfizer vaccine meant for 12 to 17 year olds is not expected to cause any lasting harm.",
         "A 2-year-old daughter received a bivalent Pfizer vaccine intended for individuals aged 12 to 17 years.",
@@ -3370,7 +3370,7 @@
       "id": "6qqpv8_20241101",
       "claims": [
         "The doctor mentioned that it is difficult to predict the chances of a complete recovery for the patient.",
-        "A person can continue recovering from a stroke up to one year after the event.",
+        "A person can continue recovering from a stroke up to a year after the event.",
         "The doctor reassured that there are no proven supplements that can increase cognitive recovery after a stroke.",
         "The doctor stated that there are no proven supplements that can enhance cognitive recovery after a stroke.",
         "Rehabilitation therapy is crucial for recovery after a stroke.",
@@ -3394,7 +3394,7 @@
         "Constipation can sometimes cause bloating.",
         "Constipation can sometimes cause pressure.",
         "Constipation can sometimes cause cramps.",
-        "The cramps described by the patient are similar to those caused by constipation.",
+        "The cramps described are similar to those caused by constipation.",
         "The doctor wants the patient to consider whether she has been experiencing issues with constipation lately.",
         "The doctor believes that speaking with someone about managing anxiety could be helpful for the patient."
       ]
@@ -3407,7 +3407,7 @@
         "The doctor states that it is not unusual for the symptoms to take a few days to improve.",
         "The doctor mentioned that some medications can cause issues if they leak out of the vein during IV administration.",
         "The doctor stated that there is no indication that the mentioned medications leaked out of the vein during IV administration for the patient.",
-        "The statement suggests that severe reactions to IV medication infiltration would typically be noticeable within a timeframe that has already passed."
+        "The statement suggests that severe reactions to IV medication infiltration would typically manifest noticeable symptoms."
       ]
     },
     {
@@ -3425,7 +3425,7 @@
         "The doctor lists music, movies, and spending time with family and friends as examples of things the individual used to love.",
         "The sentence encourages the individual to keep moving forward.",
         "The sentence mentions that with the right support and treatment, progress can continue.",
-        "The sentence states that finding one's passion for life again is possible through the right support and treatment."
+        "The sentence states that finding one's passion for life again is possible through support and treatment."
       ]
     },
     {
@@ -3471,8 +3471,8 @@
         "The doctor addressed the speaker's concerns about the current state of their finger.",
         "The medical professionals believe the antibiotics prescribed for the animal bite are appropriate for the patient's condition.",
         "The doctor mentioned that antibiotics might not be sufficient to treat a deep abscess.",
-        "The doctor indicated that further treatment could involve draining the pus.",
-        "The doctor suggested the possibility of needing to return for additional treatment if a deep abscess is present.",
+        "The doctor indicated that further treatment may be necessary if there is a deep abscess.",
+        "The potential further treatment for a deep abscess could include draining the pus.",
         "The medical professionals instructed the patient to gently straighten her swollen finger using her opposite hand.",
         "The doctor instructed the patient to gently straighten their swollen finger using their opposite hand.",
         "The doctor mentioned that if straightening the finger causes severe pain on the underside (palm side), the patient should inform them.",
@@ -3483,7 +3483,8 @@
     {
       "id": "5vmpc1_20241101",
       "claims": [
-        "The individual spoke to a doctor who addressed their concerns about the possibility of lung cancer appearing in chest x-rays.",
+        "The individual spoke to a doctor.",
+        "The doctor addressed concerns about the possibility of lung cancer appearing in chest x-rays.",
         "Chest x-rays can detect small nodules.",
         "Chest x-rays often require further evaluation with a CT scan to determine the nature of detected nodules.",
         "Chest x-rays are not highly sensitive and may miss many tumors.",
@@ -3497,8 +3498,8 @@
       "id": "xgxkvc_20241101",
       "claims": [
         "A 29-year-old female experienced a headache that worsened when standing or walking and improved when lying down.",
-        "The healthcare provider diagnosed the headache as potentially related to the epidural, specifically a post-dural puncture headache.",
-        "The headache was associated with the timing of the symptoms, which began after the epidural was administered.",
+        "The healthcare provider identified the headache as potentially related to the epidural.",
+        "The healthcare provider mentioned a post-dural puncture headache as a possible diagnosis.",
         "Headaches are common in new mothers due to hormonal changes, dehydration, and lack of sleep.",
         "Your doctor recommends drinking plenty of water to help alleviate the headache.",
         "The doctor suggests trying caffeine as a potential method to help alleviate the pain.",
@@ -3508,13 +3509,12 @@
     {
       "id": "6nuvqm_20241101",
       "claims": [
-        "I spoke to your doctor.",
-        "Your doctor wanted to explain the correlation between the exercises I've been doing during my visits and how they relate to my spinal cord.",
-        "The nerves that control the muscles used in exercises such as walking on the toes and the balls of the feet, as well as pushing, pulling, and resisting with the arms and knees, run through the spinal cord.",
+        "I spoke to a doctor who explained the correlation between the exercises I have been doing during my visits and how they relate to my spinal cord.",
+        "The nerves that control the muscles used in exercises such as walking on the toes, the balls of the feet, and pushing, pulling, and resisting with the arms and knees run through the spinal cord.",
         "The purpose of the exercises is to check for damage to nerves that control muscles used in walking on toes, balls of feet, and arm/knee movements.",
         "These nerves run through the spinal cord.",
         "Damage to these nerves could cause symptoms such as weakness, numbness, or problems with bladder and bowel control.",
-        "Your doctor emphasizes that the results of the exercises are an important factor in determining the best course of action for your diagnosis and treatment plan."
+        "Your doctor emphasizes that the results of the exercises are an important factor in determining the best course of action for the diagnosis and treatment plan."
       ]
     },
     {
@@ -3606,7 +3606,7 @@
         "The antibiotics mentioned may not be effective even if the infection is bacterial.",
         "The sentence mentions that precautions such as wearing a mask will be taken.",
         "The sentence states that the risk of passing on the illness to the sister and her newborn is extremely low.",
-        "The sentence compares the risk of passing on the illness to the risk of COVID transmission, indicating that the latter is higher.",
+        "The sentence compares the risk of passing on the illness to the risk of COVID transmission, indicating that the risk of COVID transmission is higher.",
         "Your doctor advises against taking the antibiotics.",
         "Your doctor suggests that you focus on taking precautions to minimize the risk of transmission when you arrive."
       ]
@@ -3620,7 +3620,7 @@
         "The doctor indicated that the speaker likely has a common cold.",
         "A medical professional concluded that the individual does not have the flu but rather a common cold.",
         "One of the key signs of the flu is a sudden onset of fever.",
-        "The individual mentioned they do not have a fever.",
+        "The individual mentioned not having a fever.",
         "The flu season is still early.",
         "A large number of flu cases have not been seen yet.",
         "The doctor thinks it's less likely that the person has the flu."
@@ -3633,7 +3633,8 @@
         "The doctor recognized the significant impact of the symptoms on the individual's daily life.",
         "A medical professional suggested that surgery might be a possible option to consider.",
         "The suggestion of surgery was based on the information provided about the patient's unbearable pain.",
-        "The suggestion of surgery was also based on the patient's issues with passing stools and urinating.",
+        "The suggestion of surgery was also based on the patient's issues with passing stools.",
+        "The suggestion of surgery was also based on the patient's issues with urinating when sneezing or coughing.",
         "The doctor mentioned that the initial impression regarding the need for surgery is not final.",
         "The doctor stated that a thorough examination and evaluation by the primary care physician are necessary to determine the best course of action.",
         "The text recommends discussing the possibility of surgery with the family doctor during the upcoming appointment on Wednesday."
@@ -3642,13 +3643,16 @@
     {
       "id": "51984l_20241101",
       "claims": [
-        "A doctor expressed concern about potential complications from a kidney stone.",
+        "The individual spoke to their doctor.",
+        "The doctor is concerned about potential complications from the kidney stone.",
+        "The two main risks mentioned by the doctor are infection and blockage of the ureter.",
+        "The doctor indicated that these complications can have serious consequences if left untreated.",
         "The two main risks associated with kidney stones are infection and blockage of the ureter.",
         "Blockage of the ureter can have serious consequences if left untreated.",
         "Infection can have serious consequences if left untreated.",
         "Some kidney stones can pass on their own.",
         "The ability of a kidney stone to pass on its own depends on the size of the stone.",
-        "The doctor strongly recommends returning to the ER for further evaluation and treatment due to severe pain and vomiting.",
+        "The doctor recommends returning to the ER for further evaluation and treatment due to severe pain and vomiting.",
         "The medical professionals recommend monitoring and addressing the condition to prevent potential complications."
       ]
     },
@@ -3681,7 +3685,7 @@
       "id": "zgpokw_20241101",
       "claims": [
         "The individual spoke to their doctor about concerns regarding chest X-ray findings indicating COPD.",
-        "The doctor wanted to reassure the individual about their concerns related to the chest X-ray findings suggesting COPD.",
+        "The doctor wanted to reassure the individual about their concerns related to the chest X-ray findings indicating COPD.",
         "According to the doctor, hyperinflation seen on the X-ray is not a specific indicator of COPD.",
         "According to the doctor, hyperinflation seen on the X-ray can be caused by various factors.",
         "Given your age, your doctor is confident that you do not have COPD.",
@@ -3737,8 +3741,8 @@
         "The individual spoke to a doctor about their concerns regarding treatment options for gallbladder sludge and gallstones.",
         "According to the doctor, the primary reason for recommending gallbladder removal is to alleviate abdominal pain caused by gallstones and sludge.",
         "Your doctor mentioned that medications are not very effective in dissolving gallstones.",
-        "Your doctor mentioned that medications for dissolving gallstones would require long-term use.",
-        "Your doctor mentioned that stopping medications for dissolving gallstones would likely lead to the formation of new sludge and stones.",
+        "Your doctor mentioned that medications for gallstones would require long-term use.",
+        "Your doctor mentioned that stopping medications for gallstones would likely lead to the formation of new sludge and stones.",
         "The doctor stated that supplements like LV-GB complex are not a proven solution for improving bile flow or addressing gallbladder issues.",
         "Your doctor's primary concern is to provide a treatment that will effectively manage your symptoms and prevent future complications."
       ]
@@ -3788,8 +3792,7 @@
     {
       "id": "zn301q_20241101",
       "claims": [
-        "The speaker spoke to their doctor.",
-        "The doctor wanted to clarify the differences between Neosporin, polysporin, and the flu shot.",
+        "The speaker spoke to their doctor to clarify the differences between Neosporin, polysporin, and the flu shot.",
         "According to your doctor, Neosporin contains three antibiotics: neomycin, polymyxin B, and bacitracin.",
         "According to your doctor, polysporin contains only polymyxin B and bacitracin.",
         "Neosporin contains three antibiotics: neomycin, polymyxin B, and bacitracin.",
@@ -3831,8 +3834,8 @@
         "Your doctor mentioned you are experiencing balance issues",
         "Your doctor mentioned you are experiencing hand shaking",
         "Your doctor mentioned you are experiencing a shuffle in your walk",
-        "Your doctor indicated these symptoms are undiagnosed",
-        "Your doctor stated these symptoms warrant further evaluation",
+        "Your doctor indicated that these symptoms are undiagnosed",
+        "Your doctor stated that these symptoms warrant further evaluation",
         "A neurologist is recommended to consult with to determine the cause of the issues given the family history and symptoms.",
         "The medical professionals reassured the patient that there is no reason not to see a specialist.",
         "The medical professionals advised the patient that it is always better to err on the side of caution when it comes to their health."
@@ -3875,9 +3878,7 @@
         "The next step will involve a referral to a urologist.",
         "The course of action for treating the solid left renal mass will depend on the size and location of the mass.",
         "The course of action for treating the solid left renal mass may involve removing part or all of the kidney.",
-        "A doctor recommends a follow-up exam to rule out any additional tumors.",
-        "The doctor thinks the liver and ovary findings may not be significant.",
-        "A follow-up exam is recommended to rule out additional tumors related to the liver and ovary findings.",
+        "A doctor recommends a follow-up exam to rule out any additional tumors related to the liver and ovary findings.",
         "A sonogram has been suggested for further characterization of the solid left renal mass.",
         "The doctor will likely discuss the sonogram and its findings in more detail with the patient."
       ]
@@ -3885,7 +3886,7 @@
     {
       "id": "xiaqjn_20241101",
       "claims": [
-        "The doctor emphasized the importance of discussing concerns with the patient's parents or guardian before considering a visit to the emergency room.",
+        "A doctor spoke to the patient and emphasized the importance of discussing concerns with a parent or guardian before considering a visit to the emergency room.",
         "Constipation is a common issue.",
         "Constipation can often be managed with the help of a primary care doctor (GP).",
         "Your doctor suggested that your GP can provide guidance on dietary changes.",
@@ -3904,7 +3905,7 @@
       "claims": [
         "The speaker spoke to a doctor.",
         "The doctor wanted to clarify the differences between a colonic and a colonoscopy.",
-        "Your doctor is curious about what you hope to achieve with either procedure.",
+        "Your doctor is curious about your goals regarding the procedures.",
         "A colonic is described as a colon cleanse.",
         "A colonic is not a medically proven treatment for any specific condition.",
         "A colonoscopy is a procedure where a doctor uses a camera to visually examine the colon.",
@@ -3935,8 +3936,8 @@
       "id": "yocv4v_20241101",
       "claims": [
         "Some of the skin nerves were affected during the incision.",
-        "The nerve damage is described as a common occurrence.",
-        "The nerve damage is considered normal for this type of surgery.",
+        "The nerve damage caused by the incision is a common occurrence.",
+        "The nerve damage caused by the incision is considered normal for this type of surgery.",
         "The doctor mentioned that the sensation in the area may return to normal over time.",
         "The doctor mentioned that it is also possible that the sensation may remain slightly numb.",
         "Your doctor recommends following up with a urologist to get more specific information about the numbness experienced after the surgery.",
@@ -3986,7 +3987,7 @@
         "The doctor estimates that the father may have less than six months left.",
         "The doctor indicates a higher likelihood that the father has less than three months left.",
         "The doctor mentions a possibility that the father has less than one month left.",
-        "The doctor stated that the patient's low cell counts are not the main issue affecting his condition.",
+        "The doctor stated that the patient's low cell counts are not the primary issue affecting his condition.",
         "The patient is at risk for infections due to low cell counts.",
         "The doctor strongly advises that the father take care of any necessary arrangements as soon as possible.",
         "The doctor stated that the father's condition may become increasingly unpredictable.",
@@ -4004,7 +4005,7 @@
         "The medical professionals inquired about the severity of the patient's anemia.",
         "The medical professionals requested specific information regarding the patient's blood work results related to anemia.",
         "The doctor wants to know who reported that the patient had lost 4 liters of blood.",
-        "The doctor wants to know the method used to determine the amount of blood lost.",
+        "The doctor wants to know the method used to determine that the patient had lost 4 liters of blood.",
         "Your doctor agrees that the gut is a common place to look for the cause of anemia when there are no other obvious explanations.",
         "The doctor recommends proceeding with the colonoscopy as planned.",
         "The colonoscopy is recommended to provide more information about the cause of the mother's anemia.",
@@ -4024,33 +4025,31 @@
         "The doctor mentioned potential issues such as infertility.",
         "The doctor mentioned potential issues such as mood swings.",
         "The doctor mentioned potential issues such as problems related to weight gain.",
-        "The doctor mentioned problems related to weight gain include snoring.",
-        "The doctor mentioned possible sleep apnea as a potential issue.",
+        "The doctor mentioned potential issues such as snoring.",
+        "The doctor mentioned potential issues such as possible sleep apnea.",
         "The doctor emphasized the importance of considering the long-term effects of using anabolic steroids, particularly when the substances are stopped.",
         "The doctor's primary concern is that Addison's disease may not significantly complicate things if well-treated.",
         "The doctor's primary concern is that Addison's disease could become an issue when the anabolic cycle is stopped.",
-        "The medical professional strongly advises the partner to consult with a medical professional",
-        "The medical professional recommends consulting an endocrinologist ideally",
-        "The medical professional advises discussing potential risks and consequences of using anabolic steroids",
-        "The medical professional emphasizes the need for consultation due to the partner's pre-existing condition of Addison's disease",
+        "The medical professional strongly advises the partner to consult with a medical professional, ideally their endocrinologist, to discuss the potential risks and consequences of using anabolic steroids.",
+        "The medical professional emphasizes the importance of considering the potential risks and consequences of using anabolic steroids, especially given the partner's pre-existing condition of Addison's disease.",
         "It is essential to have an open and honest conversation with a healthcare professional to ensure safety and well-being."
       ]
     },
     {
       "id": "x4t6uc_20241101",
       "claims": [
-        "The doctor spoke to the patient.",
-        "The doctor wanted to address the patient's issues with their eyes and breathing.",
+        "The doctor addressed the issues the patient is experiencing with their eyes and breathing.",
         "The doctor believes anxiety may be playing a role in the patient's symptoms.",
         "The doctor suggests discussing the symptoms further with a mental health provider.",
+        "The doctor recommends consulting with a mental health provider in addition to the patient's current doctor.",
         "Regarding your eyes, your doctor explained that it is normal for people to blink less often when they are concentrating.",
         "The tear film evaporates more quickly in dry environments.",
         "The tear film evaporates more quickly when using fans or air conditioners.",
-        "The doctor believes the patient is caught in a cycle where concentrating leads to noticing dryness, which in turn causes further focus on the issue, exacerbating the problem.",
+        "The doctor believes the patient is caught in a cycle where concentration leads to noticing dryness, which in turn causes further focus on the issue, exacerbating the problem.",
         "The doctor recommends using artificial tears regularly",
         "The doctor suggests using artificial tears four times a day",
         "The doctor advises using artificial tears for a short period of two weeks",
-        "The doctor suggests trying Soothe XP as a treatment.",
+        "The doctor suggests trying Soothe XP as a recommended treatment.",
         "The healthcare provider emphasizes the importance of addressing anxiety.",
         "[Your Name] spoke to the patient's doctor."
       ]
@@ -4073,7 +4072,7 @@
         "A doctor recommends discussing concerns openly with a dermatologist",
         "A dermatologist can provide more detailed explanations",
         "A dermatologist can offer reassurance",
-        "The sentence states that individuals with private insurance may request a biopsy if it provides greater peace of mind.",
+        "The sentence states that if someone has private insurance, they may be able to request a biopsy if it provides greater peace of mind.",
         "The doctor encourages the patient to trust the expertise of the dermatologist.",
         "The doctor encourages the patient to work collaboratively with the dermatologist.",
         "The doctor encourages the patient to ensure their skin health."
@@ -4125,8 +4124,9 @@
         "The doctor spoke to the patient.",
         "The doctor understands that the news of the referral to an oncologist can be alarming.",
         "The doctor acknowledges that the family's medical history includes a history of cancer in the mother.",
-        "The doctor mentioned that it's possible the oncologist is being consulted for conditions that may not necessarily be cancer.",
-        "The doctor mentioned that the oncologist is being consulted for conditions that still require their expertise.",
+        "The doctor mentioned that it is possible for an oncologist to be consulted for conditions that may not necessarily be cancer.",
+        "The doctor indicated that some conditions requiring an oncologist's expertise do not necessarily involve cancer.",
+        "The doctor provided the example of paraproteinaemia as a condition that may require the expertise of an oncologist or haematologist.",
         "A paraproteinaemia is a condition that requires monitoring by a specialist such as an oncologist or haematologist.",
         "The doctor reassured the patient that the referral to the oncologist is likely a precautionary measure.",
         "The doctor mentioned that the referral is intended to investigate issues with the patient's father's blood work.",
@@ -4140,7 +4140,7 @@
         "The doctor wanted to address the individual's concerns.",
         "The doctor was referring to the reaction the individual experienced during twilight sedation.",
         "According to the doctor, anesthesia can cause reactions similar to the one described, including violent outbursts and loss of impulse control.",
-        "Your doctor wants to reassure you that the reaction experienced during twilight sedation does not necessarily indicate a hidden violent side.",
+        "Your doctor wants to reassure you that the reaction you experienced during twilight sedation does not necessarily indicate you have a hidden violent side.",
         "Your doctor suggests that the experience could be an opportunity to explore underlying emotions or issues that may have contributed to the reaction.",
         "The text recommends considering counseling as a way to process feelings and work through challenges."
       ]
@@ -4151,9 +4151,9 @@
         "The doctor expressed concern about the symptoms experienced after inhaling motorcycle exhaust fumes.",
         "The doctor believes the symptoms of headaches and muscle twitching are more likely caused by carbon monoxide poisoning rather than benzene exposure.",
         "Your doctor recommends visiting the emergency room (ER) to have carbon monoxide levels checked as soon as possible.",
-        "High levels of carbon monoxide in the body can cause headaches",
-        "High levels of carbon monoxide in the body can cause lethargy",
-        "High levels of carbon monoxide in the body can cause impaired functioning",
+        "Carbon monoxide poisoning can cause headaches",
+        "Carbon monoxide poisoning can cause lethargy",
+        "Carbon monoxide poisoning can cause impaired functioning",
         "The treatment at the ER will involve breathing 100% pure oxygen for at least an hour.",
         "The treatment at the ER will continue until carbon monoxide levels in the body are less than 10%.",
         "A doctor may recommend a CAT scan to rule out cerebral edema caused by poisoning.",
@@ -4171,8 +4171,8 @@
         "According to your doctor, patients in the ICU may have misconceptions about their surroundings and medical interventions.",
         "In some cases, patients may misinterpret medical interventions as inappropriate contact.",
         "Your doctor suspects the sensation described as Vaseline being applied to the buttocks might be related to a medical intervention.",
-        "The medical intervention in question could involve cleaning up after a bowel movement.",
-        "The medical intervention in question could involve applying skin cream to an irritated area.",
+        "Your doctor suggests the sensation could be related to cleaning up after a bowel movement.",
+        "Your doctor suggests the sensation could be related to applying skin cream to an irritated area.",
         "The doctor mentioned that the sensation described is more likely explained by a medical intervention related to the hospitalization for an allergic reaction.",
         "Your doctor wants to emphasize that they are not dismissing your concerns.",
         "Your doctor wants to emphasize that they are not minimizing your experience."
@@ -4213,7 +4213,7 @@
       "claims": [
         "A doctor addressed concerns about statins affecting mood.",
         "Statins have been reported in rare cases to cause depression.",
-        "The doctor mentioned has not personally observed statins causing depression in their practice.",
+        "The practice of the doctor mentioned did not observe statins causing depression in their personal experience.",
         "They would like to explore other possible reasons for your low mood before attributing it to the statin.",
         "The doctor is open to the possibility that the statin might be contributing to the symptoms.",
         "A doctor suggests temporarily stopping a statin or switching to a different lipid-lowering medication as a test to determine if the statin is impacting mood.",
@@ -4237,9 +4237,9 @@
         "Extracorporeal Shock Wave Therapy is recommended for plantar fasciitis treatment.",
         "Local anesthesia might be more suitable if needed for the treatment.",
         "Conservative treatments are recommended to alleviate symptoms.",
-        "Stretching calves regularly is suggested as part of conservative treatment.",
-        "Massaging feet with hands or a golf ball is recommended as part of conservative treatment.",
-        "Taking it easy on activities that trigger symptoms, such as running, is advised until symptoms are under control.",
+        "Stretching calves regularly is suggested as a conservative treatment.",
+        "Massaging feet with hands or a golf ball is suggested as a conservative treatment.",
+        "Taking it easy on activities that trigger symptoms, such as running, is recommended until symptoms are under control.",
         "Icing is recommended for comfort.",
         "NSAIDs are suggested to be used sparingly when needed.",
         "The sentence suggests trying icing for comfort.",
@@ -4272,7 +4272,7 @@
         "A contrast dye is injected through the IV during a cardiac CT scan.",
         "The contrast dye is used to create clear images of the heart during the CT scan.",
         "A contrast dye is injected through an IV in the arm during a cardiac CT scan.",
-        "The contrast dye aids in producing clear images of the heart during the CT scan.",
+        "The contrast dye helps create clear images of the heart during the CT scan.",
         "A cardiac CTA provides detailed pictures of the coronary anatomy.",
         "A cardiac CTA helps identify blockages in the coronary arteries.",
         "A cardiac CTA helps identify significant narrowing of the arteries.",
@@ -4307,7 +4307,7 @@
         "The medical professional indicated that the knee is expected to remain a weak area for the individual.",
         "The sentence mentions monitoring the knee for signs of inflammation.",
         "The sentence lists warmth, redness, and swelling as potential signs of inflammation.",
-        "The sentence states that inflammation could be related to lupus."
+        "The sentence indicates that inflammation could be related to lupus."
       ]
     },
     {
@@ -4337,7 +4337,7 @@
         "The doctor mentioned that the individual is consuming a significant amount of water, specifically 3-4 liters per day.",
         "The doctor noted that the individual is urinating frequently, with a frequency of 12-15 times a day.",
         "The doctor suggested investigating further to rule out underlying conditions such as diabetes.",
-        "Your doctor did not express concern regarding the user's masturbation habits in the given context.",
+        "Your doctor did not express concern about the user's masturbation habits in the given context.",
         "A doctor recommended considering a check-up to ensure there isn't an underlying issue contributing to the symptoms."
       ]
     },
@@ -4386,7 +4386,7 @@
         "Coughing can last for several days to weeks.",
         "The doctor is more concerned with symptoms like stridor and difficulty breathing.",
         "Stridor and difficulty breathing are the primary reasons for using steroids and epinephrine.",
-        "The doctor states that further treatment is unlikely to make a significant difference if the child is not experiencing symptoms like stridor and difficulty breathing.",
+        "The doctor states that further treatment is unlikely to make a significant difference if the son is not experiencing symptoms like stridor and difficulty breathing.",
         "The doctor recommends bringing the son in for an evaluation if the parent is uncomfortable with the son's current condition or has concerns.",
         "The doctor recommends erring on the side of caution to ensure the son's safety."
       ]
@@ -4405,7 +4405,7 @@
         "The doctor mentioned that without a physical examination, it is difficult to provide a more detailed assessment of the situation.",
         "The doctor recommends further evaluation to determine the cause of the patient's symptoms.",
         "The patient has an upcoming appointment at Mayo Clinic to discuss the removal of the cochlear implant.",
-        "The patient has a sleep study scheduled for November.",
+        "A sleep study is scheduled for November.",
         "The doctor's response states that it is not intended to replace the advice or diagnosis from specialists."
       ]
     },
@@ -4413,7 +4413,7 @@
       "id": "xfvp24_20241101",
       "claims": [
         "The doctor expressed condolences for the difficult situation the user and their mother are facing.",
-        "The doctors understand the frustration and desperation associated with not knowing the cause of the patient's illness.",
+        "The doctor understands the frustration and desperation associated with not knowing the cause of the illness.",
         "Your doctor has reviewed the extensive testing and treatments your mother has undergone.",
         "Your doctor has reviewed the checks for common and uncommon infections.",
         "Your doctor has reviewed the imaging studies.",
@@ -4477,9 +4477,9 @@
         "The doctor suggested exploring options that can provide remote monitoring and alerts.",
         "The doctor emphasized the importance of discussing the father's goals of care with him.",
         "The text states that given his advanced stage of COPD, open conversations about end-of-life plans are crucial.",
-        "The text mentions that end-of-life plans should include discussions about the individual's wishes regarding CPR.",
-        "The text indicates that end-of-life plans should involve considerations of the individual's preferences regarding intubation.",
-        "The text suggests that end-of-life plans should address the individual's wishes concerning medication.",
+        "The text mentions that these conversations should include discussing the individual's wishes regarding CPR.",
+        "The text indicates that discussions about intubation are part of the recommended end-of-life planning.",
+        "The text highlights that medication preferences should be addressed as part of end-of-life planning.",
         "The doctor mentioned considering hospice and palliative care options if the father does not want any further interventions.",
         "The doctor noted that if the father is mentally sound and does not want to use oxygen continuously, it is essential to respect his decision.",
         "The doctor encourages the user and their sister to have conversations with their father to ensure his wishes are respected.",
