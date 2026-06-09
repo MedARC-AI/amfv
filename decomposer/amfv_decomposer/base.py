@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from abc import ABC
+from concurrent.futures import ThreadPoolExecutor
 
 _nlp = None
 _SKIP_PREFIXES = ("facts:", "here are", "the following", "note:", "based on")
@@ -86,4 +87,5 @@ class BaseDecomposer(ABC):
     def decompose_batch(
         self, records: list[dict], text_key: str = "response"
     ) -> list[list[str]]:
-        return [self.decompose(r[text_key]) for r in records]
+        with ThreadPoolExecutor() as pool:
+            return list(pool.map(lambda r: self.decompose(r[text_key]), records))

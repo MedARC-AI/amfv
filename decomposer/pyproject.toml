@@ -7,7 +7,11 @@ dependencies = [
     "openai>=1.0",
     "spacy>=3.8,<3.9",
     "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
-    # VeriScore-original only (transformers + peft + bitsandbytes)
+]
+
+[project.optional-dependencies]
+# Required only for VeriScoreOriginalDecomposer: pip install -e ".[hf]"
+hf = [
     "peft>=0.10",
     "bitsandbytes>=0.43",
     "accelerate>=0.27",
