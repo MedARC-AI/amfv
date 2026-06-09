@@ -1,17 +1,12 @@
-"""HuggingFace inference client for PEFT/LoRA models (transformers + bitsandbytes)."""
+"""HuggingFace inference client for PEFT/LoRA models (transformers + bitsandbytes).
+
+Requires the [hf] optional dependencies: pip install -e ".[hf]"
+Imports are lazy so this module can be imported without peft/bitsandbytes installed.
+"""
 
 from __future__ import annotations
 
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, pipeline
-from peft import PeftModel
-
 _pipelines: dict[str, object] = {}
-
-_BNB_CONFIG = BitsAndBytesConfig(
-    load_in_4bit=True,
-    bnb_4bit_compute_dtype=torch.float16,
-)
 
 # Standard base for SYX/mistral_based_claim_extractor
 # (adapter_config.json references an unsloth repo that is no longer accessible)
@@ -20,9 +15,17 @@ _BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
 
 def get_pipeline(adapter_id: str):
     if adapter_id not in _pipelines:
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, pipeline
+        from peft import PeftModel
+
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.float16,
+        )
         base = AutoModelForCausalLM.from_pretrained(
             _BASE_MODEL,
-            quantization_config=_BNB_CONFIG,
+            quantization_config=bnb_config,
             device_map="auto",
         )
         model = PeftModel.from_pretrained(base, adapter_id)
