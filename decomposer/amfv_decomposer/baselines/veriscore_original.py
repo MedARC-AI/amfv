@@ -35,6 +35,8 @@ _ALPACA_TEMPLATE = (
 class VeriScoreOriginalDecomposer(BaseDecomposer):
     """VeriScore with its original fine-tuned Mistral-7B backbone (PEFT + 4-bit)."""
 
+    default_context_key = "question"  # prepended to sliding window for QA tasks
+
     def decompose(self, text: str, context: str = "") -> list[str]:
         sentences = split_sentences(text)
         if not sentences:
@@ -43,6 +45,8 @@ class VeriScoreOriginalDecomposer(BaseDecomposer):
         prompts = []
         for i in range(len(sentences)):
             snippet, plain_sent = sliding_window(sentences, i)
+            if context:
+                snippet = f"{context} {snippet}"
             prompts.append(
                 _ALPACA_TEMPLATE.format(
                     instruction=_INSTRUCTION,

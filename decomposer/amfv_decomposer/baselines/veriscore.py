@@ -25,6 +25,8 @@ _SYSTEM = (
 class VeriScoreDecomposer(BaseDecomposer):
     """Sliding-window decomposer: 3 sentences before + target + 1 sentence after."""
 
+    default_context_key = "question"  # prepended to sliding window for QA tasks
+
     def decompose(self, text: str, context: str = "") -> list[str]:
         sentences = split_sentences(text)
         if not sentences:
@@ -33,6 +35,10 @@ class VeriScoreDecomposer(BaseDecomposer):
         messages_batch = []
         for i in range(len(sentences)):
             snippet, plain_sent = sliding_window(sentences, i)
+            # VeriScore (Song et al. 2024): "For QA tasks, we always prepend
+            # the question to the sliding window."
+            if context:
+                snippet = f"{context} {snippet}"
             user_content = (
                 f"Text: {snippet}\n"
                 f"Sentence to be focused on: {plain_sent}\n"

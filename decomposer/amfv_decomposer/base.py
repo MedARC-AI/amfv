@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from abc import ABC
+from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 
 _nlp = None
@@ -52,12 +52,12 @@ def sliding_window(
     context_after = " ".join(sentences[i + 1:i + 1 + after])
 
     marked = f"<SOS>{sentence}<EOS>"
+    snippet = f"{context_before} {marked} {context_after}".strip()
 
-    if len(sentences) > 5:
-        lead = sentences[0]
-        snippet = f"{lead} {context_before} {marked} {context_after}".strip()
-    else:
-        snippet = f"{context_before} {marked} {context_after}".strip()
+    # Prepend lead sentence for grounding in long texts, but only when it is
+    # not already inside the context window (i.e. when i > before).
+    if len(sentences) > 5 and i > before:
+        snippet = f"{sentences[0]} {snippet}"
 
     return snippet, sentence
 
@@ -79,11 +79,25 @@ def parse_claims(text: str) -> list[str]:
 
 
 class BaseDecomposer(ABC):
-    def decompose(self, text: str, context: str = "") -> list[str]:
-        raise NotImplementedError
+    # Subclasses set this to the record field that carries context (e.g. "question").
+    # None means the method is context-free by design (FActScore).
+    default_context_key: str | None = None
+
+    @abstractmethod
+    def decompose(self, text: str, context: str = "") -> list[str]: ...
 
     def decompose_batch(
-        self, records: list[dict], text_key: str = "response"
+        self,
+        records: list[dict],
+        text_key: str = "response",
+        context_key: str | None = None,
     ) -> list[list[str]]:
+        # Explicit argument wins; fall back to the class-level default.
+        effective_key = context_key if context_key is not None else self.default_context_key
+
+        def _run(r: dict) -> list[str]:
+            context = r.get(effective_key, "") if effective_key else ""
+            return self.decompose(r[text_key], context=context)
+
         with ThreadPoolExecutor() as pool:
-            return list(pool.map(lambda r: self.decompose(r[text_key]), records))
+            return list(pool.map(_run, records))

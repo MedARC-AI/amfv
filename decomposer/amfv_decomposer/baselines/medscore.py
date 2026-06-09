@@ -79,12 +79,18 @@ Facts:
 class MedScoreDecomposer(BaseDecomposer):
     """Medical-adapted FActScore with context-aware few-shot examples."""
 
+    default_context_key = "question"  # combined with answer text as full context
+
     def decompose(self, text: str, context: str = "") -> list[str]:
         sentences = split_sentences(text)
         if not sentences:
             return []
 
-        full_context = context if context else text
+        # MedScore (Huang et al. 2025): "use the answer itself as the answer
+        # context, and combine its corresponding user question and the question
+        # context as the full question context."
+        # When a question is passed as context, prepend it to the answer text.
+        full_context = f"{context}\n{text}" if context else text
 
         messages_batch = [
             [{"role": "user", "content": (

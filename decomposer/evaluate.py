@@ -79,6 +79,13 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=Path("results"))
     parser.add_argument("--max-records", type=int, default=None, dest="max_records")
     parser.add_argument("--text-key", default="response", dest="text_key")
+    parser.add_argument(
+        "--context-key",
+        default=None,
+        dest="context_key",
+        help="Record field to use as context (e.g. 'question'). "
+             "Used by VeriScore (prepended to sliding window) and MedScore (prepended to answer).",
+    )
     args = parser.parse_args()
 
     records = load_jsonl(args.data)
@@ -94,7 +101,9 @@ def main() -> None:
     for name in args.decomposers:
         print(f"\n[{name}] decomposing {len(records)} records...")
         decomposer = DECOMPOSER_REGISTRY[name]()
-        claims_per_record = decomposer.decompose_batch(records, text_key=args.text_key)
+        claims_per_record = decomposer.decompose_batch(
+            records, text_key=args.text_key, context_key=args.context_key
+        )
 
         metrics = compute_metrics(records, claims_per_record, args.text_key)
         table_results[name] = metrics
@@ -114,8 +123,8 @@ def main() -> None:
             json.dump({"method": name, "metrics": metrics, "predictions": predictions}, f, indent=2)
         print(f"  saved → {out_path}")
 
-    # Save annotation sample: 20 records with all methods' claims side by side
-    sample_records = records[:20]
+    # Save annotation sample: up to 20 records with all methods' claims side by side
+    sample_records = records[:min(20, len(records))]
     claims_index = {
         name: {p["id"]: p["claims"] for p in preds}
         for name, preds in all_predictions.items()
@@ -128,7 +137,7 @@ def main() -> None:
             for name in args.decomposers:
                 entry[name] = claims_index[name].get(rid, [])
             f.write(json.dumps(entry) + "\n")
-    print(f"\nAnnotation sample (20 records) → {sample_path}")
+    print(f"\nAnnotation sample ({len(sample_records)} records) → {sample_path}")
 
     # Summary JSON
     summary_path = args.output / f"summary_{args.data.stem}.json"
