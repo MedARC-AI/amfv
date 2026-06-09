@@ -16,6 +16,28 @@
 
 set -euo pipefail
 
+# ── parse args ────────────────────────────────────────────────────────────────
+# --model and --tp are consumed here to start the vLLM server.
+# Everything else is forwarded verbatim to evaluate.py.
+VLLM_MODEL=""
+VLLM_TP=1
+EVAL_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --model) VLLM_MODEL="$2"; shift 2 ;;
+        --tp)    VLLM_TP="$2";    shift 2 ;;
+        *)       EVAL_ARGS+=("$1"); shift ;;
+    esac
+done
+
+if [[ -z "$VLLM_MODEL" ]]; then
+    echo "ERROR: --model is required" >&2
+    echo "Usage: sbatch run_eval.sh --model <model> [--tp <N>] [evaluate.py flags...]" >&2
+    exit 1
+fi
+
+# ── env ───────────────────────────────────────────────────────────────────────
 export PROJECT_DIR="${PROJECT_DIR:-$HOME/amfv}"
 export OUTPUT_DIR="${OUTPUT_DIR:-$PROJECT_DIR/decomposer}"
 export HF_HOME="${HF_HOME:-/data/hf_cache}"
@@ -34,13 +56,7 @@ export OMP_NUM_THREADS=1
 pip3 install -e "$OUTPUT_DIR" --quiet
 
 # ── vLLM server ───────────────────────────────────────────────────────────────
-# Start vllm serve as a background process — the Python evaluation code calls
-# it via the OpenAI-compatible API, so there is no Python subprocess spawning
-# on our side (fixes CUDA init failure inside Pyxis containers).
-
 VLLM_PORT=8000
-VLLM_MODEL="${VLLM_MODEL:-Qwen/Qwen3-8B}"
-VLLM_TP="${VLLM_TP:-1}"  # override with VLLM_TP=N at sbatch time for multi-GPU models
 
 python3 -m vllm.entrypoints.openai.api_server \
     --model "$VLLM_MODEL" \
@@ -52,10 +68,9 @@ python3 -m vllm.entrypoints.openai.api_server \
     &
 VLLM_PID=$!
 
-# Kill server on any exit (clean or error)
 trap 'kill "$VLLM_PID" 2>/dev/null || true' EXIT
 
-VLLM_WAIT_ITERS="${VLLM_WAIT_ITERS:-240}"  # 240 × 5s = 20 min; override for faster/slower models
+VLLM_WAIT_ITERS="${VLLM_WAIT_ITERS:-240}"
 echo "Waiting for vLLM server (pid $VLLM_PID, timeout $((VLLM_WAIT_ITERS * 5))s)..."
 for i in $(seq 1 "$VLLM_WAIT_ITERS"); do
     if ! kill -0 "$VLLM_PID" 2>/dev/null; then
@@ -78,12 +93,4 @@ export VLLM_BASE_URL="http://localhost:${VLLM_PORT}/v1"
 # ── evaluation ────────────────────────────────────────────────────────────────
 cd "$OUTPUT_DIR"
 
-DATASET="${DATASET:-$PROJECT_DIR/datasets/AskDocs.jsonl}"
-MODEL_SHORTNAME="${VLLM_MODEL##*/}"
-DATASET_STEM="$(basename "$DATASET" .jsonl)"
-RUN_TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
-
-python3 evaluate.py \
-    --data "$DATASET" \
-    --decomposers factscore medscore veriscore \
-    --output "results/${MODEL_SHORTNAME}/${DATASET_STEM}/${RUN_TIMESTAMP}"
+python3 evaluate.py --output results "${EVAL_ARGS[@]}"
