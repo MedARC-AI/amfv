@@ -45,7 +45,7 @@ def chat_generate(
                     model=model,
                     messages=messages,  # type: ignore[arg-type]
                     temperature=0.0,
-                    max_tokens=1024,
+                    max_tokens=2048,
                     extra_body={"chat_template_kwargs": {"enable_thinking": False}},
                 )
                 return (resp.choices[0].message.content or "").strip()
