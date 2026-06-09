@@ -21,6 +21,9 @@ _DEFAULT_MODEL = os.environ.get("VLLM_MODEL", QWEN3_8B)
 
 _RETRY_ATTEMPTS = 3
 _RETRY_DELAY = 2.0
+# vLLM v1 has a race condition when hundreds of concurrent requests arrive at once.
+# Cap in-flight requests to avoid triggering it.
+_MAX_CONCURRENT = int(os.environ.get("VLLM_MAX_CONCURRENT", "32"))
 
 
 @lru_cache(maxsize=1)
@@ -55,5 +58,5 @@ def chat_generate(
                     time.sleep(_RETRY_DELAY)
         raise RuntimeError(f"chat_generate failed after {_RETRY_ATTEMPTS} attempts") from last_exc
 
-    with ThreadPoolExecutor() as pool:
+    with ThreadPoolExecutor(max_workers=_MAX_CONCURRENT) as pool:
         return list(pool.map(_call, messages_batch))
