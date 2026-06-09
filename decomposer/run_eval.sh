@@ -28,14 +28,50 @@ if [ -f "$PROJECT_DIR/.env" ]; then
   set -a; source "$PROJECT_DIR/.env"; set +a
 fi
 
-# v1 engine ignores MULTIPROC_METHOD; force v0 + fork for Pyxis GPU subprocess access
-export VLLM_USE_V1=0
-export VLLM_WORKER_MULTIPROC_METHOD=fork
 export PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS=1
 
 pip3 install -e "$OUTPUT_DIR" --quiet
 
+# ── vLLM server ───────────────────────────────────────────────────────────────
+# Start vllm serve as a background process — the Python evaluation code calls
+# it via the OpenAI-compatible API, so there is no Python subprocess spawning
+# on our side (fixes CUDA init failure inside Pyxis containers).
+
+VLLM_PORT=8000
+
+python3 -m vllm.entrypoints.openai.api_server \
+    --model "Qwen/Qwen3-8B" \
+    --port "$VLLM_PORT" \
+    --dtype bfloat16 \
+    --enforce-eager \
+    --max-model-len 4096 \
+    &
+VLLM_PID=$!
+
+# Kill server on any exit (clean or error)
+trap 'kill "$VLLM_PID" 2>/dev/null || true' EXIT
+
+echo "Waiting for vLLM server (pid $VLLM_PID)..."
+for i in $(seq 1 60); do
+    if ! kill -0 "$VLLM_PID" 2>/dev/null; then
+        echo "ERROR: vLLM server process died before becoming healthy" >&2
+        exit 1
+    fi
+    if curl -sf "http://localhost:${VLLM_PORT}/health" >/dev/null 2>&1; then
+        echo "vLLM server ready (${i}x5s = $((i * 5))s)"
+        break
+    fi
+    if [ "$i" -eq 60 ]; then
+        echo "ERROR: vLLM server did not become healthy within 5 minutes" >&2
+        exit 1
+    fi
+    sleep 5
+done
+
+export VLLM_BASE_URL="http://localhost:${VLLM_PORT}/v1"
+
+# ── evaluation ────────────────────────────────────────────────────────────────
 cd "$OUTPUT_DIR"
 
 python3 evaluate.py \

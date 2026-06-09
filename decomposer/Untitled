@@ -1,0 +1,2 @@
+  cd ~/Documents/AI/amfv && git add decomposer/run_eval.sh && git commit -m "use
+  /data/hf_cache shared cache with offline mode" && git push

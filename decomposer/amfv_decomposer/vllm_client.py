@@ -1,51 +1,54 @@
-"""Generic vLLM client supporting both chat and completion models."""
+"""vLLM inference client via the OpenAI-compatible API server.
+
+run_eval.sh starts `vllm serve` before invoking evaluate.py.
+Set VLLM_BASE_URL to override the default server address.
+"""
 
 from __future__ import annotations
 
-import multiprocessing
+import os
 
-# Must be called before vLLM is imported.
-# vLLM v1 spawns EngineCore_DP0 as a subprocess; inside Pyxis containers only forked
-# processes inherit the parent's GPU device access — spawned ones cannot init CUDA.
-if multiprocessing.get_start_method(allow_none=True) is None:
-    multiprocessing.set_start_method("fork")
-
-from vllm import LLM, SamplingParams
+from openai import OpenAI
 
 QWEN3_8B = "Qwen/Qwen3-8B"
 VERISCORE_MISTRAL = "SYX/mistral_based_claim_extractor"
 
-_instances: dict[str, LLM] = {}
-
-_CHAT_PARAMS = SamplingParams(temperature=0.0, max_tokens=1024)
-_COMPLETION_PARAMS = SamplingParams(temperature=0.0, max_tokens=1024)
-
-
-def get_llm(model: str) -> LLM:
-    if model not in _instances:
-        _instances[model] = LLM(model=model, tensor_parallel_size=1)
-    return _instances[model]
+_client = OpenAI(
+    base_url=os.environ.get("VLLM_BASE_URL", "http://localhost:8000/v1"),
+    api_key="none",
+)
 
 
 def chat_generate(
     messages_batch: list[list[dict]],
     model: str = QWEN3_8B,
 ) -> list[str]:
-    """Batch inference for instruction-tuned chat models."""
-    llm = get_llm(model)
-    outputs = llm.chat(
-        messages_batch,
-        sampling_params=_CHAT_PARAMS,
-        chat_template_kwargs={"enable_thinking": False},
-    )
-    return [out.outputs[0].text.strip() for out in outputs]
+    """Batch chat completions via the vLLM OpenAI-compatible API."""
+    results = []
+    for messages in messages_batch:
+        resp = _client.chat.completions.create(
+            model=model,
+            messages=messages,  # type: ignore[arg-type]
+            temperature=0.0,
+            max_tokens=1024,
+            extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+        )
+        results.append((resp.choices[0].message.content or "").strip())
+    return results
 
 
 def completion_generate(
     prompts: list[str],
     model: str = VERISCORE_MISTRAL,
 ) -> list[str]:
-    """Batch inference for completion/fine-tuned models (Alpaca format)."""
-    llm = get_llm(model)
-    outputs = llm.generate(prompts, sampling_params=_COMPLETION_PARAMS)
-    return [out.outputs[0].text.strip().replace("</s>", "").strip() for out in outputs]
+    """Batch completions via the vLLM OpenAI-compatible API."""
+    results = []
+    for prompt in prompts:
+        resp = _client.completions.create(
+            model=model,
+            prompt=prompt,
+            temperature=0.0,
+            max_tokens=1024,
+        )
+        results.append(resp.choices[0].text.strip().replace("</s>", "").strip())
+    return results
