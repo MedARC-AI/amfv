@@ -55,8 +55,9 @@ VLLM_PID=$!
 # Kill server on any exit (clean or error)
 trap 'kill "$VLLM_PID" 2>/dev/null || true' EXIT
 
-echo "Waiting for vLLM server (pid $VLLM_PID)..."
-for i in $(seq 1 60); do
+VLLM_WAIT_ITERS="${VLLM_WAIT_ITERS:-240}"  # 240 × 5s = 20 min; override for faster/slower models
+echo "Waiting for vLLM server (pid $VLLM_PID, timeout $((VLLM_WAIT_ITERS * 5))s)..."
+for i in $(seq 1 "$VLLM_WAIT_ITERS"); do
     if ! kill -0 "$VLLM_PID" 2>/dev/null; then
         echo "ERROR: vLLM server process died before becoming healthy" >&2
         exit 1
@@ -65,8 +66,8 @@ for i in $(seq 1 60); do
         echo "vLLM server ready (${i}x5s = $((i * 5))s)"
         break
     fi
-    if [ "$i" -eq 60 ]; then
-        echo "ERROR: vLLM server did not become healthy within 5 minutes" >&2
+    if [ "$i" -eq "$VLLM_WAIT_ITERS" ]; then
+        echo "ERROR: vLLM server did not become healthy within $((VLLM_WAIT_ITERS * 5)) seconds" >&2
         exit 1
     fi
     sleep 5
