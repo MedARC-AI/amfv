@@ -1,0 +1,14 @@
+line-length = 120
+
+[lint]
+select = ["E", "W", "F", "I", "D", "UP"]
+extend-ignore = [
+    "D100", # Missing docstring in public module
+    "D105", # Missing docstring in magic method
+    "D107", # Missing docstring in __init__
+]
+pycodestyle.max-doc-length = 100
+pydocstyle.convention = "google"
+
+[lint.extend-per-file-ignores]
+"__init__.py" = ["D104", "F401", "I002"]

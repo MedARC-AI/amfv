@@ -25,6 +25,9 @@ build-backend = "uv_build"
 [tool.uv.build-backend]
 module-root = ""
 
+[tool.ruff]
+extend = "../ruff.toml"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
