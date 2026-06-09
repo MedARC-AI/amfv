@@ -47,7 +47,6 @@ python3 -m vllm.entrypoints.openai.api_server \
     --port "$VLLM_PORT" \
     --tensor-parallel-size "$VLLM_TP" \
     --dtype bfloat16 \
-    --enforce-eager \
     --max-model-len 4096 \
     &
 VLLM_PID=$!
