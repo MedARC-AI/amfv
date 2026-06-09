@@ -76,7 +76,12 @@ export VLLM_BASE_URL="http://localhost:${VLLM_PORT}/v1"
 # ── evaluation ────────────────────────────────────────────────────────────────
 cd "$OUTPUT_DIR"
 
+DATASET="${DATASET:-$PROJECT_DIR/datasets/AskDocs.jsonl}"
+MODEL_SHORTNAME="${VLLM_MODEL##*/}"
+DATASET_STEM="$(basename "$DATASET" .jsonl)"
+RUN_TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
+
 python3 evaluate.py \
-    --data "$PROJECT_DIR/datasets/AskDocs.jsonl" \
+    --data "$DATASET" \
     --decomposers factscore medscore veriscore \
-    --output results/
+    --output "results/${MODEL_SHORTNAME}/${DATASET_STEM}/${RUN_TIMESTAMP}"
