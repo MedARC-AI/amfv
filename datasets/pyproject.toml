@@ -3,7 +3,9 @@ name = "amfv-datasets"
 version = "0.0.1"
 description = "Dataset ingestion, processing, and construction for AMFV"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "pydantic>=2.13.4",
+]
 
 [build-system]
 requires = ["uv_build>=0.11,<0.12"]

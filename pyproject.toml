@@ -4,7 +4,10 @@ version = "0.0.1"
 description = "Shared workspace for the AMFV runtime components"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "pdfplumber>=0.11.9",
+    "pydantic>=2.13.4",
+]
 
 [dependency-groups]
 dev = [
