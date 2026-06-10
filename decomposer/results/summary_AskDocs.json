@@ -1,0 +1,26 @@
+{
+  "factscore": {
+    "n_records": 300,
+    "claims_per_response": 50.346666666666664,
+    "claims_per_sentence": 7.414825724104075,
+    "zero_claim_rate": 0.0,
+    "total_claims": 15104,
+    "total_sentences": 2037
+  },
+  "medscore": {
+    "n_records": 300,
+    "claims_per_response": 14.77,
+    "claims_per_sentence": 2.1752577319587627,
+    "zero_claim_rate": 0.0,
+    "total_claims": 4431,
+    "total_sentences": 2037
+  },
+  "veriscore": {
+    "n_records": 300,
+    "claims_per_response": 10.106666666666667,
+    "claims_per_sentence": 1.4884634266077565,
+    "zero_claim_rate": 0.0,
+    "total_claims": 3032,
+    "total_sentences": 2037
+  }
+}

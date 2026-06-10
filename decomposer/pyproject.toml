@@ -2,8 +2,21 @@
 name = "amfv-decomposer"
 version = "0.0.1"
 description = "Medical claim decomposition component for AMFV"
-requires-python = ">=3.13"
-dependencies = []
+requires-python = ">=3.12"
+dependencies = [
+    "openai>=1.0",
+    "spacy>=3.8,<3.9",
+    "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
+]
+
+[project.optional-dependencies]
+# Required only for VeriScoreOriginalDecomposer: pip install -e ".[hf]"
+hf = [
+    "transformers>=4.40",
+    "peft>=0.10",
+    "bitsandbytes>=0.43",
+    "accelerate>=0.27",
+]
 
 [build-system]
 requires = ["uv_build>=0.11,<0.12"]
@@ -15,5 +28,16 @@ module-root = ""
 [tool.ruff]
 extend = "../ruff.toml"
 
+[tool.ruff.lint.extend-per-file-ignores]
+# Few-shot prompt literals reproduce the FActScore/MedScore/VeriScore paper
+# prompts verbatim and cannot be wrapped without altering their content.
+"amfv_decomposer/baselines/factscore.py" = ["E501"]
+"amfv_decomposer/baselines/medscore.py" = ["E501", "W291", "W293"]
+"amfv_decomposer/baselines/veriscore.py" = ["E501"]
+"amfv_decomposer/baselines/veriscore_original.py" = ["E501"]
+
 [tool.pytest.ini_options]
-testpaths = ["test"]
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = ["pytest>=8.0"]

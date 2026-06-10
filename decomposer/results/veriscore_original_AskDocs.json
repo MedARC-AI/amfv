@@ -1,0 +1,2632 @@
+{
+  "method": "veriscore_original",
+  "metrics": {
+    "n_records": 300,
+    "claims_per_response": 3.8866666666666667,
+    "claims_per_sentence": 0.5724104074619538,
+    "zero_claim_rate": 0.15666666666666668,
+    "total_claims": 1166,
+    "total_sentences": 2037
+  },
+  "predictions": [
+    {
+      "id": "yas6ff_20241101",
+      "claims": [
+        "Symptoms could be related to anovulatory cycles.",
+        "Anovulatory cycles mean that the body is not releasing an egg during the menstrual cycle.",
+        "Primary dysmenorrhea is a condition that causes painful periods.",
+        "It is not uncommon for women to experience irregular cycles after stopping birth control.",
+        "It may take some time for a woman's body to regulate itself after stopping birth control."
+      ]
+    },
+    {
+      "id": "4tfomp_20241101",
+      "claims": [
+        "People who bruise easily should be checked for a clotting disorder.",
+        "A clotting disorder can be caused by infections.",
+        "A clotting disorder can be caused by autoimmune diseases.",
+        "A clotting disorder can be caused by medication side effects.",
+        "A clotting disorder can be caused by other conditions.",
+        "A simple blood draw can help rule out many potential causes of a condition."
+      ]
+    },
+    {
+      "id": "x4qn5n_20241101",
+      "claims": [
+        "The decision to prolong antibiotics depends on the nature of a patient's lung issue.",
+        "Bronchiectasis may require longer courses of antibiotics.",
+        "Empyema may require longer courses of antibiotics.",
+        "Pulmonary abscess may require longer courses of antibiotics."
+      ]
+    },
+    {
+      "id": "4m0cr0_20241101",
+      "claims": [
+        "The upper limits of what is considered normal in lab results are based on a large population of healthy individuals.",
+        "About 5% of people who are not ill may receive an abnormal result from a lab test."
+      ]
+    },
+    {
+      "id": "y0yjsy_20241101",
+      "claims": [
+        "Switching to a different medication may be involved in addressing concerns about weight gain.",
+        "Adjusting the dosage of a medication may be involved in addressing concerns about weight gain."
+      ]
+    },
+    {
+      "id": "5x02gc_20241101",
+      "claims": [
+        "An abnormal connection can form between the bowel and the bladder.",
+        "An abnormal connection can form between the bowel and the vagina.",
+        "This abnormal connection is known as a fistula.",
+        "A fistula could potentially cause the leakage of substances from the bowel into the urinary tract.",
+        "A fistula could potentially cause the leakage of substances from the bowel into the vagina.",
+        "Medical malpractice is a complex issue.",
+        "Medical malpractice depends on the specific circumstances of the case.",
+        "Medical malpractice depends on the laws in the location of the case."
+      ]
+    },
+    {
+      "id": "ybg34z_20241101",
+      "claims": [
+        "Height is largely determined by genetics.",
+        "There is no guaranteed way to increase height through medication.",
+        "There is no guaranteed way to increase height through other means.",
+        "Certain treatments or supplements claim to promote growth.",
+        "The effectiveness of these treatments or supplements is not proven.",
+        "These treatments or supplements may not be safe.",
+        "Human Growth Hormone (HGH) is included in the category of growth hormones.",
+        "Human Growth Hormone (HGH) should only be taken under medical supervision.",
+        "Human Growth Hormone (HGH) should only be taken if one has a diagnosed deficiency.",
+        "A diagnosis of requiring growth hormones can only be made by a doctor.",
+        "A doctor can only make the diagnosis after conducting specific tests."
+      ]
+    },
+    {
+      "id": "zlhj7e_20241101",
+      "claims": [
+        "There is a lot of flu going around right now.",
+        "Many of the doctor's patients are coming in with similar symptoms."
+      ]
+    },
+    {
+      "id": "4zu1sg_20241101",
+      "claims": []
+    },
+    {
+      "id": "z4ll00_20241101",
+      "claims": [
+        "Rabies has a relatively long incubation period.",
+        "The incubation period of rabies typically ranges from 1 to 3 months.",
+        "Symptoms of rabies start to show after the incubation period.",
+        "If one was bitten by an infected bat, they would likely have developed immunity by the time symptoms of rabies appear."
+      ]
+    },
+    {
+      "id": "xl3kn5_20241101",
+      "claims": [
+        "A brain CT scan can rule out a type of stroke called a hemorrhage.",
+        "A brain CT scan may not always detect a small infarction in the acute phase.",
+        "A small infarction is another type of stroke.",
+        "In cases where a stroke is suspected and the CT scan is negative, the hospital follows up with an MRI a few days later to confirm whether there was an infarction."
+      ]
+    },
+    {
+      "id": "zxa254_20241101",
+      "claims": [
+        "Antibiotics will not help with a viral upper respiratory tract infection, such as a cold.",
+        "Antibiotics may cause side effects like an allergic reaction.",
+        "Antibiotics may cause diarrhea.",
+        "Antibiotics may cause worse side effects.",
+        "Taking antibiotics unnecessarily can contribute to the development of antibiotic-resistant strains of bacteria.",
+        "Antibiotics are recommended for specific bacterial infections.",
+        "Strep throat is a specific bacterial infection.",
+        "Suspected bacterial superinfections are specific bacterial infections.",
+        "Diagnoses of bacterial infections should be made by a medical professional."
+      ]
+    },
+    {
+      "id": "7f9syz_20241101",
+      "claims": [
+        "Seeking a second opinion is a normal part of healthcare."
+      ]
+    },
+    {
+      "id": "54o2l0_20241101",
+      "claims": []
+    },
+    {
+      "id": "ztsits_20241101",
+      "claims": [
+        "The CDC recommends that individuals who test positive for Covid-19 isolate for 5 days, starting from the day of the positive test.",
+        "Two negative tests 48 hours apart apply to the period after Day 5.",
+        "After Day 5, one can safely remove their mask around others or in public.",
+        "If it has been 5 days since exposure and one has tested negative without showing any symptoms, one's doctor advises that one does not need to isolate."
+      ]
+    },
+    {
+      "id": "ybu72r_20241101",
+      "claims": [
+        "Sinusitis can cause opacification in the right maxillary sinus.",
+        "A signal in the spine can be related to a prior episode of transverse myelitis."
+      ]
+    },
+    {
+      "id": "4u90bz_20241101",
+      "claims": [
+        "Developing an infection in the hand or bloodstream can cause a BB to serve as a reservoir for bacteria.",
+        "A BB serving as a reservoir for bacteria can lead to repeated infections.",
+        "A BB serving as a reservoir for bacteria can lead to serious illness.",
+        "The healthcare landscape in Canada is different from that in the United States."
+      ]
+    },
+    {
+      "id": "y40fre_20241101",
+      "claims": []
+    },
+    {
+      "id": "yoy7hx_20241101",
+      "claims": [
+        "Beta blockers, such as Propranolol, generally do not prolong the PR interval.",
+        "Lown-Ganong-Levine Syndrome (LGL) is a rare condition.",
+        "Lown-Ganong-Levine Syndrome (LGL) could potentially cause PR shortening without a delta wave.",
+        "The urgent care doctor might have been considering Lown-Ganong-Levine Syndrome (LGL) as a potential cause of PR shortening without a delta wave."
+      ]
+    },
+    {
+      "id": "zm5yrt_20241101",
+      "claims": [
+        "The D-dimer test is used to screen for blood clots.",
+        "A positive result on the D-dimer test does not necessarily indicate the presence of a blood clot.",
+        "Many things can cause an elevated D-dimer level.",
+        "A positive D-dimer test is not very specific."
+      ]
+    },
+    {
+      "id": "ykbilz_20241101",
+      "claims": [
+        "Individuals who are told they have low fertility or trouble getting pregnant may still be able to conceive.",
+        "A vasectomy is a procedure that can guarantee male infertility.",
+        "A vasectomy is the only way to guarantee male infertility unless the individual does not produce sperm at all."
+      ]
+    },
+    {
+      "id": "xvgcoa_20241101",
+      "claims": [
+        "A thorough examination is needed to confirm a diagnosis.",
+        "An ankle brachial index is used to compare blood pressure between the ankle and bicep.",
+        "An echocardiogram is needed to confirm a diagnosis.",
+        "If a diagnosis of aortic coarctation is confirmed, additional lab tests are needed.",
+        "If a diagnosis of aortic coarctation is confirmed, imaging is needed.",
+        "A doctor will work with the individual to develop a management plan if a diagnosis of aortic coarctation is confirmed."
+      ]
+    },
+    {
+      "id": "xkf533_20241101",
+      "claims": [
+        "Damage to the brain can lead to a higher risk of strokes.",
+        "Strokes can have devastating consequences.",
+        "Injecting bacteria-contaminated substances can cause heart infections.",
+        "Injecting bacteria-contaminated substances can lead to bleeding in the brain."
+      ]
+    },
+    {
+      "id": "xoxyzj_20241101",
+      "claims": [
+        "An over-the-counter medication can become past its expiration date.",
+        "A medication past its expiration date may not be effective.",
+        "A medication past its expiration date may not be safe to use."
+      ]
+    },
+    {
+      "id": "ydc1w5_20241101",
+      "claims": [
+        "HIV tests are considered a part of routine health screenings.",
+        "If the result of an HIV test is positive, there may be additional considerations.",
+        "Life insurance companies typically do not have access to testing history unless the person discloses a positive result when sharing their medical conditions."
+      ]
+    },
+    {
+      "id": "za1tjz_20241101",
+      "claims": [
+        "The presence of a promyelocyte in the blood test is likely a result of the body's response to sepsis.",
+        "Sepsis is a recent experience of the individual.",
+        "The immune system works hard to fight off infections.",
+        "The presence of promyelocytes in the blood is an increase in young cells.",
+        "Promyelocytes typically mature in the bone marrow.",
+        "Promyelocytes were released into the bloodstream to help combat an infection."
+      ]
+    },
+    {
+      "id": "5xn5bz_20241101",
+      "claims": [
+        "Blood tests are not a primary method for diagnosing rheumatological disorders, including ankylosing spondylitis.",
+        "Many patients with ankylosing spondylitis experience significant improvement in their condition by strengthening the joints and surrounding muscles."
+      ]
+    },
+    {
+      "id": "488a93_20241101",
+      "claims": [
+        "A doctor suggested providing a note stating that an individual reported having symptoms of an allergic reaction on a specific date.",
+        "The note would not include further information because there was no consultation at the time of the reaction."
+      ]
+    },
+    {
+      "id": "y5492b_20241101",
+      "claims": [
+        "Hypothyroidism can contribute to fatigue.",
+        "Anemia can contribute to fatigue.",
+        "Vitamin deficiency can contribute to fatigue.",
+        "Narcolepsy can contribute to fatigue.",
+        "Sleep disorder can contribute to fatigue."
+      ]
+    },
+    {
+      "id": "55ksm6_20241101",
+      "claims": [
+        "Famotidine medications can be found at local pharmacies.",
+        "Ranitidine medications can be found at local pharmacies."
+      ]
+    },
+    {
+      "id": "xhtbqi_20241101",
+      "claims": [
+        "A resting heart rate between 60-100 beats per minute (bpm) is considered normal.",
+        "Some people can have lower heart rates while sleeping.",
+        "Athletes are mentioned as a group of people who can have lower heart rates while sleeping.",
+        "A sleeping heart rate of 70-90 bpm is within the normal range for some individuals.",
+        "If a person notices that their heart rate is consistently over 100 beats per minute while awake and at rest, they are recommended to schedule a follow-up appointment to investigate further."
+      ]
+    },
+    {
+      "id": "xae232_20241101",
+      "claims": []
+    },
+    {
+      "id": "58x84a_20241101",
+      "claims": [
+        "One should not take Aleve and ibuprofen at the same time.",
+        "Aleve is an over-the-counter medication.",
+        "The recommended dosage of Aleve is two tablets 2-3 times a day.",
+        "Aleve should be taken with food."
+      ]
+    },
+    {
+      "id": "569aj6_20241101",
+      "claims": [
+        "A hormonal IUD can help alleviate issues with periods.",
+        "The recovery process for an IUD insertion is generally easier than that of a hysterectomy.",
+        "A hysterectomy is associated with potential risks.",
+        "A hysterectomy can impact sexual function.",
+        "A hysterectomy involves general risks, including infection.",
+        "A hysterectomy involves general risks, including reactions to anesthesia."
+      ]
+    },
+    {
+      "id": "xgh3sx_20241101",
+      "claims": [
+        "Having HSV (Herpes Simplex Virus) is more common than commonly believed.",
+        "Over half of adults have HSV.",
+        "Avoiding sex during an outbreak can minimize the risk of transmission of the virus.",
+        "The test mentioned was likely a blood test.",
+        "The blood test mentioned detects the presence of antibodies.",
+        "The blood test mentioned is not a test that diagnoses an active outbreak."
+      ]
+    },
+    {
+      "id": "zqo7lu_20241101",
+      "claims": [
+        "Automated readings from ECGs can sometimes be misleading.",
+        "The misleading nature of ECG readings is due to their reliance on algorithms.",
+        "These algorithms may not consider individual factors such as age.",
+        "These algorithms may not consider individual factors such as medical history."
+      ]
+    },
+    {
+      "id": "4bvxrj_20241101",
+      "claims": [
+        "Loperamide can help slow down diarrhea.",
+        "Loperamide can make it possible for a person to leave the house.",
+        "Loperamide can make it possible for a person to see a doctor.",
+        "Loperamide can prevent the body from fully recovering.",
+        "Drinking Gatorade can help maintain electrolyte balance.",
+        "Drinking only water may not be enough to maintain electrolyte balance.",
+        "Tylenol can be used to manage pain."
+      ]
+    },
+    {
+      "id": "xe34d7_20241101",
+      "claims": []
+    },
+    {
+      "id": "xhp8aj_20241101",
+      "claims": [
+        "Straining a muscle is a likely cause of neck and shoulder pain."
+      ]
+    },
+    {
+      "id": "6oj3fv_20241101",
+      "claims": [
+        "A biopsy is the only way to accurately diagnose prostate cancer.",
+        "A biopsy is the only way to grade prostate cancer using the Gleason score.",
+        "The Gleason score is important for determining the aggressiveness of prostate cancer.",
+        "The Gleason score guides treatment decisions for prostate cancer.",
+        "The biopsy procedure for prostate cancer has evolved.",
+        "Nowadays, a urologist can use a device guided by ultrasound to take multiple small core samples from the prostate.",
+        "Each treatment option for prostate conditions has its own set of side effects."
+      ]
+    },
+    {
+      "id": "z5fjtr_20241101",
+      "claims": [
+        "The elevated Troponin level was mentioned as being above the normal threshold.",
+        "A referral to a cardiologist may be necessary to further investigate a condition.",
+        "A stress test can provide insight into heart health.",
+        "An echocardiogram can provide insight into heart health."
+      ]
+    },
+    {
+      "id": "6sce4k_20241101",
+      "claims": [
+        "A blood pressure reading of 110/57 is considered a very good reading.",
+        "Healthy individuals have been seen with lower blood pressure readings than 110/57.",
+        "Pregnant women have been seen with lower blood pressure readings than 110/57."
+      ]
+    },
+    {
+      "id": "529sx4_20241101",
+      "claims": [
+        "Fatigue and shortness of breath can be caused by many different conditions.",
+        "Normal EKG results make it unlikely that symptoms are related to a heart condition.",
+        "Normal chest X-ray results make it unlikely that symptoms are related to a heart condition.",
+        "Normal echocardiogram results make it unlikely that symptoms are related to a heart condition.",
+        "Xanax provides temporary relief from anxiety symptoms.",
+        "Xanax does not provide long-term control or resolution of anxiety symptoms."
+      ]
+    },
+    {
+      "id": "5s5rrr_20241101",
+      "claims": [
+        "Type 1 diabetes has been present for about 7 years.",
+        "It is unlikely that type 1 diabetes has caused significant vascular damage after 7 years."
+      ]
+    },
+    {
+      "id": "y59ld8_20241101",
+      "claims": [
+        "Exercise can be beneficial for bone density.",
+        "Weight training can be beneficial for bone density.",
+        "There is an increased risk of fracture due to certain conditions.",
+        "It is crucial to choose exercises carefully due to an increased risk of fracture.",
+        "A high-protein diet can be helpful for osteoporosis.",
+        "Calcium and vitamin D supplementation is recommended as the first step for osteoporosis.",
+        "Hormone replacement therapy is not typically the first line of treatment for osteoporosis.",
+        "Hormone replacement therapy may be considered for a woman who is newly menopausal.",
+        "Hormone replacement therapy may be considered for a woman experiencing symptoms of estrogen deficiency.",
+        "The choice of medication for osteoporosis treatment depends on the patient's bone mineral density (BMD) values.",
+        "The choice of medication for osteoporosis treatment depends on the patient's medical history.",
+        "Bisphosphonates are the first choice for treating osteoporosis in many cases."
+      ]
+    },
+    {
+      "id": "xmdhyt_20241101",
+      "claims": [
+        "Anxiety can contribute to an increased heart rate.",
+        "Discomfort can contribute to an increased heart rate.",
+        "Anxiety can contribute to an increased blood pressure.",
+        "Discomfort can contribute to an increased blood pressure.",
+        "Consuming caffeine before taking blood pressure should be avoided.",
+        "Consuming nicotine before taking blood pressure should be avoided.",
+        "After 5 days, if a person's average systolic blood pressure is above 140, their doctor recommends scheduling a follow-up appointment to discuss further."
+      ]
+    },
+    {
+      "id": "ymvs89_20241101",
+      "claims": [
+        "Post-nasal drip can contribute to discomfort.",
+        "Flonase is recommended to provide relief from discomfort.",
+        "A non-sedating allergy pill is recommended to provide relief from discomfort.",
+        "Developing a fever is a reason to seek medical attention sooner.",
+        "Developing breathing issues is a reason to seek medical attention sooner.",
+        "Having trouble swallowing is a reason to seek medical attention sooner."
+      ]
+    },
+    {
+      "id": "zdiu8f_20241101",
+      "claims": [
+        "The current season is seeing a surge in multiple illnesses.",
+        "Flu A is one of the illnesses contributing to the high volume of cases.",
+        "Flu B is one of the illnesses contributing to the high volume of cases.",
+        "COVID is one of the illnesses contributing to the high volume of cases.",
+        "RSV is one of the illnesses contributing to the high volume of cases."
+      ]
+    },
+    {
+      "id": "zeobsg_20241101",
+      "claims": [
+        "Liver disease can progress to a point where it is not reversible.",
+        "A doctor needs to review lab results to calculate a patient's MELD score or Child-Pugh score to get a better understanding of the patient's prognosis.",
+        "MELD scores can provide a more accurate estimate of life expectancy.",
+        "Child-Pugh scores can provide a more accurate estimate of life expectancy.",
+        "The presence of ascites (fluid buildup in the abdomen) in a person indicates decompensated cirrhosis.",
+        "Decompensated cirrhosis generally indicates a poor prognosis."
+      ]
+    },
+    {
+      "id": "4twrnu_20241101",
+      "claims": []
+    },
+    {
+      "id": "48xfck_20241101",
+      "claims": [
+        "The medical term for difficulty with bowel movements is constipation.",
+        "Increasing fluid intake is a method to stimulate bowels.",
+        "Increasing fiber intake is a method to stimulate bowels.",
+        "Doctors recommend considering alternative supplements for constipation.",
+        "Psyllium fiber is a type of alternative supplement for constipation.",
+        "Products containing macrogol are a type of alternative supplement for constipation.",
+        "Alternative supplements may be more effective in managing constipation."
+      ]
+    },
+    {
+      "id": "xvibff_20241101",
+      "claims": [
+        "High ammonia levels and prescribed medications, including Rifaxamin, Zinc Sulfate, and Lactulose, suggest that a person's liver issues are the primary concern.",
+        "Hepatic encephalopathy is a condition that may cause confusion and loss of balance.",
+        "A doctor is unable to provide a prognosis or estimate the likely outcome for a patient without more information and a thorough evaluation."
+      ]
+    },
+    {
+      "id": "zced3s_20241101",
+      "claims": [
+        "Grandmother had heart failure.",
+        "Grandmother had diabetes.",
+        "Grandmother was overweight.",
+        "The conditions made grandmother more vulnerable to complications.",
+        "Patients with severe heart conditions and heart failure may not respond well to treatment."
+      ]
+    },
+    {
+      "id": "7f9wcr_20241101",
+      "claims": [
+        "It is normal for the body to take time to regulate hormones during growth and development.",
+        "It is not uncommon for young women to experience fluctuations in their menstrual cycle.",
+        "It is not uncommon for young women to experience emotional symptoms."
+      ]
+    },
+    {
+      "id": "yu4b2s_20241101",
+      "claims": [
+        "A brachial plexus injury can result in limited control in the left arm.",
+        "A brachial plexus injury can result in limited muscle development in the left arm.",
+        "The information provided indicates a possible brachial plexus injury at birth.",
+        "Consulting with a physical therapist is essential to assess one's condition.",
+        "Consulting with a physical therapist is essential to create a tailored exercise plan.",
+        "The purpose of consulting with a physical therapist is to help achieve one's goals."
+      ]
+    },
+    {
+      "id": "x34jcb_20241101",
+      "claims": [
+        "The public healthcare system in Australia is well-equipped to handle serious cancers, including liver cancer.",
+        "The public healthcare system in Australia has experience working with liver cancer patients.",
+        "The public healthcare system in Australia is confident that it can provide the best possible care for liver cancer patients.",
+        "The public healthcare system in Australia has regular tumor boards.",
+        "The public healthcare system in Australia has multidisciplinary team meetings.",
+        "Specialists from different fields in the public healthcare system in Australia come together to discuss and determine the most appropriate next steps for patients."
+      ]
+    },
+    {
+      "id": "4qjrr8_20241101",
+      "claims": [
+        "A primary care physician typically has access to vaccines commonly needed in the local area.",
+        "Specialized travel clinics designated by the CDC provide the necessary vaccinations for travel to Rio.",
+        "Travel clinics designated by the CDC carry less common vaccines.",
+        "The cost of less common vaccines is a factor in their availability in travel clinics.",
+        "The limited demand for less common vaccines is a factor in their availability in travel clinics.",
+        "The CDC website provides general information on travel health and vaccinations.",
+        "The CDC website is a readily available resource for both patients and healthcare providers.",
+        "Travel clinics charge for their services.",
+        "The services of travel clinics include assessing individual needs.",
+        "The services of travel clinics include providing personalized advice.",
+        "The services of travel clinics include providing vaccinations."
+      ]
+    },
+    {
+      "id": "4w8uyt_20241101",
+      "claims": []
+    },
+    {
+      "id": "4mu3ca_20241101",
+      "claims": []
+    },
+    {
+      "id": "z5rc7s_20241101",
+      "claims": [
+        "A doctor inquired about whether someone has taken a COVID-19 test.",
+        "A doctor inquired about whether someone has taken a flu test.",
+        "Information about whether someone has taken a COVID-19 or flu test can help inform the assessment of their condition."
+      ]
+    },
+    {
+      "id": "4bps96_20241101",
+      "claims": [
+        "Premature ventricular contractions (PVCs) can cause a hollow feeling in the chest."
+      ]
+    },
+    {
+      "id": "7993s8_20241101",
+      "claims": []
+    },
+    {
+      "id": "z9c190_20241101",
+      "claims": [
+        "The bacteria found in a patient's gram stain results include Gram positive bacilli and Gram positive cocci.",
+        "Gram positive bacilli and Gram positive cocci are normal vaginal flora.",
+        "Bacteria typically present in a healthy vagina.",
+        "These bacteria are not usually the cause of symptoms."
+      ]
+    },
+    {
+      "id": "5ikuuu_20241101",
+      "claims": [
+        "The doctor recommends using permethrin topical for scabies treatment.",
+        "Permethrin topical is usually effective for scabies treatment.",
+        "In some areas, there may be resistant strains of scabies.",
+        "Ivermectin may be prescribed instead of permethrin topical for scabies treatment in areas with resistant strains of scabies.",
+        "Ivermectin is given orally in a single dose of 200mcg/kg.",
+        "Ivermectin is repeated one week later."
+      ]
+    },
+    {
+      "id": "6xwyzc_20241101",
+      "claims": [
+        "The current medical guidelines do not recommend daily low-dose aspirin to prevent a heart attack unless the individual has already had a heart attack, stroke, or heart surgery.",
+        "A doctor believes that a person would benefit from taking a cholesterol-lowering medication, regardless of their current cholesterol levels.",
+        "The doctor advises against daily low-dose aspirin for heart attack prevention in individuals with no previous history of heart attack, stroke, or heart surgery.",
+        "Daily low-dose aspirin may not provide the desired benefits for heart attack prevention in individuals with no previous history of heart attack, stroke, or heart surgery.",
+        "Daily low-dose aspirin could increase the risk of bruising and bleeding in individuals with no previous history of heart attack, stroke, or heart surgery.",
+        "The doctor emphasizes the importance of managing a patient's existing conditions through their current medications for diabetes.",
+        "The doctor emphasizes the importance of managing a patient's existing conditions through their current medications for hypertension."
+      ]
+    },
+    {
+      "id": "zmh80e_20241101",
+      "claims": [
+        "Poor sleep is unlikely to cause any lasting damage in terms of the procedure's success.",
+        "Smoking can significantly impair the healing process.",
+        "Many surgeons are hesitant to operate on smokers unless it is a medical emergency.",
+        "Smoking has a negative impact on recovery."
+      ]
+    },
+    {
+      "id": "4ifq5h_20241101",
+      "claims": [
+        "Upper GI bleeding is typically associated with jet black stool.",
+        "Upper GI bleeding is typically associated with tarry stool.",
+        "There are some painless causes of upper GI bleeding that need to be investigated."
+      ]
+    },
+    {
+      "id": "z4pzjw_20241101",
+      "claims": [
+        "The benefits of circumcision in preventing urinary tract infections (UTIs) are relatively low.",
+        "A large number of surgeries are required to prevent a single case of urinary tract infections (UTIs) with circumcision.",
+        "The arguments for circumcision in preventing sexually transmitted infections (STIs) are weak.",
+        "The studies supporting circumcision in preventing STIs may not be relevant to a son's situation.",
+        "The assumption is that the son will receive proper sex education."
+      ]
+    },
+    {
+      "id": "zovres_20241101",
+      "claims": [
+        "A pulmonary function test can determine if there are any abnormalities in breathing patterns."
+      ]
+    },
+    {
+      "id": "xjrhax_20241101",
+      "claims": [
+        "According to HIPAA, a primary care physician is allowed to share a patient's information with other clinicians involved in the patient's care.",
+        "The information that can be shared without the patient's consent includes data about the patient's psychiatric care.",
+        "Keeping informed about medical and pharmaceutical details, including marijuana usage, is crucial for safety.",
+        "Keeping informed about medical and pharmaceutical details, including marijuana usage, is crucial for effective care.",
+        "Withholding information or lying to a prescriber can put one's health at risk.",
+        "Withholding information or lying to a prescriber can potentially damage one's relationship with the doctor."
+      ]
+    },
+    {
+      "id": "xy9vwb_20241101",
+      "claims": [
+        "There is no foolproof way to completely protect stitches.",
+        "Any strenuous activity may pose a risk to the incision site."
+      ]
+    },
+    {
+      "id": "493tg8_20241101",
+      "claims": [
+        "\"White matter hyperintensities\" are areas in the brain that appear brighter than the surrounding tissue on MRI images.",
+        "The areas referred to as \"white matter hyperintensities\" in an MRI report are part of the white matter in the brain.",
+        "White matter contains the connections between different parts of the brain.",
+        "As people age, it is common to develop spots in the brain.",
+        "These spots are often related to damage to small blood vessels in the brain.",
+        "The exact appearance and distribution of spots on an MRI can provide clues about the underlying cause."
+      ]
+    },
+    {
+      "id": "6j2pip_20241101",
+      "claims": [
+        "The skin in the genital area is naturally darker than the rest of the body.",
+        "It is unlikely that discoloration in the genital area is due to years of dead skin cells.",
+        "Dead skin cells fall off on their own.",
+        "The whiteness noticed after a procedure is probably a result of the disinfectant used during the cystoscopy."
+      ]
+    },
+    {
+      "id": "xritxf_20241101",
+      "claims": [
+        "If one needed an MRI in the future, they would need to remove their piercing."
+      ]
+    },
+    {
+      "id": "47q0j1_20241101",
+      "claims": [
+        "An external epidural catheter is a device that comes out through the patient's skin.",
+        "An external epidural catheter is connected to a pump outside the body.",
+        "A patient cannot leave the hospital with an external epidural catheter.",
+        "A \"general pain pump\" is a term used by a doctor in the context of discussing a proposed supplemental procedure.",
+        "A PCA (Patient-Controlled Analgesia) pump delivers IV pain medications.",
+        "Medical professionals should consider all available options to enhance a patient's quality of life.",
+        "Medical professionals should consider all available options for patients with limited life expectancy."
+      ]
+    },
+    {
+      "id": "xuczsn_20241101",
+      "claims": [
+        "Water filters do not instantly purify tap water.",
+        "Bacteria present before filtration are mostly still present after filtration.",
+        "In most developed countries, tap water is generally safe to drink.",
+        "Any unusual taste in tap water is often due to differences in mineral content."
+      ]
+    },
+    {
+      "id": "xb2q86_20241101",
+      "claims": []
+    },
+    {
+      "id": "xrnehc_20241101",
+      "claims": [
+        "The \"Paris classification\" is not a focus of concern.",
+        "A rectal polyp was found during the procedure.",
+        "The rectal polyp was successfully removed during the procedure.",
+        "The doctor is waiting for the pathology results to determine if the polyp is related to the patient's iron deficiency."
+      ]
+    },
+    {
+      "id": "4kan2i_20241101",
+      "claims": []
+    },
+    {
+      "id": "7cogpt_20241101",
+      "claims": [
+        "Trigeminal neuralgia could be a possible cause of sharp pain above the left eyebrow when exposed to strong wind.",
+        "Cluster headaches are considered a possibility for sharp pain above the left eyebrow when exposed to strong wind.",
+        "Cluster headaches typically occur at the same time every day.",
+        "Cluster headaches last for several days in a row.",
+        "Cluster headaches involve pain behind or around the entire eye on one side."
+      ]
+    },
+    {
+      "id": "zxbmms_20241101",
+      "claims": [
+        "It is not uncommon for the D-dimer to be elevated 11 days post-op due to the body's natural healing process.",
+        "Having blood clots in both legs is considered a rare occurrence."
+      ]
+    },
+    {
+      "id": "zggp0x_20241101",
+      "claims": [
+        "Doctors may perform an esophagram to check for abnormalities in the esophagus.",
+        "Doctors may perform an upper endoscopy to check for abnormalities in the esophagus."
+      ]
+    },
+    {
+      "id": "786az5_20241101",
+      "claims": [
+        "Depression is a common condition among older adults.",
+        "Older adults dealing with chronic health issues like diabetes are prone to depression.",
+        "Older adults dealing with chronic health issues like high blood pressure are prone to depression.",
+        "Older adults dealing with chronic health issues like kidney problems are prone to depression.",
+        "A type of dementia can affect a person's personality.",
+        "A specialist can assess a person's overall health.",
+        "A specialist can provide guidance on the best course of action.",
+        "A thorough evaluation by a healthcare professional is necessary to determine the underlying cause of a person's symptoms.",
+        "A doctor cannot provide a definitive diagnosis without a face-to-face consultation.",
+        "A doctor cannot recommend specific tests or treatments without a face-to-face consultation."
+      ]
+    },
+    {
+      "id": "xbloli_20241101",
+      "claims": [
+        "Insulin resistance can be a cause of acanthosis nigricans.",
+        "Polycystic ovary syndrome can contribute to acanthosis nigricans.",
+        "Hereditary conditions can contribute to acanthosis nigricans.",
+        "Autoimmune diseases can be associated with acanthosis nigricans."
+      ]
+    },
+    {
+      "id": "zh6pij_20241101",
+      "claims": [
+        "According to the Health Insurance Portability and Accountability Act (HIPAA), healthcare providers are allowed to share protected health information with each other for treatment purposes.",
+        "A psychiatrist can discuss an adverse reaction to ADHD medication with a primary care doctor without needing the patient's explicit permission."
+      ]
+    },
+    {
+      "id": "771pnj_20241101",
+      "claims": [
+        "Small ovarian cysts are more commonly seen in girls a few years older than a 10-year-old sister.",
+        "It is not unheard of for younger girls to have small ovarian cysts.",
+        "In many cases, small ovarian cysts in younger girls may not be a cause for concern."
+      ]
+    },
+    {
+      "id": "5d2s75_20241101",
+      "claims": []
+    },
+    {
+      "id": "zwjngs_20241101",
+      "claims": [
+        "The constant oozing of a dark liquid from the nail can be a sign of an underlying infection.",
+        "Addressing an infection that causes constant oozing from the nail should be done as soon as possible.",
+        "Diabetic polyneuropathy is a condition associated with type 1 diabetes.",
+        "Diabetic polyneuropathy can cause a lack of feeling in pain.",
+        "Getting checked out quickly for diabetic polyneuropathy is considered important due to the associated risk."
+      ]
+    },
+    {
+      "id": "x4mo40_20241101",
+      "claims": [
+        "If symptoms persist, a doctor may investigate further to determine the cause of discomfort."
+      ]
+    },
+    {
+      "id": "y6edxj_20241101",
+      "claims": [
+        "The initial outbreak of genital herpes usually appears as a cluster of tender, fluid-filled blisters.",
+        "In subsequent episodes of genital herpes, symptoms can vary greatly.",
+        "In subsequent episodes of genital herpes, may not always appear as blisters.",
+        "In some cases, a person might only experience a tingling sensation without any visible signs of genital herpes."
+      ]
+    },
+    {
+      "id": "z5mmvv_20241101",
+      "claims": [
+        "Orbital cellulitis is a serious infection.",
+        "Orbital cellulitis is a condition that requires prompt treatment.",
+        "Orbital cellulitis involves CT scans.",
+        "Orbital cellulitis possibly involves IV antibiotics.",
+        "Orbital cellulitis is treated to prevent serious complications."
+      ]
+    },
+    {
+      "id": "zzd87i_20241101",
+      "claims": [
+        "Sexually transmitted diseases (STDs) require direct contact with an infected source.",
+        "Sexually transmitted diseases (STDs) require a higher amount of the infectious agent than what is present in toilet water.",
+        "If water is heavily contaminated and one has an open wound, there may be a small risk of infection from ordinary bacteria commonly found in restrooms.",
+        "E. coli is an ordinary bacteria commonly found in restrooms.",
+        "Thorough cleaning and disinfecting after an incident can significantly reduce the risk of infection."
+      ]
+    },
+    {
+      "id": "5qbk8f_20241101",
+      "claims": [
+        "A 43-year-old woman can faint after delivering twins without any labor pain relief medication.",
+        "There is typically an underlying reason for a 43-year-old woman to faint after delivering twins without any labor pain relief medication.",
+        "A postpartum hemorrhage can cause fainting due to blood loss."
+      ]
+    },
+    {
+      "id": "6j8fiz_20241101",
+      "claims": [
+        "Allergic reactions can be exacerbated by alcohol.",
+        "Reflux can be exacerbated by alcohol.",
+        "Taking an antacid like Zantac before drinking can help alleviate discomfort."
+      ]
+    },
+    {
+      "id": "zu3f30_20241101",
+      "claims": [
+        "Many cold medications come in various formulations.",
+        "It is crucial to double-check the ingredients of cold medications.",
+        "Regarding pain relief, a doctor suggested that a husband can consider taking non-Tylenol pain relievers.",
+        "Aleve is a type of non-Tylenol pain reliever.",
+        "Advil is a type of non-Tylenol pain reliever.",
+        "Motrin is a type of non-Tylenol pain reliever.",
+        "Ibuprofen is a type of non-Tylenol pain reliever.",
+        "Information on acetaminophen-related drugs that should be avoided can be found online.",
+        "Information on acetaminophen-related drugs that should be avoided can be consulted with a pharmacist."
+      ]
+    },
+    {
+      "id": "6ryb5i_20241101",
+      "claims": [
+        "Poison control can discuss the specifics of a situation, including the dose and number of capsules taken.",
+        "Poison control can advise if any further action is needed."
+      ]
+    },
+    {
+      "id": "4qfv7v_20241101",
+      "claims": [
+        "Consuming 4-8 shots of alcohol per night can lead to chronic liver disease."
+      ]
+    },
+    {
+      "id": "yummfg_20241101",
+      "claims": []
+    },
+    {
+      "id": "yi0s7g_20241101",
+      "claims": []
+    },
+    {
+      "id": "5f2koa_20241101",
+      "claims": [
+        "Prednisone is not typically given as an injection.",
+        "If one has been taking steroids for less than 7 days, it is safe to stop taking them if experiencing unpleasant side effects."
+      ]
+    },
+    {
+      "id": "zcdwtc_20241101",
+      "claims": [
+        "A swollen lymph node in the neck can be a reactive lymph node.",
+        "A reactive lymph node is a common occurrence after a viral illness.",
+        "The cough can be a viral illness."
+      ]
+    },
+    {
+      "id": "566kfy_20241101",
+      "claims": [
+        "Platelet counts are typically not a cause for concern for bleeding until they drop below 50,000 for patients undergoing surgery.",
+        "Platelet counts are typically not a cause for concern for bleeding until they drop below 10,000 for spontaneous bleeding.",
+        "A slight drop in platelet count from 84,000 to 78,000 might not be a cause for concern.",
+        "The variation in platelet count could be due to laboratory measurement variations.",
+        "A purple rash on the skin is a symptom that requires immediate medical attention at the emergency room.",
+        "Unexplained bruising is a symptom that requires immediate medical attention at the emergency room.",
+        "Any type of bleeding, aside from normal menstrual bleeding, is a symptom that requires immediate medical attention at the emergency room.",
+        "A headache is a symptom that requires immediate medical attention at the emergency room."
+      ]
+    },
+    {
+      "id": "5ngxon_20241101",
+      "claims": [
+        "Cipro is one of the most effective oral medications for treating pseudomonas infections.",
+        "The patient previously had pseudomonas infections."
+      ]
+    },
+    {
+      "id": "xh2jxx_20241101",
+      "claims": []
+    },
+    {
+      "id": "xh8xez_20241101",
+      "claims": [
+        "A primary care doctor can assess symptoms.",
+        "A primary care doctor can determine if a patient needs to see a specialist.",
+        "A primary care doctor can recommend the best specialist to address a patient's concerns.",
+        "Weight loss can have many causes.",
+        "Weight loss is likely the most important symptom to address."
+      ]
+    },
+    {
+      "id": "48mndh_20241101",
+      "claims": [
+        "The timing for removing a stitch depends on the depth of the wound.",
+        "The timing for removing a stitch depends on the length of the wound.",
+        "A stitch can generally be removed 3 to 5 days after it was put in."
+      ]
+    },
+    {
+      "id": "xnrkm3_20241101",
+      "claims": [
+        "A thorough examination is recommended to assess the extent of breathing issues.",
+        "Afrin provides significant relief for the user.",
+        "The user's inferior turbinates are a major contributor to their breathing difficulties."
+      ]
+    },
+    {
+      "id": "ywfe0t_20241101",
+      "claims": [
+        "The Canadian cervical cancer screening guidelines recommend a Pap test every three years.",
+        "US guidelines suggest that individuals between 30-65 years old can have a Pap test every 5 years with HPV testing.",
+        "If the results of the Pap test and HPV testing are negative, the test can be done every 5 years according to US guidelines.",
+        "HPV is the primary cause of cervical cancer.",
+        "Cervical cancer is not only caused by HPV.",
+        "Taking Humira increases the risk for cancer.",
+        "Humira suppresses the immune system."
+      ]
+    },
+    {
+      "id": "zxkyix_20241101",
+      "claims": [
+        "Having a chest X-ray more than once a month is unusual unless there is evidence of an acute change in a person's condition.",
+        "The radiation from chest X-rays is relatively negligible.",
+        "CT scans involve more radiation than chest X-rays.",
+        "The exact dose of radiation from a CT scan depends on various factors.",
+        "The area being scanned in a CT scan affects the dose of radiation.",
+        "Each scan increases the relative risk of cancer by a small amount.",
+        "Smoking increases the risk of cancer the more one smokes.",
+        "Lifestyle factors, such as smoking and obesity, are generally more significant risk factors for cancer."
+      ]
+    },
+    {
+      "id": "ygxhra_20241101",
+      "claims": [
+        "An echocardiogram is a test that may be necessary to help identify the underlying issue.",
+        "Blood gas analysis is a test that may be necessary to help identify the underlying issue."
+      ]
+    },
+    {
+      "id": "yzir29_20241101",
+      "claims": [
+        "The person has conductive hearing loss in their right ear.",
+        "Conductive hearing loss in the right ear may be related to a potential cholesteatoma.",
+        "The person has age-related high-frequency sensorineural hearing loss in both ears.",
+        "Cholesteatoma is a benign skin cyst.",
+        "Cholesteatoma can grow over time.",
+        "Cholesteatoma can erode surrounding structures over time.",
+        "Age-related hearing loss can benefit from amplification.",
+        "High speech recognition scores can indicate that a person may benefit from hearing aids.",
+        "Amplifying sounds through hearing aids can allow a person to interpret them more clearly."
+      ]
+    },
+    {
+      "id": "493k1h_20241101",
+      "claims": []
+    },
+    {
+      "id": "ywyj7y_20241101",
+      "claims": []
+    },
+    {
+      "id": "49cksx_20241101",
+      "claims": [
+        "The main distinction between asthma and emphysema according to the doctor is based on the results of Pulmonary Function Tests (PFTs).",
+        "The main distinction between asthma and emphysema according to the doctor is based on the appearance of the lungs on a chest CT scan.",
+        "With asthma, abnormalities seen on Pulmonary Function Tests (PFTs) are typically reversible with medication.",
+        "With emphysema, abnormalities seen on Pulmonary Function Tests (PFTs) are not reversible with medication.",
+        "Asthma does not usually cause the destruction of individual alveoli.",
+        "Individual alveoli are tiny air sacs in the lungs where gas exchange occurs.",
+        "Emphysema is more common in smokers.",
+        "Emphysema is not unheard of in non-smokers.",
+        "A CT scan showed damage to the lung tissue of the person being discussed.",
+        "The damage to the lung tissue is more consistent with emphysema."
+      ]
+    },
+    {
+      "id": "4z65ux_20241101",
+      "claims": [
+        "A Holter monitor continuously records heart's activity over a 24-hour period.",
+        "A Holter monitor captures any episodes of palpitations during the 24-hour recording period.",
+        "A Holter monitor can determine if symptoms are caused by an extrasystole, which is an extra heartbeat.",
+        "A Holter monitor can determine if symptoms are caused by a more serious heart rhythm issue.",
+        "Wearing a Holter monitor will provide a clearer picture of what's going on with a patient's heart.",
+        "Wearing a Holter monitor will help a doctor develop a plan to address a patient's concerns."
+      ]
+    },
+    {
+      "id": "y4pcab_20241101",
+      "claims": []
+    },
+    {
+      "id": "ydrpob_20241101",
+      "claims": [
+        "The pattern described in the radiologist's report can be caused by viral pneumonia.",
+        "The pattern described in the radiologist's report can be caused by fluid or edema.",
+        "The pattern described in the radiologist's report can be caused by interstitial inflammation.",
+        "A primary care doctor may decide to repeat a chest X-ray.",
+        "A primary care doctor may decide to monitor a condition clinically.",
+        "The decision to repeat a chest X-ray or monitor a condition clinically depends on the primary care doctor's assessment of the image."
+      ]
+    },
+    {
+      "id": "77yenh_20241101",
+      "claims": [
+        "If a person experiences recurring UTIs, they are recommended to see a urologist to determine the underlying cause."
+      ]
+    },
+    {
+      "id": "4opjh2_20241101",
+      "claims": [
+        "Lymecycline is not commonly used in some areas.",
+        "Lymecycline is primarily prescribed for acne treatment.",
+        "Doxycycline is an antibiotic in the same class as Lymecycline.",
+        "Doxycycline is often used to treat Chlamydia."
+      ]
+    },
+    {
+      "id": "4tkkv8_20241101",
+      "claims": [
+        "Taking Cymbalta every other day can worsen withdrawal symptoms.",
+        "Taking Cymbalta every other day can worsen withdrawal symptoms regardless of any other medications being taken."
+      ]
+    },
+    {
+      "id": "zr40lv_20241101",
+      "claims": []
+    },
+    {
+      "id": "52954p_20241101",
+      "claims": [
+        "The decision to administer a medication to raise a patient's heart rate is based on lab values.",
+        "The decision to administer a medication to raise a patient's heart rate is based on symptoms.",
+        "The decision to administer a medication to raise a patient's heart rate is based on the results of an EKG.",
+        "According to current medical guidelines, patients with slow heart rates (bradycardia) who are not showing any symptoms can be monitored without immediate treatment.",
+        "Medication may be necessary to increase the heart rate if there are signs of low blood pressure.",
+        "Medication may be necessary to increase the heart rate if there are signs of heart attack.",
+        "Medication may be necessary to increase the heart rate if there are signs of heart failure.",
+        "Medication may be necessary to increase the heart rate if there are signs of organ damage.",
+        "Medication may be necessary to increase the heart rate if there are signs of changes in mental status.",
+        "The ER doctor was concerned about the patient's low heart rate.",
+        "The ER doctor decided to take action to raise the patient's heart rate."
+      ]
+    },
+    {
+      "id": "6j6ep0_20241101",
+      "claims": [
+        "The product contains Benadryl.",
+        "Benadryl is typically not recommended for daily use.",
+        "The medication contains Tylenol.",
+        "The use of Tylenol in the medication should be sparingly."
+      ]
+    },
+    {
+      "id": "61vc6g_20241101",
+      "claims": [
+        "Urinating can help flush out sperm.",
+        "It is not a guarantee that all sperm will be eliminated by urinating.",
+        "The doctor noted that the number of sperm in pre-ejaculatory fluid would likely be very low.",
+        "The doctor noted that the number of sperm in pre-ejaculatory fluid would not be enough to cause a pregnancy."
+      ]
+    },
+    {
+      "id": "79tvwa_20241101",
+      "claims": [
+        "A diet that includes high amounts of fat, sugar, and meat can increase the chances of cardiovascular problems in the long term.",
+        "Exercise is important for maintaining overall health."
+      ]
+    },
+    {
+      "id": "x50kto_20241101",
+      "claims": []
+    },
+    {
+      "id": "7kmdch_20241101",
+      "claims": []
+    },
+    {
+      "id": "yk55uh_20241101",
+      "claims": [
+        "Some people are more sensitive to the sedating effects of hydroxyzine.",
+        "The sensitivity to hydroxyzine's sedating effects can be adjusted by reducing the dose.",
+        "Hydroxyzine is available in doses as low as 10mg.",
+        "Trazodone is an option for addressing morning grogginess.",
+        "Belsomra is an option for addressing morning grogginess.",
+        "Doxepin is an option for addressing morning grogginess."
+      ]
+    },
+    {
+      "id": "zmiir0_20241101",
+      "claims": [
+        "Having iron deficiency is not the same as being anemic.",
+        "Iron deficiency in an individual can be caused by not consuming enough iron to compensate for the iron lost during menstruation.",
+        "The previous recommendation by the doctor was to take ferrous sulfate to increase iron levels.",
+        "Consuming more iron is considered the best course of treatment for iron deficiency.",
+        "Discussing current diet and iron supplements with a doctor or a nutritionist can determine the best way to sustainably manage iron levels."
+      ]
+    },
+    {
+      "id": "ym3vx5_20241101",
+      "claims": []
+    },
+    {
+      "id": "4clz7f_20241101",
+      "claims": [
+        "The standard guideline in the hospital for staff returning to work after a stomach virus is to wait at least 48 hours after vomiting and diarrhea have stopped."
+      ]
+    },
+    {
+      "id": "yer0yb_20241101",
+      "claims": [
+        "A scrotolith and a scrotal pearl are essentially the same thing.",
+        "A scrotolith and a scrotal pearl refer to a loose calcification within the scrotum.",
+        "Calcification in the tunica albuginea is a fixed calcification.",
+        "The tunica albuginea is connective tissue surrounding the testicle.",
+        "The doctor is uncertain whether the calcification mentioned in the ultrasound report is fixed or loose.",
+        "The doctor emphasizes that it's not entirely clear if the calcification is the source of the patient's pain.",
+        "Ultrasound findings may not accurately identify the cause of pain in many cases.",
+        "There might be another underlying reason for discomfort in some cases."
+      ]
+    },
+    {
+      "id": "4od8je_20241101",
+      "claims": [
+        "Some people who use cannabis can experience a condition called cyclic vomiting syndrome.",
+        "Cyclic vomiting syndrome is sometimes relieved by taking hot showers or baths."
+      ]
+    },
+    {
+      "id": "y8s41w_20241101",
+      "claims": [
+        "Blood tests are recommended to check hormone levels.",
+        "A pelvic ultrasound can be helpful as a screening tool.",
+        "A pelvic ultrasound is not necessarily required for a diagnosis."
+      ]
+    },
+    {
+      "id": "y9hffi_20241101",
+      "claims": [
+        "A rash on a child's body could be a viral rash.",
+        "A rash on a child's body could be a common reaction to amoxicillin.",
+        "A rash on a child's body does not necessarily indicate a true allergy to penicillin."
+      ]
+    },
+    {
+      "id": "y0s3k3_20241101",
+      "claims": [
+        "Cryotherapy is a possible approach for removing a wart.",
+        "Cryotherapy can be done in a doctor's office.",
+        "Cryotherapy can be done with over-the-counter treatments."
+      ]
+    },
+    {
+      "id": "yw5oje_20241101",
+      "claims": [
+        "A primary care physician can refer a patient to a gastroenterologist.",
+        "A gastroenterologist specializes in treating conditions related to the esophagus.",
+        "A gastroenterologist specializes in treating conditions related to the digestive system.",
+        "The ER is primarily focused on treating life-threatening emergencies."
+      ]
+    },
+    {
+      "id": "xt5ngp_20241101",
+      "claims": []
+    },
+    {
+      "id": "5g6snf_20241101",
+      "claims": [
+        "Early signs of joint degeneration are typically seen in people in their 50s or 60s.",
+        "The report shows mild degenerative changes in the right SI joint.",
+        "The report shows mild degenerative changes in the right hip.",
+        "The report shows slight disc narrowing in the lower back."
+      ]
+    },
+    {
+      "id": "6jttwf_20241101",
+      "claims": []
+    },
+    {
+      "id": "xe3gg0_20241101",
+      "claims": []
+    },
+    {
+      "id": "xpwkw4_20241101",
+      "claims": [
+        "The symptoms of brain tumors are typically those that gradually worsen over time.",
+        "The symptoms of brain tumors do not go away.",
+        "The symptoms of brain tumors do not appear intermittently.",
+        "Persistent symptoms such as constant headaches that worsen when lying down are a cause for concern.",
+        "Frequent vomiting is a cause for concern.",
+        "Difficulty with movement is a cause for concern.",
+        "Vision problems are a cause for concern.",
+        "Autism is not a known factor in the development of brain tumors."
+      ]
+    },
+    {
+      "id": "zcp7l4_20241101",
+      "claims": [
+        "A doctor may recommend an MRI to get a better look at the hips.",
+        "A doctor may review CT scan results in addition to an MRI to get a better look at the hips.",
+        "A hematology workup is a discussion with a doctor to rule out any underlying conditions contributing to osteonecrosis.",
+        "The goal of treatment for osteonecrosis is to prevent the femoral head from collapsing.",
+        "Core decompression with or without bone grafting may be an option for addressing osteonecrosis.",
+        "The choice of core decompression with or without bone grafting depends on the individual case.",
+        "The surgeon's recommendations play a role in determining the appropriate treatment for osteonecrosis."
+      ]
+    },
+    {
+      "id": "ysilh1_20241101",
+      "claims": [
+        "The typical duration of strep throat symptoms is 5-7 days.",
+        "Antibiotics usually only reduce the duration of strep throat symptoms by 12-24 hours.",
+        "The overuse of antibiotics can lead to the development of antibiotic-resistant organisms.",
+        "The overuse of antibiotics can lead to changes in the gut microbiome.",
+        "Antibiotics should only be prescribed for a sore throat after a positive strep test.",
+        "Having a negative strep test is a possibility in cases where one may not have had strep throat.",
+        "The doctor prescribed antibiotics based on the appearance of the patient's throat."
+      ]
+    },
+    {
+      "id": "xg7t4r_20241101",
+      "claims": [
+        "It is possible to be looking at one's normal tonsils.",
+        "Normal tonsils can have a nodular or cryptic shape.",
+        "A nodular or cryptic shape of tonsils can make them appear as multiple lumps.",
+        "It is a common variation in tonsil shape for tonsils to have a nodular or cryptic shape.",
+        "One might be seeing different parts of tonsils rather than separate tonsils.",
+        "Lingual tonsils are located on the back of the tongue.",
+        "Lingual tonsils can be large enough to be visible.",
+        "The ability to look deep into one's throat can make lingual tonsils more visible.",
+        "Humans have six tonsils.",
+        "The adenoid tonsils can be considered as one or two tonsils depending on how they are viewed."
+      ]
+    },
+    {
+      "id": "68w49o_20241101",
+      "claims": [
+        "A doctor recommends verifying urinary tract infections (UTIs) through lab results before considering a referral to a urologist for further evaluation."
+      ]
+    },
+    {
+      "id": "xgmc4z_20241101",
+      "claims": [
+        "There are daily medications that can help prevent frequent migraines.",
+        "There are stronger prescription medications that can stop a migraine more effectively than over-the-counter options."
+      ]
+    },
+    {
+      "id": "yaxfnl_20241101",
+      "claims": [
+        "Mupirocin can be applied to a blister area."
+      ]
+    },
+    {
+      "id": "4ij3dv_20241101",
+      "claims": []
+    },
+    {
+      "id": "yr3umh_20241101",
+      "claims": [
+        "Premenstrual Dysphoric Disorder (PMDD) is a condition that affects many women.",
+        "An SSRI is a type of medication.",
+        "If a person's menstrual cycle is regular, they can start taking medication about a week before their period starts.",
+        "If a person's menstrual cycle is regular, they should stop taking medication on the first day of their period."
+      ]
+    },
+    {
+      "id": "4jn9v4_20241101",
+      "claims": [
+        "An X-ray can identify metal implants that could be a concern for an MRI.",
+        "Some metal implants are compatible with MRI machines.",
+        "Obtaining the surgeon's records can be helpful even if there are metal implants."
+      ]
+    },
+    {
+      "id": "zfha4v_20241101",
+      "claims": [
+        "Vitamin D helps the body use calcium more effectively.",
+        "Vitamin D supports a balanced metabolism.",
+        "Having low Vitamin D levels can lead to higher calcium levels.",
+        "The body may start taking calcium from bones if it is not absorbing enough calcium from food."
+      ]
+    },
+    {
+      "id": "yq9pzp_20241101",
+      "claims": [
+        "If tests are rare or uncommon, doctors may recommend patients to see specialists who are more familiar with those types of tests and their results."
+      ]
+    },
+    {
+      "id": "zwyr7i_20241101",
+      "claims": []
+    },
+    {
+      "id": "xbxz6h_20241101",
+      "claims": [
+        "Nerves have a distinct appearance.",
+        "Nerves are visually different from their surroundings.",
+        "Identifying important anatomy, such as blood vessels and nerves, is a standard part of any surgical procedure.",
+        "Nerve injuries can occur due to indirect trauma."
+      ]
+    },
+    {
+      "id": "4e0v2x_20241101",
+      "claims": [
+        "The brain has a remarkable ability to recover in young people.",
+        "Meaningful progress can be made within 1-2 years after a brain injury in young people.",
+        "The extent of recovery from central pontine myelinolysis (CPM) depends on the current level of function.",
+        "The extent of recovery from central pontine myelinolysis (CPM) depends on the effectiveness of rehabilitation efforts.",
+        "The extent of recovery from central pontine myelinolysis (CPM) depends on avoiding any future complications.",
+        "The doctor has limited experience with mild cases of central pontine myelinolysis (CPM).",
+        "Mild cases of CPM often do not require neurosurgical consultation."
+      ]
+    },
+    {
+      "id": "6rpnpm_20241101",
+      "claims": [
+        "A heart rate of 120-160 in a healthy young person without any underlying cardiovascular issues is not typically a cause for concern.",
+        "Some marijuana may contain impurities or additives that could be a concern."
+      ]
+    },
+    {
+      "id": "5s3jex_20241101",
+      "claims": [
+        "A small tear in the labrum, a cartilage ring in the hip joint, is a possibility."
+      ]
+    },
+    {
+      "id": "xra9xa_20241101",
+      "claims": [
+        "The doctor was concerned about ongoing symptoms.",
+        "The symptoms included exercise intolerance.",
+        "The symptoms included fatigue.",
+        "The symptoms included taking longer to recover from exercises.",
+        "An SpO2 of 96% is within the normal range.",
+        "Usual oxygen saturation levels are 98-99%."
+      ]
+    },
+    {
+      "id": "xrcqla_20241101",
+      "claims": [
+        "A family medicine doctor could be a suitable option for assessing wrist pain.",
+        "An urgent care center could be a suitable option for assessing wrist pain.",
+        "A potential bone injury requires the expertise of an orthopedic specialist for definitive management.",
+        "Many orthopedic specialists have an in-office X-ray machine.",
+        "An in-office X-ray machine can make the process of assessing an issue more efficient."
+      ]
+    },
+    {
+      "id": "57g8mz_20241101",
+      "claims": [
+        "The symptoms of organ damage can be subtle or even absent in the early stages.",
+        "Laboratory testing is necessary to check for potential organ damage problems.",
+        "Hypertension commonly develops in people in their late 20s and early 30s."
+      ]
+    },
+    {
+      "id": "5jvgyo_20241101",
+      "claims": [
+        "Previous tests of the person included EKGs.",
+        "Previous tests of the person included stress tests.",
+        "All previous tests of the person came back negative.",
+        "The negative results of the tests indicate that the issue is not related to the person's heart.",
+        "Precordial catch syndrome is a condition.",
+        "Precordial catch syndrome is often benign.",
+        "Precordial catch syndrome is not related to heart problems."
+      ]
+    },
+    {
+      "id": "yglie4_20241101",
+      "claims": [
+        "A swollen lymph node is a normal part of the body's immune system.",
+        "Lymph nodes can swell from time to time.",
+        "Lymph nodes swell as they do their job."
+      ]
+    },
+    {
+      "id": "7efflj_20241101",
+      "claims": [
+        "If antacids like Tums or Maalox work for chest pain, it's likely that the person is experiencing GERD.",
+        "If chest pain persists, a doctor may recommend trying an H2 blocker like Ranitidine.",
+        "If adding a proton pump inhibitor (PPI) like Omeprazole to Ranitidine does not provide enough relief, one could try this combination."
+      ]
+    },
+    {
+      "id": "71gak1_20241101",
+      "claims": []
+    },
+    {
+      "id": "xayz9i_20241101",
+      "claims": [
+        "Monurol antibiotic is prescribed for UTI treatment.",
+        "It is normal to still feel discomfort after Monurol antibiotic treatment for UTI.",
+        "The discomfort from Monurol antibiotic treatment for UTI may take up to a week to completely resolve.",
+        "There are conditions that can cause symptoms similar to a UTI.",
+        "Sexually Transmitted Infections (STIs) can cause symptoms similar to a UTI.",
+        "If symptoms persist, additional testing may be necessary.",
+        "The doctor advises that the AZO medication should not be taken for more than 2 days."
+      ]
+    },
+    {
+      "id": "472oo0_20241101",
+      "claims": []
+    },
+    {
+      "id": "y0yzo5_20241101",
+      "claims": [
+        "Antibiotics can disrupt the balance of bacteria in the gut.",
+        "The disruption of bacteria balance in the gut can affect how the body absorbs certain medications.",
+        "Wellbutrin is an antidepressant.",
+        "Disruption in the balance of bacteria in the gut can lead to a sudden decrease in the levels of Wellbutrin in the system.",
+        "A sudden decrease in the levels of Wellbutrin in the system can cause a worsening of depression symptoms."
+      ]
+    },
+    {
+      "id": "xsgxj9_20241101",
+      "claims": [
+        "It is possible to donate blood to a family member.",
+        "The process of donating blood to a family member typically takes more than 5 weeks.",
+        "The process of donating blood to a family member can be quite expensive.",
+        "Having the same blood type is not the only factor in determining compatibility for blood donation.",
+        "There are antibodies that need to be considered for blood compatibility.",
+        "Having the same blood type does not guarantee compatibility as donors."
+      ]
+    },
+    {
+      "id": "xyyv4j_20241101",
+      "claims": [
+        "An endometrial thickness of 10mm is considered normal for someone of a certain age.",
+        "Not having had a period for a while can affect the endometrial thickness.",
+        "Many medical professionals do not consider an endometrial thickness of this level to be abnormal in someone who is premenopausal.",
+        "The plan to prescribe progesterone tablets to induce a period and then recheck the ultrasound results is intended to confirm the normalcy of endometrial thickness."
+      ]
+    },
+    {
+      "id": "x6noiz_20241101",
+      "claims": [
+        "A decrease in platelet count from 220 to 170 is within the normal range.",
+        "Fluctuations in platelet count can occur naturally.",
+        "Certain medications, such as SSRIs like Lexapro, can occasionally cause a decrease in platelet count."
+      ]
+    },
+    {
+      "id": "xo7dky_20241101",
+      "claims": [
+        "An electrocardiogram (EKG) is part of an evaluation to check heart function."
+      ]
+    },
+    {
+      "id": "4nscqn_20241101",
+      "claims": [
+        "The regulation on blood donation for men who have sex with men (MSM) is based on historical data.",
+        "Historical data shows that gay men had a significantly higher rate of HIV infection compared to other groups.",
+        "In the past, the methods for detecting HIV infection were not as reliable as they are today.",
+        "MSM (Men Who Have Sex with Men) have one of the highest rates of HIV infection.",
+        "The regulation is in place to ensure the safety of the blood supply.",
+        "The regulation is in place to protect recipients from potential harm."
+      ]
+    },
+    {
+      "id": "40rl46_20241101",
+      "claims": [
+        "Loved ones can notice changes in behavior or mood before the person experiencing them.",
+        "Having someone to check in with regularly can be helpful."
+      ]
+    },
+    {
+      "id": "zb2yzd_20241101",
+      "claims": []
+    },
+    {
+      "id": "6lzd54_20241101",
+      "claims": [
+        "A DIY earwax removal kit is recommended for muffled hearing if no pain or other ear issues are present.",
+        "Soaking the ear with a mineral oil, such as olive oil, for about an hour before attempting to rinse it out is suggested to get the best results from an earwax removal kit.",
+        "If one experiences any pain, it is advised to schedule an appointment with a doctor for further evaluation."
+      ]
+    },
+    {
+      "id": "60ybsu_20241101",
+      "claims": [
+        "Having two TIAs within 8 months indicates an increased risk of a full-on stroke.",
+        "Avoiding alcohol is crucial.",
+        "Avoiding tobacco is crucial.",
+        "If a person has Atrial Fibrillation and is taking Warfarin, it is essential to ensure their INR levels remain within the normal range."
+      ]
+    },
+    {
+      "id": "zbtvfs_20241101",
+      "claims": [
+        "Some patients are hesitant to have cysts removed due to the potential for scarring."
+      ]
+    },
+    {
+      "id": "yaa83i_20241101",
+      "claims": [
+        "The antibiotics prescribed by the dermatologist are helping with the current flare-up.",
+        "The person is experiencing side effects like yeast infections.",
+        "The person is experiencing potential UTIs.",
+        "Systemic antibiotics are usually the first line of treatment for Hidradenitis suppurativa.",
+        "There are other options available for managing Hidradenitis suppurativa if systemic antibiotics are not effective or if they cause intolerable side effects.",
+        "Adalimumab is an alternative medication for cases where antibiotics are not effective.",
+        "Metformin is a treatment that can be helpful in managing Hidradenitis suppurativa.",
+        "Spironolactone is a treatment that can be helpful in managing Hidradenitis suppurativa.",
+        "Oral contraceptives are a treatment that can be helpful in managing Hidradenitis suppurativa.",
+        "Topical agents are a treatment that can be helpful in managing Hidradenitis suppurativa.",
+        "Some procedures can be helpful in managing Hidradenitis suppurativa."
+      ]
+    },
+    {
+      "id": "4ip1lt_20241101",
+      "claims": []
+    },
+    {
+      "id": "x4giq8_20241101",
+      "claims": [
+        "Headphones can create a vacuum.",
+        "Headphones can exert pressure on the ears.",
+        "The discomfort caused by headphones can be due to a pressure mismatch in the middle ear space.",
+        "Flonase is suggested to help reduce inflammation in the Eustachian tube.",
+        "Inflammation in the Eustachian tube may contribute to symptoms.",
+        "Using headphones at moderate levels should not exacerbate Eustachian tube dysfunction.",
+        "It is essential to prioritize ear health when dealing with Eustachian tube dysfunction.",
+        "Seeking medical attention is necessary if the symptoms of Eustachian tube dysfunction worsen or become more severe."
+      ]
+    },
+    {
+      "id": "ygdixm_20241101",
+      "claims": [
+        "Aspirin is a good pain medication.",
+        "Aspirin is not typically the first choice in emergency departments due to its potential side effects.",
+        "The potential side effects of aspirin include stomach upset.",
+        "The potential side effects of aspirin include bleeding complications.",
+        "Some emergency departments have a policy of trying non-narcotic pain medication first.",
+        "This policy is not widespread.",
+        "This policy exists in emergency departments in areas with high rates of opioid use disorder.",
+        "The goal of the hospital's policy is to minimize the use of opioids.",
+        "The hospital's policy aims to minimize the potential adverse effects of opioids.",
+        "The hospital's policy includes minimizing the potential adverse effects of opioids, including addiction."
+      ]
+    },
+    {
+      "id": "yd8eie_20241101",
+      "claims": [
+        "The issue with visibility during an ultrasound is likely due to the limited depth that sound waves can penetrate.",
+        "In the case of a surface ultrasound, sound waves can only image about 3-4 inches under the skin.",
+        "If there is a significant amount of fat under the skin, sound waves may not be able to reach the organs.",
+        "The lack of sound wave penetration can result in limited visibility.",
+        "An MRI uses a different technology that is not limited by the same depth restrictions as an ultrasound."
+      ]
+    },
+    {
+      "id": "4rkwx9_20241101",
+      "claims": [
+        "A subluxation is a condition where the shoulder joint is partially dislocated.",
+        "A blue discoloration in a limb could indicate a subluxation.",
+        "A feeling of coldness in a limb could indicate a subluxation."
+      ]
+    },
+    {
+      "id": "46ij7f_20241101",
+      "claims": [
+        "The ER might not have done a CT scan initially if the patient did not lose consciousness.",
+        "The ER might not have done a CT scan initially if the patient seemed neurologically okay.",
+        "Persistent symptoms of a concussion can include pounding headaches.",
+        "Persistent symptoms of a concussion can include light and sound sensitivity.",
+        "Persistent symptoms of a concussion can include difficulty concentrating.",
+        "A CT scan is recommended for individuals with persistent concussion symptoms.",
+        "A CT scan can be negative even if a person still has a concussion.",
+        "Conservative management for a concussion includes rest.",
+        "Conservative management for a concussion includes avoiding exercise.",
+        "Conservative management for a concussion includes abstaining from alcohol.",
+        "Symptoms of a concussion can last from a couple of weeks to a couple of months.",
+        "The duration of concussion symptoms depends on the severity of the injury.",
+        "Doctors typically recommend at least a couple of weeks off from work or school for patients who are feeling unwell.",
+        "After a period of rest, patients are re-evaluated in their doctor's office."
+      ]
+    },
+    {
+      "id": "zyb5th_20241101",
+      "claims": []
+    },
+    {
+      "id": "45vdcx_20241101",
+      "claims": [
+        "A doctor may consider allergies as a potential cause of symptoms.",
+        "A doctor may consider asthma as a potential cause of symptoms.",
+        "A doctor may consider acid reflux as a potential cause of symptoms.",
+        "A doctor may consider exposure to something in the air that might be irritating the lungs as a potential cause of symptoms."
+      ]
+    },
+    {
+      "id": "6gxcdk_20241101",
+      "claims": [
+        "Tanning can cause damage to the DNA in skin cells.",
+        "The damage is due to UV light exposure.",
+        "Damage from UV light exposure can increase the risk of cancer-causing mutations.",
+        "The doctor recommends wearing sunscreen when in direct sunlight.",
+        "The doctor recommends reapplying sunscreen frequently."
+      ]
+    },
+    {
+      "id": "4ilq8q_20241101",
+      "claims": []
+    },
+    {
+      "id": "xlc7cw_20241101",
+      "claims": [
+        "A radiologist reviews MRI images.",
+        "A radiologist creates a report based on MRI images.",
+        "A report from an MRI is usually sent to the patient's doctor.",
+        "A patient can obtain a copy of the MRI report from the facility where the MRI was conducted."
+      ]
+    },
+    {
+      "id": "zctn9m_20241101",
+      "claims": [
+        "Hirsutism (excessive hair growth) is not a known side effect of isotretinoin.",
+        "Isotretinoin is the active ingredient in Accutane.",
+        "Hirsutism is more commonly associated with Polycystic Ovary Syndrome (PCOS).",
+        "Accutane is typically cleared from the body within 5 days after the last dose."
+      ]
+    },
+    {
+      "id": "xi9z1w_20241101",
+      "claims": [
+        "A gestational sac not being visible at 4 weeks is not uncommon.",
+        "Some bleeding can be normal during pregnancy at 4 weeks."
+      ]
+    },
+    {
+      "id": "78m0ev_20241101",
+      "claims": []
+    },
+    {
+      "id": "6uq8x7_20241101",
+      "claims": [
+        "The flu virus can take around 7-10 days to clear.",
+        "It is not uncommon to still be experiencing symptoms like a cough and chest discomfort after 7-10 days of having the flu.",
+        "Honey is recommended to help soothe a cough."
+      ]
+    },
+    {
+      "id": "z3qsoe_20241101",
+      "claims": [
+        "The feeling of not being able to take deep enough breaths is a common symptom of anxiety.",
+        "This symptom is especially prevalent when there is no underlying medical cause.",
+        "Reaching the physical limit of one's rib cage's expansion is not a sign of not getting enough oxygen."
+      ]
+    },
+    {
+      "id": "57idnh_20241101",
+      "claims": [
+        "Flushing is a common reaction to niacin.",
+        "Flushing is a sudden reddening of the skin.",
+        "Flushing occurs when niacin is taken in large doses."
+      ]
+    },
+    {
+      "id": "xhw3r2_20241101",
+      "claims": [
+        "The patient had many underlying risk factors.",
+        "These risk factors made the patient more susceptible to severe illness from any infection.",
+        "The patient's susceptibility to severe illness was not limited to COVID-19.",
+        "The patient's underlying health conditions made their situation more challenging.",
+        "The severity of the patient's illness made their situation more challenging."
+      ]
+    },
+    {
+      "id": "zkwmhm_20241101",
+      "claims": [
+        "A scaphoid fracture can be treated with a cast.",
+        "Most cases of a scaphoid fracture do not require surgery."
+      ]
+    },
+    {
+      "id": "zozro2_20241101",
+      "claims": [
+        "A doctor may perform a fluorescein stain to determine the cause of an eye issue.",
+        "A doctor may examine a cornea to determine the cause of an eye issue."
+      ]
+    },
+    {
+      "id": "4d0x3s_20241101",
+      "claims": [
+        "Regaining full range of motion may be challenging.",
+        "Regaining full range of motion may be especially challenging without the guidance of a physiotherapist.",
+        "There could be underlying issues contributing to limited mobility.",
+        "An incorrect ACL reconstruction could contribute to limited mobility.",
+        "The growth of soft tissue around a reconstruction could contribute to limited mobility."
+      ]
+    },
+    {
+      "id": "400e48_20241101",
+      "claims": [
+        "Herpesviruses come in many forms.",
+        "The type of herpesviruses typically referred to as herpes is HSV-1.",
+        "HSV-1 typically affects the mouth area.",
+        "Chickenpox is caused by a type of herpesvirus.",
+        "Shingles is caused by a type of herpesvirus.",
+        "Mononucleosis is caused by a type of herpesvirus.",
+        "Herpesviruses work by entering the human body.",
+        "Herpesviruses trigger an initial response from the human body.",
+        "Herpesviruses remain dormant in the human body.",
+        "It is possible for someone to carry the HSV-1 virus without showing any symptoms.",
+        "The HSV-1 virus can reactivate and cause a cold sore in some cases.",
+        "Not everyone who carries the HSV-1 virus will experience a reactivation and a cold sore.",
+        "People with weakened immune systems are more susceptible to severe re-infections from viruses.",
+        "It is impossible to determine whether a person has the HSV-1 virus in their body without testing.",
+        "HSV is generally not a cause for concern.",
+        "HSV is considered more of a nuisance than a serious health risk.",
+        "One can contract the herpes simplex virus (HSV) from someone who does not exhibit symptoms.",
+        "One can contract HSV even if the person has encountered the virus in the past."
+      ]
+    },
+    {
+      "id": "za6ysa_20241101",
+      "claims": [
+        "Diverticulitis typically presents with symptoms such as fevers.",
+        "Diverticulitis typically presents with symptoms such as chills.",
+        "Diverticulitis typically presents with severe abdominal pain.",
+        "The abdominal pain of diverticulitis worsens when pressing on the abdomen."
+      ]
+    },
+    {
+      "id": "zoorkk_20241101",
+      "claims": []
+    },
+    {
+      "id": "xhobe7_20241101",
+      "claims": [
+        "Having primary tetanus shots as a child eliminates the need for immunoglobulin (IGG) shots.",
+        "Immunoglobulin (IGG) shots were unnecessary during the last visit.",
+        "A tetanus vaccine expired in 2020.",
+        "The person in question has a dirty wound from a Spartan race.",
+        "The doctor recommends getting a tetanus booster vaccine as soon as possible."
+      ]
+    },
+    {
+      "id": "7dtin2_20241101",
+      "claims": [
+        "Levodopa/Carbidopa is used to treat Parkinson's disease.",
+        "Levodopa/Carbidopa should only be taken under the close supervision of a doctor."
+      ]
+    },
+    {
+      "id": "4i6xo3_20241101",
+      "claims": [
+        "For a certain type of injury, over-the-counter pain medication such as Tylenol can be used to manage discomfort.",
+        "The doctor advised not to use the left hand to avoid putting additional strain on the injured tendon.",
+        "Keeping the left hand still can help promote healing.",
+        "Avoiding strenuous activities can help minimize the risk of complications."
+      ]
+    },
+    {
+      "id": "4dft8b_20241101",
+      "claims": [
+        "Determining adrenal insufficiency requires a morning cortisol test.",
+        "Determining adrenal insufficiency requires an ACTH stimulation test if necessary.",
+        "Long-term steroid use can increase the risk of an acute adrenal crisis during periods of illness."
+      ]
+    },
+    {
+      "id": "xo4rhs_20241101",
+      "claims": [
+        "With perfect use, combination pills are over 99% effective in preventing pregnancy.",
+        "With typical use, combination pills are 91% effective in preventing pregnancy."
+      ]
+    },
+    {
+      "id": "yuole1_20241101",
+      "claims": [
+        "Holiday heart syndrome is a condition caused by heavy drinking.",
+        "Holiday heart syndrome can cause irregular heartbeats.",
+        "The treatment for holiday heart syndrome is to avoid drinking.",
+        "Holiday heart syndrome is typically associated with heavy drinking.",
+        "It is considered reasonable to abstain from drinking altogether for a while to recover from holiday heart syndrome."
+      ]
+    },
+    {
+      "id": "zo8n77_20241101",
+      "claims": [
+        "An ectopic pregnancy can be a serious condition.",
+        "Ectopic pregnancy requires prompt treatment."
+      ]
+    },
+    {
+      "id": "5znbnf_20241101",
+      "claims": [
+        "The recommendation is to obtain copies of all the X-rays done on the brother.",
+        "The recommendation is to obtain copies of all the CT scans done on the brother.",
+        "The recommendation is to obtain copies of the radiology reports related to the brother."
+      ]
+    },
+    {
+      "id": "4cecv6_20241101",
+      "claims": [
+        "PTSD has been linked to low cortisol levels.",
+        "Low cortisol levels do not necessarily mean that low cortisol is the direct cause of anxiety and depression.",
+        "Anxiety and depression are not typically caused by adrenal dysfunction.",
+        "Addison's disease is a type of adrenal dysfunction.",
+        "Hydrocortisone can have negative side effects at low doses (5-20 mg).",
+        "Hydrocortisone may not effectively treat anxiety and depression at low doses (5-20 mg)."
+      ]
+    },
+    {
+      "id": "xrmxvv_20241101",
+      "claims": [
+        "The presence of Group B strep (GBS) in urine can indicate a urinary tract infection.",
+        "Group B strep (GBS) can be present in the urinary tract.",
+        "The goal of treating an untreated infection during pregnancy is to prevent complications.",
+        "The patient will receive IV antibiotics during labor as an additional precaution."
+      ]
+    },
+    {
+      "id": "72t854_20241101",
+      "claims": [
+        "The location of an aneurysm is crucial in determining the best course of action for addressing it.",
+        "The aneurysm in the case is located in the ophthalmic region of the left internal carotid artery (ICA).",
+        "The size of the aneurysm is considered when assessing the risk of rupture.",
+        "The aneurysm is 3mm in size.",
+        "The aneurysm is saccular in shape.",
+        "The age of the person is considered when assessing the risk of rupture.",
+        "The person is 31 years old.",
+        "Surgery (clipping) is a method for treating aneurysms.",
+        "Endovascular treatment (coiling) is a method for treating aneurysms.",
+        "The decision to treat an aneurysm depends on the balance between the risk of rupture and the risk of complications from treatment."
+      ]
+    },
+    {
+      "id": "xpy40s_20241101",
+      "claims": []
+    },
+    {
+      "id": "zbmare_20241101",
+      "claims": [
+        "Stretching is included in the physical therapy exercises for Greater Trochanteric Pain Syndrome (GTPS) and Patellofemoral Pain Syndrome (PFPS).",
+        "Strengthening exercises are included in the physical therapy exercises for Greater Trochanteric Pain Syndrome (GTPS) and Patellofemoral Pain Syndrome (PFPS).",
+        "A physical therapist can review a patient's form during exercises.",
+        "A physical therapist can explain the mechanics behind exercises.",
+        "A physical therapist can help a patient understand the purpose of the exercises.",
+        "Identifying underlying issues can help determine if they are contributing to pain.",
+        "Research has shown that certain approaches can help reduce the severity of chronic pain."
+      ]
+    },
+    {
+      "id": "766v1g_20241101",
+      "claims": [
+        "Platelet transfusions can be ineffective in raising the platelet count in cases of Immune Thrombocytopenia Purpura (ITP).",
+        "The transfused platelets in cases of ITP can be destroyed by the immune system.",
+        "The destruction of transfused platelets in ITP is similar to the destruction of native platelets.",
+        "Platelet transfusions are typically reserved for patients with severe bleeding.",
+        "Platelet transfusions are typically reserved for patients with very low platelet counts.",
+        "Your brother has experienced severe bleeding.",
+        "Your brother has experienced very low platelet counts.",
+        "Additional therapies for ITP can be tried.",
+        "The availability of resources at the hospital where a patient is being treated can influence the treatment options for ITP."
+      ]
+    },
+    {
+      "id": "xrqlsj_20241101",
+      "claims": [
+        "There have been cases in the US where children have received incorrect COVID vaccine doses."
+      ]
+    },
+    {
+      "id": "43i78p_20241101",
+      "claims": [
+        "A chart can help estimate potential adult height based on current age and height.",
+        "Plotting age and height on a chart can provide an estimate of expected adult height.",
+        "Drawing a line parallel to the other curved lines on the chart can provide an estimate of expected adult height."
+      ]
+    },
+    {
+      "id": "51wt9s_20241101",
+      "claims": [
+        "Applying an unscented lotion is suggested to help with discomfort.",
+        "Keeping the area moisturized is suggested to help with discomfort.",
+        "Not scratching the area is suggested to help with discomfort."
+      ]
+    },
+    {
+      "id": "7fxixq_20241101",
+      "claims": [
+        "Anxiety can cause nausea.",
+        "Anxiety can cause nausea when one is exposed to new or unusual foods.",
+        "Anxiety can cause nausea when one sees things that upset them.",
+        "Blood can upset one and cause anxiety-related nausea.",
+        "The doctor understands that the person has already had several blood tests.",
+        "The doctor understands that the person has already visited their general practitioner.",
+        "The person is looking for a more concrete solution to their symptoms."
+      ]
+    },
+    {
+      "id": "x8zczm_20241101",
+      "claims": [
+        "A small amount of endometrial tissue from the uterus can be left under the skin after a C-section."
+      ]
+    },
+    {
+      "id": "6qqpv8_20241101",
+      "claims": [
+        "The doctor mentioned that it's difficult to predict the chances of a complete recovery after a stroke.",
+        "Some deficits may persist after a stroke.",
+        "Recovery from a stroke can continue for up to a year after the stroke.",
+        "There are no proven supplements that can increase cognitive recovery after a stroke.",
+        "Rehabilitation therapy is crucial for recovery after a stroke.",
+        "Rehabilitation therapy includes occupational therapy.",
+        "Rehabilitation therapy includes physical therapy.",
+        "Rehabilitation therapy includes speech therapy.",
+        "The doctor recommends observing the exercises and therapies a patient receives in the hospital to support their recovery.",
+        "The doctor recommends asking the therapists how to continue similar activities with the patient at home to support their recovery."
+      ]
+    },
+    {
+      "id": "yz6sdm_20241101",
+      "claims": [
+        "Constipation can cause bloating.",
+        "Constipation can cause pressure.",
+        "Constipation can cause cramps.",
+        "The symptoms of constipation can be similar to those described by the patient."
+      ]
+    },
+    {
+      "id": "zlyjzx_20241101",
+      "claims": [
+        "Some medications can cause issues if they leak out of the vein during IV administration."
+      ]
+    },
+    {
+      "id": "y3xxes_20241101",
+      "claims": [
+        "Feeling better is a common symptom of depression known as anhedonia.",
+        "Cognitive behavioral therapy is a type of therapy that can help achieve the goal of regaining love and enthusiasm for life.",
+        "Medication may be beneficial even if one is already seeing improvements."
+      ]
+    },
+    {
+      "id": "4evktk_20241101",
+      "claims": [
+        "Extreme anxiety can cause muscle tension.",
+        "Muscle tension is likely to contribute to soreness."
+      ]
+    },
+    {
+      "id": "7gn0vz_20241101",
+      "claims": [
+        "If there were any issues with the injection, symptoms would have likely occurred right away, not a day later."
+      ]
+    },
+    {
+      "id": "68up8v_20241101",
+      "claims": []
+    },
+    {
+      "id": "4xw5u8_20241101",
+      "claims": [
+        "If there is a deep abscess, antibiotics might not be enough to treat it.",
+        "One may need to go back to the doctor for further treatment if there is a deep abscess.",
+        "Draining the pus could be part of the further treatment for a deep abscess."
+      ]
+    },
+    {
+      "id": "5vmpc1_20241101",
+      "claims": [
+        "Chest x-rays can detect small nodules.",
+        "Further evaluation with a CT scan is often required to determine the nature of nodules detected by chest x-rays.",
+        "Chest x-rays are not highly sensitive.",
+        "Chest x-rays may miss many tumors.",
+        "Previous chest x-rays were done for purposes other than looking for signs of lung cancer."
+      ]
+    },
+    {
+      "id": "xgxkvc_20241101",
+      "claims": [
+        "A headache can be related to an epidural.",
+        "A headache can be related to a post-dural puncture headache.",
+        "A post-dural puncture headache is characterized by pain that is worse when standing or walking and better when lying down.",
+        "Headaches are common in new mothers.",
+        "Hormonal changes can cause headaches in new mothers.",
+        "Dehydration can cause headaches in new mothers.",
+        "Lack of sleep can cause headaches in new mothers.",
+        "Caffeine may help alleviate pain."
+      ]
+    },
+    {
+      "id": "6nuvqm_20241101",
+      "claims": [
+        "The nerves that control the muscles used in certain exercises run through the spinal cord.",
+        "These exercises include walking on toes and the balls of the feet.",
+        "These exercises also include pushing, pulling, and resisting with arms and knees.",
+        "The purpose of certain exercises is to check for damage to nerves.",
+        "Damage to nerves could cause weakness.",
+        "Damage to nerves could cause numbness.",
+        "Damage to nerves could cause problems with bladder control.",
+        "Damage to nerves could cause problems with bowel control.",
+        "The results of exercises are an important factor in determining the best course of action for a diagnosis.",
+        "The results of exercises are an important factor in determining the best course of action for a treatment plan."
+      ]
+    },
+    {
+      "id": "5p64dd_20241101",
+      "claims": [
+        "Language barriers can contribute to the \"revolving door syndrome.\"",
+        "\"Revolving door syndrome\" is one of many factors.",
+        "Education is an important factor.",
+        "Home support is an important factor.",
+        "Medication noncompliance is an important factor.",
+        "Lack of primary care is an important factor.",
+        "Duolingo is a language course option recommended by the doctor.",
+        "Doctors find it challenging to find the time to learn multiple languages.",
+        "There are many languages spoken by patients in doctors' areas, including Spanish, Hmong, Chinese, and Polish.",
+        "Many Spanish-speaking patients have some knowledge of English.",
+        "Many Spanish-speaking patients have family members who are fluent in English."
+      ]
+    },
+    {
+      "id": "z03241_20241101",
+      "claims": []
+    },
+    {
+      "id": "450c32_20241101",
+      "claims": [
+        "Understanding the cause of kidney disease is crucial in determining the best course of action.",
+        "Kidney problems related to a blocked urine flow can be treated with medications.",
+        "Kidney problems related to a blocked urine flow can be treated with surgery for an enlarged prostate.",
+        "Hypertensive kidney disease can cause kidney issues.",
+        "Treatments for kidney issues may not be effective if the cause is hypertensive kidney disease.",
+        "Avodart could be helpful if an enlarged prostate is contributing to kidney issues."
+      ]
+    },
+    {
+      "id": "xhs7h4_20241101",
+      "claims": [
+        "A1c level is a measure of average blood sugar levels over the past three months.",
+        "A normal A1c level suggests that one is not diabetic.",
+        "A1c is a measure of average blood sugar levels over the past three months.",
+        "A short period of consuming high-sugar foods would not significantly impact the A1c result.",
+        "The presence of ketones in urine can occur for reasons other than diabetes.",
+        "Dehydration is a reason for the presence of ketones in urine.",
+        "A normal A1c level suggests that diabetes is unlikely.",
+        "Streptococcus group B is present in urine.",
+        "The presence of streptococcus group B in urine indicates a urinary tract infection (UTI).",
+        "A urinary tract infection (UTI) needs to be treated with antibiotics."
+      ]
+    },
+    {
+      "id": "5m8lxx_20241101",
+      "claims": [
+        "Nasal saline solution can help break up mucus.",
+        "A nasal saline solution can be purchased over the counter.",
+        "A nasal saline solution can be made by mixing 8 ounces of water with 1/2 teaspoon of salt.",
+        "A nasal saline solution can be made by adding a pinch of baking soda."
+      ]
+    },
+    {
+      "id": "xth4um_20241101",
+      "claims": [
+        "A sore throat is usually caused by a virus.",
+        "A sore throat can be caused by bacteria.",
+        "The antibiotics may not be effective for a sore throat caused by a bacterial infection."
+      ]
+    },
+    {
+      "id": "5cvelx_20241101",
+      "claims": [
+        "A sudden onset of fever is one of the key signs of the flu.",
+        "It is still early in the flu season.",
+        "The number of flu cases has not been seen as large yet."
+      ]
+    },
+    {
+      "id": "43tn4r_20241101",
+      "claims": []
+    },
+    {
+      "id": "51984l_20241101",
+      "claims": [
+        "The two main risks of kidney stones are infection and blockage of the ureter.",
+        "Kidney stones can have serious consequences if left untreated.",
+        "Some kidney stones can pass on their own.",
+        "The ability of a kidney stone to pass on its own depends on the size of the stone."
+      ]
+    },
+    {
+      "id": "x9nqqo_20241101",
+      "claims": [
+        "The person had internal hemorrhoids found during their colonoscopy.",
+        "The doctor's initial impression was that the mucus in the person's stool and rectal pressure may not be directly related to the hemorrhoids."
+      ]
+    },
+    {
+      "id": "65cqbd_20241101",
+      "claims": [
+        "The approach to routine check-ups varies significantly depending on the country.",
+        "The approach to routine check-ups varies significantly depending on medical guidelines.",
+        "In the Netherlands, gynecologists only see patients who have specific gynecological complaints.",
+        "Gynecologists in the Netherlands do not perform routine check-ups on healthy women.",
+        "There is no clear consensus on the necessity of rectal and rectovaginal exams for asymptomatic patients.",
+        "The focus in some countries is on screening for cervical cancer through regular pap smears.",
+        "Some countries do not perform routine rectal exams for cervical cancer screening."
+      ]
+    },
+    {
+      "id": "zgpokw_20241101",
+      "claims": [
+        "Hyperinflation on a chest X-ray is not a specific indicator of Chronic Obstructive Pulmonary Disease (COPD).",
+        "Hyperinflation on a chest X-ray can be caused by various factors.",
+        "A CT scan is considered a more reliable test for detecting the effects of COPD.",
+        "The CT scan did not show any signs of COPD.",
+        "It is unlikely that the person in question has COPD."
+      ]
+    },
+    {
+      "id": "z13abx_20241101",
+      "claims": [
+        "Doctors often deny medication refills because patients have not undergone regular blood tests.",
+        "Regular blood tests are a standard part of a patient's care."
+      ]
+    },
+    {
+      "id": "zg4hg7_20241101",
+      "claims": [
+        "The bend in the shaft of a penis can be a primary abnormality."
+      ]
+    },
+    {
+      "id": "5km4d7_20241101",
+      "claims": [
+        "The advice is to wait for about 2 weeks after the rupture before scheduling a follow-up appointment.",
+        "Keeping the ear dry is essential to promote healing."
+      ]
+    },
+    {
+      "id": "xdj0mc_20241101",
+      "claims": [
+        "Medications are not very effective in dissolving gallstones.",
+        "Dissolving gallstones requires long-term use of medications.",
+        "Stopping medications for dissolving gallstones may lead to the formation of new sludge and stones."
+      ]
+    },
+    {
+      "id": "yy8eya_20241101",
+      "claims": [
+        "Orbital cellulitis is a condition that can cause difficulty in determining without an in-person evaluation."
+      ]
+    },
+    {
+      "id": "y1rcb7_20241101",
+      "claims": [
+        "Overall health and well-being play a significant role in recovery from kidney transplant surgery.",
+        "Having a good HLA (Human Leukocyte Antigen) match is crucial for the success of a kidney transplant."
+      ]
+    },
+    {
+      "id": "4un2uu_20241101",
+      "claims": [
+        "Paracetamol is also known as acetaminophen.",
+        "Paracetamol is a painkiller.",
+        "Paracetamol has relatively few side effects.",
+        "Hydrocodone should be the first medication to reduce before any other medication.",
+        "Paracetamol (acetaminophen) should be the last medication to be stopped."
+      ]
+    },
+    {
+      "id": "zn301q_20241101",
+      "claims": [
+        "Neosporin contains neomycin.",
+        "Neosporin contains polymyxin B.",
+        "Neosporin contains bacitracin.",
+        "Polysporin contains polymyxin B.",
+        "Polysporin contains bacitracin.",
+        "Neosporin and polysporin are not exactly the same.",
+        "The flu shot does not contain antibiotics in the classical sense.",
+        "The flu shot contains virus parts to stimulate an immune reaction.",
+        "Some flu vaccines may contain trace amounts of antibiotics during the manufacturing process.",
+        "Neomycin is one of the antibiotics that can be found in trace amounts in some flu vaccines.",
+        "One of the currently available flu vaccines contains neomycin."
+      ]
+    },
+    {
+      "id": "y9048e_20241101",
+      "claims": [
+        "Fluoroquinolones is a class of medication that Levofloxacin belongs to.",
+        "There is evidence that Fluoroquinolones can cause tendinitis in certain cases.",
+        "Tendinitis caused by Fluoroquinolones is relatively rare in adults.",
+        "The association between Fluoroquinolones and tendinitis is more convincing in animal studies.",
+        "Young beagles are used in animal studies related to Fluoroquinolones and tendinitis.",
+        "The link between Fluoroquinolones and tendinitis is less clear in humans."
+      ]
+    },
+    {
+      "id": "y78uzp_20241101",
+      "claims": [
+        "A neurologist has specialized training to diagnose conditions like Parkinson's.",
+        "A neurologist has specialized training to treat conditions like Parkinson's.",
+        "Getting an expert opinion from a neurologist is considered beneficial.",
+        "The person is experiencing undiagnosed neurological symptoms.",
+        "The undiagnosed neurological symptoms include balance issues.",
+        "The undiagnosed neurological symptoms include hand shaking.",
+        "The undiagnosed neurological symptoms include a shuffle in the walk."
+      ]
+    },
+    {
+      "id": "x65v83_20241101",
+      "claims": [
+        "It is essential to complete the full course of any prescribed medication.",
+        "The CDC recommends a specific combination of medications for the treatment of epididymitis."
+      ]
+    },
+    {
+      "id": "zm78hx_20241101",
+      "claims": [
+        "Having nodules on the thyroid gland is not a definitive indicator of Hashimoto's disease.",
+        "Hashimoto's disease is typically characterized by a specific appearance of the thyroid gland on an ultrasound.",
+        "The specific appearance of the thyroid gland on an ultrasound associated with Hashimoto's disease is related to chronic thyroiditis.",
+        "A doctor wants to know the results of a biopsy performed on the nodules in 2016."
+      ]
+    },
+    {
+      "id": "6rh63p_20241101",
+      "claims": [
+        "A definitive diagnosis of some conditions can only be made after examining the tissue under a microscope.",
+        "The next step in addressing a possible renal cell carcinoma may involve a referral to a urologist.",
+        "A urologist may discuss possible surgical options for addressing a possible renal cell carcinoma.",
+        "The course of action for addressing a mass in the body may involve removing part or all of the kidney.",
+        "The decision to remove part or all of the kidney for addressing a mass depends on the size and location of the mass.",
+        "A sonogram is suggested for further characterization.",
+        "The doctor will likely discuss the details of the sonogram in more detail."
+      ]
+    },
+    {
+      "id": "xiaqjn_20241101",
+      "claims": [
+        "Constipation is a common issue.",
+        "Constipation can often be managed with the help of a primary care doctor (GP).",
+        "A doctor suggested that a patient's GP can provide guidance on dietary changes.",
+        "A doctor suggested that a patient's GP can provide guidance on medications.",
+        "A doctor suggested that a patient's GP can provide guidance on enemas that can be done at home."
+      ]
+    },
+    {
+      "id": "zskd8u_20241101",
+      "claims": [
+        "A colonic is a colon cleanse.",
+        "A colonic is not a medically proven treatment for any specific condition.",
+        "A colonoscopy is a procedure.",
+        "A colonoscopy involves a doctor using a camera.",
+        "The purpose of a colonoscopy is to visually examine the colon.",
+        "The reasons for visually examining the colon include screening for colon cancer.",
+        "The reasons for visually examining the colon include investigating inflammatory bowel disease."
+      ]
+    },
+    {
+      "id": "zweher_20241101",
+      "claims": []
+    },
+    {
+      "id": "yocv4v_20241101",
+      "claims": [
+        "Some of the skin nerves were likely affected during the incision.",
+        "The skin nerves being affected during the incision is a common occurrence.",
+        "The skin nerves being affected during the incision is considered normal for this type of surgery."
+      ]
+    },
+    {
+      "id": "zdhrom_20241101",
+      "claims": [
+        "The flu vaccine is not a guarantee against getting the flu.",
+        "The flu vaccine is a measure to reduce the severity of the illness.",
+        "The flu vaccine is a measure to reduce the number of people who need hospitalization.",
+        "The flu vaccine is developed based on predictions of which strains of influenza will be most prevalent during the season.",
+        "The predictions for the flu vaccine are not always 100% accurate.",
+        "The flu vaccine is effective in reducing the overall number of hospitalizations from the flu.",
+        "The flu vaccine is effective in reducing the overall number of deaths from the flu."
+      ]
+    },
+    {
+      "id": "6fh0fj_20241101",
+      "claims": [
+        "Having a completely normal pap test three years ago makes it unlikely that a carcinoma would have developed since then.",
+        "The timing between cervical screening tests is designed to catch potential issues before they become malignant.",
+        "There are limitations to cervical screening tests.",
+        "Abnormal areas in cervical cancer screening can be missed.",
+        "Aggressive, fast-growing cancers can develop between cervical cancer screenings."
+      ]
+    },
+    {
+      "id": "z519k5_20241101",
+      "claims": []
+    },
+    {
+      "id": "xli33y_20241101",
+      "claims": []
+    },
+    {
+      "id": "yiwf62_20241101",
+      "claims": [
+        "Anabolic steroids may have positive effects on muscle health.",
+        "Anabolic steroids may have positive effects on bone health.",
+        "Anabolic steroids carry significant risks.",
+        "Anabolic steroids carry potential side effects.",
+        "The doctor mentioned that the anabolic cycle the partner is on is intense.",
+        "The doctor mentioned that the anabolic cycle requires careful monitoring.",
+        "The doctor mentioned potential issues related to the anabolic cycle include infertility.",
+        "The doctor mentioned potential issues related to the anabolic cycle include mood swings.",
+        "The doctor mentioned potential issues related to the anabolic cycle include problems related to weight gain.",
+        "The doctor mentioned that problems related to weight gain from the anabolic cycle include snoring.",
+        "The doctor mentioned that problems related to weight gain from the anabolic cycle include possible sleep apnea.",
+        "Addison's disease is a condition that can be well-treated.",
+        "Addison's disease may not significantly complicate things if well-treated.",
+        "Addison's disease could become an issue when an anabolic cycle is stopped."
+      ]
+    },
+    {
+      "id": "x4t6uc_20241101",
+      "claims": [
+        "It's normal for people to blink less often when they're concentrating.",
+        "Dry environments can cause the tear film to evaporate more quickly.",
+        "Using fans or air conditioners can cause the tear film to evaporate more quickly."
+      ]
+    },
+    {
+      "id": "5ocxv3_20241101",
+      "claims": []
+    },
+    {
+      "id": "zhtvny_20241101",
+      "claims": [
+        "Switching to the modified release version of metformin may help reduce side effects if the patient is currently taking the immediate release form of metformin.",
+        "Some patients have reported fewer side effects with the immediate release (IR) version of metformin.",
+        "If a patient is already on the modified release (MR) version of metformin, it might be worth trying the IR version.",
+        "Metformin is the first line of treatment for type 2 diabetes.",
+        "There are alternative options available for treating type 2 diabetes if a patient is unable to tolerate metformin."
+      ]
+    },
+    {
+      "id": "y4o2x3_20241101",
+      "claims": [
+        "Double-voiding involves standing up after finishing urination.",
+        "Double-voiding involves sitting down again.",
+        "Double-voiding involves trying to go again after standing up.",
+        "Double-voiding can help ensure that the bladder is fully emptied.",
+        "Double-voiding may help alleviate the sensation of leaking."
+      ]
+    },
+    {
+      "id": "znegia_20241101",
+      "claims": [
+        "Additional testing may be needed to rule out potential causes of symptoms.",
+        "A strep test is a type of additional testing that may be needed.",
+        "A mono test is a type of additional testing that may be needed."
+      ]
+    },
+    {
+      "id": "4u7y11_20241101",
+      "claims": [
+        "A referral to an oncologist may not necessarily be for cancer.",
+        "An oncologist may be consulted for conditions that require their expertise.",
+        "Paraproteinaemia is a condition that needs to be monitored by a specialist.",
+        "An oncologist is a specialist who can monitor paraproteinaemia.",
+        "A haematologist is a specialist who can monitor paraproteinaemia.",
+        "The doctor is reassuring that the referral to the oncologist is likely a precautionary measure.",
+        "The purpose of the referral to the oncologist is to investigate issues with the patient's dad's blood work further."
+      ]
+    },
+    {
+      "id": "5mh9wc_20241101",
+      "claims": [
+        "Anesthesia can cause a reaction including violent outbursts.",
+        "Anesthesia can cause a reaction including loss of impulse control."
+      ]
+    },
+    {
+      "id": "4hfvmv_20241101",
+      "claims": [
+        "High levels of carbon monoxide in the body can cause headaches.",
+        "High levels of carbon monoxide in the body can cause lethargy.",
+        "High levels of carbon monoxide in the body can cause impaired functioning.",
+        "A doctor may recommend a CAT scan to rule out cerebral edema caused by poisoning."
+      ]
+    },
+    {
+      "id": "y4i77c_20241101",
+      "claims": [
+        "There have been instances where patients have experienced harm in medical settings."
+      ]
+    },
+    {
+      "id": "yg80ua_20241101",
+      "claims": [
+        "Acute bronchitis typically does not show up on a chest X-ray.",
+        "The X-rays were done to rule out pneumonia.",
+        "The ER has checked for any life-threatening conditions."
+      ]
+    },
+    {
+      "id": "y32tzf_20241101",
+      "claims": [
+        "The biopsy showed the presence of mature lymphocytes.",
+        "Mature lymphocytes are a type of normal white blood cell.",
+        "Mature lymphocytes can be found in lymph nodes.",
+        "The biopsy found rare benign acini.",
+        "Benign acini are normal components of the salivary gland.",
+        "Doctors use phrases like \"possibly consistent with\" or \"most likely\" to ensure accuracy in medicine.",
+        "Doctors use phrases like \"possibly consistent with\" or \"most likely\" to avoid potential misinterpretation in medicine."
+      ]
+    },
+    {
+      "id": "zt5486_20241101",
+      "claims": [
+        "There have been rare reports of statins causing depression.",
+        "Doctors have not personally seen statins causing depression in their practice."
+      ]
+    },
+    {
+      "id": "xradqv_20241101",
+      "claims": [
+        "Shock wave therapy can be a promising treatment for plantar fasciitis.",
+        "The doctor expressed concerns about using shock wave therapy as a first course of action for plantar fasciitis.",
+        "The doctor cited that shock wave therapy is not FDA-approved.",
+        "The doctor cited that shock wave therapy may not be covered by insurance.",
+        "Stretching calves regularly is recommended to alleviate symptoms.",
+        "Massaging feet with hands is recommended to alleviate symptoms.",
+        "Massaging feet with a golf ball is recommended to alleviate symptoms.",
+        "Wearing supportive footwear is advised for addressing certain issues."
+      ]
+    },
+    {
+      "id": "ym9as8_20241101",
+      "claims": [
+        "A doctor noted that 5mg is a very low dose of propranolol.",
+        "The doctor wanted to discuss the low dose of propranolol further with the patient.",
+        "The doctor was considering alternative beta blockers before discussing this further with the patient."
+      ]
+    },
+    {
+      "id": "4p84zx_20241101",
+      "claims": [
+        "The cardiac CT scan test involves receiving an IV in the arm.",
+        "A contrast dye is injected through the IV during a cardiac CT scan.",
+        "A dye is used to create clear images of the heart during a CT scan.",
+        "A cardiac CT scan provides detailed pictures of the coronary anatomy.",
+        "A cardiac CT scan helps identify blockages in the arteries.",
+        "A cardiac CT scan helps identify significant narrowing of the arteries.",
+        "A cardiac CT scan is similar to a conventional angiogram.",
+        "A cardiac CT scan is less invasive than a conventional angiogram.",
+        "A cardiac CT scan can detect blockages.",
+        "A cardiac CT scan is not a treatment for blockages.",
+        "A cardiac CT scan can reveal a blockage that requires intervention.",
+        "A separate procedure, such as a cath, may be scheduled to address the issue revealed by a cardiac CT scan."
+      ]
+    },
+    {
+      "id": "zosogb_20241101",
+      "claims": [
+        "Atorvastatin 80mg medication is not meant to control blood pressure.",
+        "Atorvastatin 80mg medication is used to lower cholesterol levels.",
+        "Atorvastatin 80mg medication is used to reduce the risk of cardiovascular events in the future.",
+        "If a person's cholesterol levels are high and they are not taking a statin, their risk of developing serious cardiovascular disease may increase."
+      ]
+    },
+    {
+      "id": "5u7nst_20241101",
+      "claims": [
+        "Monitoring the knee for signs of inflammation is important.",
+        "Signs of inflammation in the knee can include warmth.",
+        "Signs of inflammation in the knee can include redness.",
+        "Signs of inflammation in the knee can include swelling.",
+        "Inflammation in the knee can be related to lupus."
+      ]
+    },
+    {
+      "id": "xb4wt1_20241101",
+      "claims": [
+        "Iron can cause a change in stool color.",
+        "It is not uncommon for iron to cause a change in stool color.",
+        "Concerns about stool color can indicate a sign of something else.",
+        "Online services allow individuals to order lab tests.",
+        "A Complete Blood Count (CBC) is a type of lab test that can be ordered online."
+      ]
+    },
+    {
+      "id": "zopyyk_20241101",
+      "claims": []
+    },
+    {
+      "id": "y3bfzi_20241101",
+      "claims": [
+        "Drinking plenty of water beforehand is suggested to ensure well-hydration.",
+        "Lying down during a medical procedure can help minimize the risk of injury if one faints.",
+        "Informing healthcare providers about one's history of vasovagal syncope is essential.",
+        "Healthcare providers need to take necessary precautions for individuals with a history of vasovagal syncope."
+      ]
+    },
+    {
+      "id": "zbnfe6_20241101",
+      "claims": []
+    },
+    {
+      "id": "6wsgwl_20241101",
+      "claims": [
+        "The ideal way to measure blood pressure is when a person is sitting upright with their feet on the ground for 10 minutes.",
+        "The method of measuring blood pressure by having the person sit upright with their feet on the ground for 10 minutes is not always practical in a doctor's office setting.",
+        "Light beta blockers are generally considered safe.",
+        "Light beta blockers are often prescribed to treat high blood pressure.",
+        "The way blood pressure was measured in clinical practice is not uncommon."
+      ]
+    },
+    {
+      "id": "xnr80p_20241101",
+      "claims": [
+        "Coughing can be a normal part of any upper respiratory issue.",
+        "Coughing can last for several days to weeks.",
+        "The doctor is concerned with symptoms like stridor.",
+        "The doctor is concerned with difficulty breathing.",
+        "Steroids are used for primary reasons related to stridor and difficulty breathing.",
+        "Epinephrine is used for primary reasons related to stridor and difficulty breathing."
+      ]
+    },
+    {
+      "id": "xzqrvh_20241101",
+      "claims": [
+        "Facial twitching is not uncommon when wearing a cochlear implant.",
+        "Shocks felt when wearing a cochlear implant can often be resolved by adjusting the electrode stimulations.",
+        "Adjusting the electrode stimulations for a cochlear implant is typically done by an audiologist.",
+        "The CT scan results from 2021 did not show any significant issues with the implant.",
+        "The CT scan results from 2021 did not show any significant issues with the surrounding area of the implant."
+      ]
+    },
+    {
+      "id": "xfvp24_20241101",
+      "claims": [
+        "The doctor has reviewed the extensive testing and treatments the mother has undergone.",
+        "The review included checks for common infections.",
+        "The review included checks for uncommon infections.",
+        "The review included imaging studies.",
+        "The review included the involvement of an infectious disease specialist.",
+        "Steroids were started.",
+        "Steroids may have contributed to a recent improvement in the condition of the person mentioned.",
+        "The medical team is doing everything they can to care for the mother.",
+        "The medical team will continue to explore possible explanations for the mother's illness."
+      ]
+    },
+    {
+      "id": "4b6aue_20241101",
+      "claims": [
+        "A doctor typically recommends wearing a sling for 4-5 weeks after a clavicle fracture.",
+        "The purpose of wearing a sling after a clavicle fracture is to ensure proper healing.",
+        "A figure of 8 clavicle support can provide similar support to a sling.",
+        "A figure of 8 clavicle support allows for more freedom of movement."
+      ]
+    },
+    {
+      "id": "xwshe6_20241101",
+      "claims": [
+        "Many pain medications contain opioids.",
+        "Opioids may contribute to adverse reactions.",
+        "Medications work on different receptors in the body.",
+        "Medications block different endpoints in the body.",
+        "It is challenging to pinpoint a single cause of adverse reactions to medications."
+      ]
+    },
+    {
+      "id": "zw60v5_20241101",
+      "claims": []
+    },
+    {
+      "id": "yezxzp_20241101",
+      "claims": []
+    },
+    {
+      "id": "44qnn7_20241101",
+      "claims": [
+        "Tiny amounts of blood in the urine can indicate high blood pressure.",
+        "Tiny amounts of blood in the urine can indicate kidney problems."
+      ]
+    },
+    {
+      "id": "z5sy2n_20241101",
+      "claims": [
+        "Most surgeons recommend taking 4-8 weeks off from high-demand physical jobs after surgery.",
+        "A surgeon can provide detailed guidance based on the unique situation of the patient.",
+        "A surgeon can provide detailed guidance based on the specifics of the surgery."
+      ]
+    },
+    {
+      "id": "4vpz3o_20241101",
+      "claims": [
+        "Chronic stress and anxiety can cause internal changes in a body's chemistry.",
+        "These internal changes can affect the nerves.",
+        "The effect on the nerves can lead to symptoms like jitteriness.",
+        "The effect on the nerves can lead to an increase in organ function."
+      ]
+    },
+    {
+      "id": "4qij3a_20241101",
+      "claims": [
+        "Eating affects triglyceride levels.",
+        "Triglyceride levels are part of the cholesterol panel."
+      ]
+    }
+  ]
+}
