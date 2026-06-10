@@ -9,11 +9,10 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Any
 
-# SYX/mistral_based_claim_extractor was fine-tuned on mistralai/Mistral-7B-v0.1
-# (base, not instruct), but that adapter's config references an unsloth repo
-# that is no longer accessible, so we fall back to Instruct-v0.2.
-# The LoRA delta is applied to a different weight matrix than intended, which
-# may silently degrade claim extraction quality for veriscore_original.
+# SYX/mistral_based_claim_extractor's adapter config names
+# unsloth/mistral-7b-instruct-v0.2-bnb-4bit as its base — a 4-bit quant of
+# Mistral-7B-Instruct-v0.2. We load the official full-precision repo and apply
+# the same bnb 4-bit quantization, which yields the intended weights.
 _BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
 
 
@@ -40,7 +39,8 @@ def get_pipeline(adapter_id: str) -> Any:
         "text-generation",
         model=model,
         tokenizer=tokenizer,
-        max_new_tokens=512,
+        # VeriScore's claim_extractor.py generates with max_new_tokens=1000.
+        max_new_tokens=1000,
         temperature=None,
         do_sample=False,
         return_full_text=False,

@@ -29,10 +29,12 @@ module-root = ""
 extend = "../ruff.toml"
 
 [tool.ruff.lint.extend-per-file-ignores]
-# Few-shot prompt literals reproduce the FActScore/MedScore paper prompts
-# verbatim and cannot be wrapped without altering their content.
+# Few-shot prompt literals reproduce the FActScore/MedScore/VeriScore paper
+# prompts verbatim and cannot be wrapped without altering their content.
 "amfv_decomposer/baselines/factscore.py" = ["E501"]
 "amfv_decomposer/baselines/medscore.py" = ["E501"]
+"amfv_decomposer/baselines/veriscore.py" = ["E501"]
+"amfv_decomposer/baselines/veriscore_original.py" = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

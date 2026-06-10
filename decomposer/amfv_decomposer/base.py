@@ -48,30 +48,6 @@ def split_sentences(text: str) -> list[str]:
     return [s.text.strip() for s in doc.sents if s.text.strip()]
 
 
-def sliding_window(
-    sentences: list[str], i: int, before: int = 3, after: int = 1
-) -> tuple[str, str]:
-    """Return (snippet, sentence) for the i-th sentence.
-
-    snippet wraps the target sentence in <SOS>/<EOS> tags surrounded by context,
-    mirroring VeriScore's approach. For long paragraphs (>5 sentences) the lead
-    sentence is prepended for additional grounding.
-    """
-    context_before = " ".join(sentences[max(0, i - before):i])
-    sentence = sentences[i].strip()
-    context_after = " ".join(sentences[i + 1:i + 1 + after])
-
-    marked = f"<SOS>{sentence}<EOS>"
-    snippet = f"{context_before} {marked} {context_after}".strip()
-
-    # Prepend lead sentence for grounding in long texts, but only when it is
-    # not already inside the context window (i.e. when i > before).
-    if len(sentences) > 5 and i > before:
-        snippet = f"{sentences[0]} {snippet}"
-
-    return snippet, sentence
-
-
 def parse_claims(text: str) -> list[str]:
     """Parse model output into clean claim strings, stripping list markers and noise.
 
@@ -120,6 +96,10 @@ class BaseDecomposer(ABC):
     # Record field that carries context (e.g. "question").
     # None means the method is context-free by design (FActScore).
     default_context_key: str | None = None
+    # When True, claims are deduplicated across the record in first-seen order
+    # (VeriScore: adjacent windows re-extract the same facts and the original
+    # counts each only once per response).
+    dedup_record: bool = False
 
     @abstractmethod
     def build_requests(self, text: str, sentences: list[str], context: str) -> list:
@@ -129,13 +109,19 @@ class BaseDecomposer(ABC):
         """Parse one raw generation into claims. Override for non-default formats."""
         return parse_claims(raw)
 
+    def postprocess_record(self, claims: list[str]) -> list[str]:
+        """Record-level cleanup applied to the flattened claims of one record."""
+        if self.dedup_record:
+            return list(dict.fromkeys(claims))
+        return claims
+
     def decompose(self, text: str, context: str = "") -> list[str]:
         """Decompose a single text into claims (library convenience API)."""
         sentences = split_sentences(text)
         if not sentences:
             return []
         outputs = self._generate(self.build_requests(text, sentences, context))
-        return [c for out in outputs for c in self.parse_output(out)]
+        return self.postprocess_record([c for out in outputs for c in self.parse_output(out)])
 
     def decompose_batch(
         self,
@@ -162,7 +148,7 @@ class BaseDecomposer(ABC):
         for sentences, requests in zip(sentences_per_record, requests_per_record):
             raw = flat_outputs[pos:pos + len(requests)]
             pos += len(requests)
-            claims = [c for out in raw for c in self.parse_output(out)]
+            claims = self.postprocess_record([c for out in raw for c in self.parse_output(out)])
             results.append(RecordResult(claims, raw, len(sentences)))
         return results
 

@@ -5,7 +5,11 @@ from __future__ import annotations
 from ..base import BaseDecomposer
 
 # Original FActScore few-shot prompt (biography-domain examples).
-# Source: Min et al. 2023 / MedScore reference repo (medscore/prompts.py)
+# Source: Min et al. 2023, via the MedScore reference repo (medscore/prompts.py).
+# Note: the original repo retrieves an 8th demo per sentence via BM25 and adds
+# bio-specific post-processing and a "- "-only output parser. We instead follow
+# MedScore's frozen 8-demo prompt (its paper is our reference) and reuse the
+# shared splitter/parser so baselines differ only in their prompts.
 _PROMPT = """\
 Please breakdown the following sentence into independent facts: He made his acting debut in the film The Moon is the Sun's Dream (1992), and continued to appear in small and supporting roles throughout the 1990s.
 - He made his acting debut in the film.

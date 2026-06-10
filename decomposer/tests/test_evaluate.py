@@ -11,6 +11,8 @@ from pathlib import Path
 import pytest
 
 from amfv_decomposer.base import BaseDecomposer, RecordResult, parse_claims
+from amfv_decomposer.baselines.veriscore import VeriScoreDecomposer
+from amfv_decomposer.baselines.veriscore_original import VeriScoreOriginalDecomposer
 from evaluate import DECOMPOSER_REGISTRY, build_output_dir, compute_metrics, make_parser
 
 
@@ -226,6 +228,100 @@ class TestDecomposeBatch:
         """The single-text convenience API matches the batch pipeline."""
         claims = _FakeDecomposer().decompose("One sentence.", context="ctx")
         assert claims == ["claim from ctx|One sentence."]
+
+
+class TestVeriScore:
+    """Fidelity to the original VeriScore prompting mode (claim_extractor.py)."""
+
+    def test_qa_request_format(self):
+        """QA snippets label the question and tag the target sentence."""
+        reqs = VeriScoreDecomposer().build_requests(
+            "t", ["First sentence.", "Second sentence.", "Third sentence."], "Why?"
+        )
+        assert len(reqs) == 3
+        system, user = reqs[1][0]["content"], reqs[1][1]["content"]
+        assert system.startswith("You are a helpful assistant who can extract verifiable atomic claims")
+        assert "Here are some examples:" in user  # few-shot examples present
+        assert user.endswith(
+            "Question: Why?\n"
+            "Response: First sentence. <SOS>Second sentence.<EOS> Third sentence.\n"
+            "Sentence to be focused on: Second sentence.\n"
+            "Facts:"
+        )
+
+    def test_qa_mode_has_no_lead_sentence(self):
+        """The lead sentence is only prepended in non-QA mode."""
+        sentences = [f"S{i}." for i in range(7)]
+        reqs = VeriScoreDecomposer().build_requests("t", sentences, "Why?")
+        assert "Response: S2. S3. S4. <SOS>S5.<EOS> S6." in reqs[5][1]["content"]
+
+    def test_non_qa_mode_prepends_lead_sentence_in_long_texts(self):
+        """Without a question, texts >5 sentences get the lead sentence prepended."""
+        sentences = [f"S{i}." for i in range(7)]
+        reqs = VeriScoreDecomposer().build_requests("t", sentences, "")
+        assert "S0. S2. S3. S4. <SOS>S5.<EOS> S6." in reqs[5][1]["content"]
+        short = VeriScoreDecomposer().build_requests("t", sentences[:3], "")
+        assert "S0. S1. <SOS>S2.<EOS>" in short[2][1]["content"]
+
+    def test_no_verifiable_claim_discards_whole_generation(self):
+        """The sentinel anywhere in the output yields zero claims for the sentence."""
+        d = VeriScoreDecomposer()
+        assert d.parse_output("No verifiable claim.") == []
+        assert d.parse_output("- A real claim.\nNo verifiable claim.") == []
+
+    def test_parse_strips_markers_and_notes(self):
+        """Bullets and leading numbers are stripped; Note: lines are dropped."""
+        out = VeriScoreDecomposer().parse_output("- Fact one.\n2. Fact two.\nNote: because\n")
+        assert out == ["Fact one.", "Fact two."]
+
+    def test_parse_drops_chat_boilerplate(self):
+        """Deviation from upstream: preambles and headers are not claims."""
+        out = VeriScoreDecomposer().parse_output(
+            "Here is the breakdown of the sentence:\n"
+            "**Independent Facts:**\n"
+            "- Rabies is fatal.\n"
+        )
+        assert out == ["Rabies is fatal."]
+
+    def test_record_level_dedup(self):
+        """Claims re-extracted by adjacent windows are counted once, order kept."""
+        assert VeriScoreDecomposer().postprocess_record(["a", "b", "a", "c", "b"]) == ["a", "b", "c"]
+
+
+class TestVeriScoreOriginal:
+    """Fidelity to the original fine-tuned mode (claim_extractor.py, model branch)."""
+
+    def test_full_response_input_with_inline_tags(self):
+        """The whole response is the input, target tagged in place — no sliding window."""
+        text = "First sentence. Second sentence. Third sentence."
+        reqs = VeriScoreOriginalDecomposer().build_requests(
+            text, ["First sentence.", "Second sentence.", "Third sentence."], "Why?"
+        )
+        assert len(reqs) == 3
+        assert (
+            "Questions:\nWhy?\nResponse:\n"
+            "First sentence. <SOS>Second sentence.<EOS> Third sentence."
+        ) in reqs[1]
+        assert reqs[1].endswith("### Response:\n")
+
+    def test_non_qa_input_is_bare_response(self):
+        """Without a question, the input is the response alone."""
+        reqs = VeriScoreOriginalDecomposer().build_requests("Only sentence.", ["Only sentence."], "")
+        assert "\n<SOS>Only sentence.<EOS>\n" in reqs[0]
+        assert "Questions:" not in reqs[0]
+
+    def test_parse_uses_shared_robust_parser(self):
+        """Markers and Note: lines are handled by parse_claims (upstream keeps lines verbatim)."""
+        out = VeriScoreOriginalDecomposer().parse_output("Claim one.\n- Claim two.\nNote: skip\n</s>")
+        assert out == ["Claim one.", "Claim two."]
+
+    def test_no_verifiable_claim_discards_whole_generation(self):
+        """The sentinel anywhere in the output yields zero claims."""
+        assert VeriScoreOriginalDecomposer().parse_output("Stuff.\nNo verifiable claim.</s>") == []
+
+    def test_record_level_dedup(self):
+        """Repeated claims across sentences are counted once."""
+        assert VeriScoreOriginalDecomposer().postprocess_record(["a", "b", "a"]) == ["a", "b"]
 
 
 class TestComputeMetrics:
