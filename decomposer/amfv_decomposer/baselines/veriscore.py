@@ -248,6 +248,12 @@ class VeriScoreDecomposer(BaseDecomposer):
 
     def build_requests(self, text: str, sentences: list[str], context: str) -> list:
         """One system+user pair per sentence, mirroring ClaimExtractor's scanners."""
+        question = context.strip()
+        template = _QA_TEMPLATE if context else _NON_QA_TEMPLATE
+        # non_qa_scanner_extractor: for long texts the lead sentence is always
+        # prepended, even when the window already contains it. QA mode
+        # (qa_scanner_extractor) never prepends it.
+        lead = sentences[0].strip() if not context and len(sentences) > 5 else ""
         requests = []
         for i in range(len(sentences)):
             target = sentences[i].strip()
@@ -255,18 +261,9 @@ class VeriScoreDecomposer(BaseDecomposer):
             context1 = " ".join(sentences[max(0, i - 3):i]).strip()
             context2 = " ".join(sentences[i + 1:i + 2]).strip()
             if context:
-                # qa_scanner_extractor: the question is labeled, and the lead
-                # sentence is never prepended in QA mode.
-                snippet = f"Question: {context.strip()}\nResponse: {context1} {tagged} {context2}".strip()
-                template = _QA_TEMPLATE
+                snippet = f"Question: {question}\nResponse: {context1} {tagged} {context2}".strip()
             else:
-                # non_qa_scanner_extractor: for long texts the lead sentence is
-                # always prepended, even when the window already contains it.
-                if len(sentences) <= 5:
-                    snippet = f"{context1} {tagged} {context2}".strip()
-                else:
-                    snippet = f"{sentences[0].strip()} {context1} {tagged} {context2}".strip()
-                template = _NON_QA_TEMPLATE
+                snippet = f"{lead} {context1} {tagged} {context2}".strip()
             requests.append([
                 {"role": "system", "content": _SYSTEM},
                 {"role": "user", "content": template.format(snippet=snippet, sentence=target)},

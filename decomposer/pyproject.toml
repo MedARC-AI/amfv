@@ -32,7 +32,7 @@ extend = "../ruff.toml"
 # Few-shot prompt literals reproduce the FActScore/MedScore/VeriScore paper
 # prompts verbatim and cannot be wrapped without altering their content.
 "amfv_decomposer/baselines/factscore.py" = ["E501"]
-"amfv_decomposer/baselines/medscore.py" = ["E501"]
+"amfv_decomposer/baselines/medscore.py" = ["E501", "W291", "W293"]
 "amfv_decomposer/baselines/veriscore.py" = ["E501"]
 "amfv_decomposer/baselines/veriscore_original.py" = ["E501"]
 
