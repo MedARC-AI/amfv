@@ -1,7 +1,7 @@
 """Tests for the scraping CLI."""
 
 import json
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
 from pathlib import Path
 
 import pytest
@@ -11,6 +11,7 @@ from amfv_datasets.scraping.base import ScrapedDocument, ScrapeRun
 from amfv_datasets.scraping.cli import (
     ScraperSource,
     app,
+    scrape_documents,
     write_huggingface_dataset,
     write_jsonl,
     write_markdown_files,
@@ -194,6 +195,47 @@ def test_cli_run_accepts_source_url(monkeypatch: pytest.MonkeyPatch) -> None:
     assert json.loads(result.stdout.splitlines()[0])["external_id"] == "nice-ng1"
 
 
+def test_cli_run_dispatches_rch_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The CLI dispatches RCH source URLs to the RCH scraper."""
+    runner = CliRunner()
+    url = "https://www.rch.org.au/clinicalguide/guideline_index/Acute_asthma/"
+
+    def fake_scrape_rch(
+        *,
+        documents: int | None,
+        link_mode: LinkMode,
+        url: str | None,
+    ) -> ScrapeRun:
+        assert documents == 1
+        assert link_mode is LinkMode.KEEP
+        assert url == "https://www.rch.org.au/clinicalguide/guideline_index/Acute_asthma/"
+        return ScrapeRun([_document(source="rch")], total=1)
+
+    monkeypatch.setattr("amfv_datasets.scraping.cli.scrape_rch", fake_scrape_rch)
+
+    result = runner.invoke(app, ["--source", "rch", "--url", url, "--no-progress"])
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout.splitlines()[0])["source"] == "rch"
+
+
+def test_scrape_documents_combines_all_sources(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The all source combines documents and totals from every registered scraper."""
+    monkeypatch.setattr(
+        "amfv_datasets.scraping.cli.scrape_nice",
+        lambda **_kwargs: ScrapeRun([_document()], total=1),
+    )
+    monkeypatch.setattr(
+        "amfv_datasets.scraping.cli.scrape_rch",
+        lambda **_kwargs: ScrapeRun([_document(source="rch")], total=1),
+    )
+
+    run = scrape_documents(ScraperSource.ALL, documents=1, link_mode=LinkMode.KEEP)
+
+    assert run.total == 2
+    assert [document.source for document in run] == ["nice", "rch"]
+
+
 def test_cli_run_accepts_all_documents(monkeypatch: pytest.MonkeyPatch) -> None:
     """The CLI accepts --documents all."""
     runner = CliRunner()
@@ -219,10 +261,47 @@ def test_cli_run_accepts_all_documents(monkeypatch: pytest.MonkeyPatch) -> None:
     assert json.loads(result.stdout.splitlines()[0])["external_id"] == "nice-ng1"
 
 
-def _document() -> ScrapedDocument:
+def test_cli_resume_appends_and_skips_existing_urls(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Resume reads completed URLs before scraping and appends new JSONL rows."""
+    output_path = tmp_path / "rch.jsonl"
+    existing = _document()
+    existing_row = existing.__dict__ | {"metadata": {"index_url": "https://example.org/index-entry"}}
+    output_path.write_text(json.dumps(existing_row) + "\n", encoding="utf-8")
+    new_document = ScrapedDocument(
+        source="rch",
+        external_id="rch-new",
+        title="New guideline",
+        url="https://www.rch.org.au/clinicalguide/guideline_index/New/",
+        content="new content",
+    )
+
+    def fake_scrape_documents(
+        source: ScraperSource,
+        *,
+        documents: int | None,
+        link_mode: LinkMode,
+        url: str | None = None,
+        skip_urls: Collection[str] = (),
+    ) -> ScrapeRun:
+        assert source is ScraperSource.RCH
+        assert set(skip_urls) == {existing.url, "https://example.org/index-entry"}
+        return ScrapeRun([new_document], total=1)
+
+    monkeypatch.setattr("amfv_datasets.scraping.cli.scrape_documents", fake_scrape_documents)
+    result = CliRunner().invoke(
+        app,
+        ["--source", "rch", "--output", str(output_path), "--resume", "--no-progress"],
+    )
+
+    assert result.exit_code == 0
+    rows = [json.loads(line) for line in output_path.read_text(encoding="utf-8").splitlines()]
+    assert [row["external_id"] for row in rows] == [existing.external_id, new_document.external_id]
+
+
+def _document(*, source: str = "nice") -> ScrapedDocument:
     return ScrapedDocument(
-        source="nice",
-        external_id="nice-ng1",
+        source=source,
+        external_id=f"{source}-ng1",
         title="Guideline 1",
         url="https://www.nice.org.uk/guidance/ng1",
         content="content",

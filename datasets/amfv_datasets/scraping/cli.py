@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 import sys
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 from dataclasses import asdict
 from enum import StrEnum
 from pathlib import Path
@@ -27,6 +27,7 @@ from rich.progress import (
 from amfv_datasets.scraping.base import ScrapedDocument, ScrapeRun
 from amfv_datasets.scraping.html import LinkMode
 from amfv_datasets.scraping.nice import scrape_nice
+from amfv_datasets.scraping.rch import scrape_rch
 
 
 class ScraperSource(StrEnum):
@@ -34,6 +35,7 @@ class ScraperSource(StrEnum):
 
     ALL = "all"
     NICE = "nice"
+    RCH = "rch"
 
 
 class OutputFormat(StrEnum):
@@ -53,6 +55,7 @@ def scrape_documents(
     documents: int | None,
     link_mode: LinkMode,
     url: str | None = None,
+    skip_urls: Collection[str] = (),
 ) -> ScrapeRun:
     """Configure a scrape for a source.
 
@@ -64,17 +67,44 @@ def scrape_documents(
         link_mode: Whether links are kept as markdown links or stripped to their
             visible text.
         url: Source URL to scrape as a single document (default: None).
+        skip_urls: Canonical document URLs already written by a previous run
+            (default: ()).
     """
     if documents is not None and documents < 1:
         raise ValueError(f"documents must be at least 1; got {documents}")
 
-    for selected_source in _expand_source(source):
-        match selected_source:
-            case ScraperSource.NICE:
-                return scrape_nice(documents=documents, link_mode=link_mode, url=url)
-            case ScraperSource.ALL:
-                raise AssertionError("expanded source cannot be all")
-    raise AssertionError(f"unsupported source: {source}")
+    selected_sources = _expand_source(source)
+    if url is not None and len(selected_sources) != 1:
+        raise ValueError("--url requires one specific scraper source, not 'all'")
+    runs = tuple(
+        _scrape_source(selected_source, documents=documents, link_mode=link_mode, url=url, skip_urls=skip_urls)
+        for selected_source in selected_sources
+    )
+    if len(runs) == 1:
+        return runs[0]
+    total = sum(run.total for run in runs) if all(run.total is not None for run in runs) else None
+    return ScrapeRun(documents=(document for run in runs for document in run), total=total)
+
+
+def _scrape_source(
+    source: ScraperSource,
+    *,
+    documents: int | None,
+    link_mode: LinkMode,
+    url: str | None,
+    skip_urls: Collection[str],
+) -> ScrapeRun:
+    match source:
+        case ScraperSource.NICE:
+            if skip_urls:
+                raise ValueError("resume is not implemented for the NICE scraper")
+            return scrape_nice(documents=documents, link_mode=link_mode, url=url)
+        case ScraperSource.RCH:
+            if skip_urls:
+                return scrape_rch(documents=documents, link_mode=link_mode, url=url, skip_urls=skip_urls)
+            return scrape_rch(documents=documents, link_mode=link_mode, url=url)
+        case ScraperSource.ALL:
+            raise AssertionError("expanded source cannot be all")
 
 
 def write_jsonl(documents: Iterable[ScrapedDocument], output: TextIO) -> int:
@@ -125,7 +155,7 @@ def write_markdown_files(documents: Iterable[ScrapedDocument], output_path: Path
 
 def _expand_source(source: ScraperSource) -> tuple[ScraperSource, ...]:
     if source is ScraperSource.ALL:
-        return (ScraperSource.NICE,)
+        return (ScraperSource.NICE, ScraperSource.RCH)
     return (source,)
 
 
@@ -138,6 +168,7 @@ def run(
     output_format: Annotated[OutputFormat, typer.Option("--format", "-f", help="Output format.")] = OutputFormat.JSONL,
     output_path: Annotated[Path | None, typer.Option("--output", "-o", help="Output JSONL file, markdown directory, or Hugging Face dataset directory. JSONL defaults to stdout.")] = None,  # noqa: E501
     progress: Annotated[bool, typer.Option("--progress/--no-progress", help="Show a Rich progress bar.")] = True,
+    resume: Annotated[bool, typer.Option("--resume", help="Append to JSONL and skip URLs already present.")] = False,
 ) -> None:  # fmt: skip
     """Run a scraper and write the scraped documents.
 
@@ -152,14 +183,25 @@ def run(
             dataset directory. When unset, JSONL is written to stdout (default:
             None).
         progress: Whether to show a Rich progress bar (default: True).
+        resume: Whether to append to an existing JSONL file and skip its
+            completed URLs (default: False).
     """
     parsed_documents = _parse_documents(documents)
-    scrape_run = scrape_documents(source, documents=parsed_documents, link_mode=link_mode, url=url)
+    completed_urls = _resume_urls(output_format, output_path, resume=resume)
+    scrape_kwargs = {
+        "documents": parsed_documents,
+        "link_mode": link_mode,
+        "url": url,
+    }
+    if completed_urls:
+        scrape_run = scrape_documents(source, skip_urls=completed_urls, **scrape_kwargs)
+    else:
+        scrape_run = scrape_documents(source, **scrape_kwargs)
     scraped_documents = scrape_run.documents
     if progress:
         scraped_documents = _progress_documents(scraped_documents, total=scrape_run.total)
     if output_format is OutputFormat.JSONL:
-        count = _write_jsonl_output(scraped_documents, output_path)
+        count = _write_jsonl_output(scraped_documents, output_path, append=resume)
     elif output_format is OutputFormat.HUGGINGFACE:
         if output_path is None:
             raise typer.BadParameter("--output is required when --format huggingface")
@@ -204,11 +246,48 @@ def _progress_documents(
             yield document
 
 
-def _write_jsonl_output(documents: Iterable[ScrapedDocument], output_path: Path | None) -> int:
+def _write_jsonl_output(
+    documents: Iterable[ScrapedDocument],
+    output_path: Path | None,
+    *,
+    append: bool = False,
+) -> int:
     if output_path is None:
         return write_jsonl(documents, sys.stdout)
-    with output_path.open("w", encoding="utf-8") as output:
+    with output_path.open("a" if append else "w", encoding="utf-8") as output:
         return write_jsonl(documents, output)
+
+
+def _resume_urls(
+    output_format: OutputFormat,
+    output_path: Path | None,
+    *,
+    resume: bool,
+) -> frozenset[str]:
+    if not resume:
+        return frozenset()
+    if output_format is not OutputFormat.JSONL or output_path is None:
+        raise typer.BadParameter("--resume requires --format jsonl and --output")
+    if not output_path.exists():
+        return frozenset()
+
+    urls: set[str] = set()
+    with output_path.open(encoding="utf-8") as existing:
+        for line_number, line in enumerate(existing, start=1):
+            try:
+                row = json.loads(line)
+                url = row["url"]
+            except (json.JSONDecodeError, KeyError, TypeError) as exc:
+                raise typer.BadParameter(
+                    f"cannot resume from invalid JSONL row {line_number} in {output_path}"
+                ) from exc
+            if not isinstance(url, str) or not url:
+                raise typer.BadParameter(f"cannot resume from row {line_number} without a valid URL")
+            urls.add(url)
+            index_url = row.get("metadata", {}).get("index_url")
+            if isinstance(index_url, str) and index_url:
+                urls.add(index_url)
+    return frozenset(urls)
 
 
 def _parse_documents(value: str) -> int | None:

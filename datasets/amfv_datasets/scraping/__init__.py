@@ -27,6 +27,11 @@ from amfv_datasets.scraping.nice import (
     scrape_guideline,
     scrape_nice,
 )
+from amfv_datasets.scraping.rch import (
+    RchFetchError,
+    RchGuidelineRef,
+    scrape_rch,
+)
 
 __all__ = [
     "GuidanceRef",
@@ -34,6 +39,8 @@ __all__ = [
     "LinkMode",
     "NiceFetchError",
     "OutputFormat",
+    "RchFetchError",
+    "RchGuidelineRef",
     "ScrapeError",
     "ScrapeRun",
     "ScrapedDocument",
@@ -51,4 +58,5 @@ __all__ = [
     "scrape_guideline",
     "scrape_listing_documents",
     "scrape_nice",
+    "scrape_rch",
 ]

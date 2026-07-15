@@ -119,6 +119,8 @@ def _absolutize_links(html_text: str, *, base_url: str) -> str:
     root = lxml_html.fragment_fromstring(html_text, create_parent="div")
     for link in root.xpath(".//a[@href]"):
         link.set("href", urljoin(base_url, link.get("href")))
+    for image in root.xpath(".//img[@src]"):
+        image.set("src", urljoin(base_url, image.get("src")))
     return "".join(lxml_html.tostring(child, encoding="unicode") for child in root)
 
 

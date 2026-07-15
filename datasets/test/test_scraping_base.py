@@ -149,3 +149,43 @@ def test_scrape_listing_documents_delays_between_documents(monkeypatch: pytest.M
 
     assert [document.external_id for document in documents] == ["item-1", "item-2", "item-3"]
     assert delays == [5.0, 5.0]
+
+
+def test_scrape_listing_documents_skips_non_documents_without_consuming_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Skipped listing entries are delayed but do not count as returned documents."""
+    delays: list[float] = []
+
+    class _FakeClient:
+        def __enter__(self) -> "_FakeClient":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+    def client_factory():
+        return _FakeClient()
+
+    def list_page(client: httpx.Client, page: int) -> list[str]:
+        return ["skip", "item-1", "item-2"] if page == 1 else []
+
+    def scrape_item(client: httpx.Client, item: str) -> ScrapedDocument | None:
+        if item == "skip":
+            return None
+        return ScrapedDocument("test", item, item, f"https://example.org/{item}", "content")
+
+    monkeypatch.setattr(base.time, "sleep", delays.append)
+
+    documents = list(
+        scrape_listing_documents(
+            documents=2,
+            client_factory=client_factory,
+            list_page=list_page,
+            scrape_item=scrape_item,
+            document_delay_seconds=5.0,
+        )
+    )
+
+    assert [document.external_id for document in documents] == ["item-1", "item-2"]
+    assert delays == [5.0, 5.0]
