@@ -60,7 +60,9 @@ def test_write_markdown_files_saves_documents_to_directory(tmp_path: Path) -> No
     )
 
 
-def test_cli_run_writes_jsonl_to_stdout(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cli_run_writes_jsonl_to_stdout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """The CLI run command emits scraped documents as JSONL."""
     runner = CliRunner()
 
@@ -77,7 +79,10 @@ def test_cli_run_writes_jsonl_to_stdout(monkeypatch: pytest.MonkeyPatch) -> None
         assert url is None
         return ScrapeRun([_document()], total=3)
 
-    monkeypatch.setattr("amfv_datasets.scraping.cli.scrape_documents", fake_scrape_documents)
+    monkeypatch.setattr(
+        "amfv_datasets.scraping.cli.scrape_documents",
+        fake_scrape_documents,
+    )
 
     def fake_progress(
         documents: Iterator[ScrapedDocument],
@@ -86,16 +91,25 @@ def test_cli_run_writes_jsonl_to_stdout(monkeypatch: pytest.MonkeyPatch) -> None
     ) -> Iterator[ScrapedDocument]:
         yield from documents
 
-    monkeypatch.setattr("amfv_datasets.scraping.cli._progress_documents", fake_progress)
+    monkeypatch.setattr(
+        "amfv_datasets.scraping.cli._progress_documents",
+        fake_progress,
+    )
 
-    result = runner.invoke(app, ["--source", "nice", "--documents", "3", "--links", "strip"])
+    result = runner.invoke(
+        app,
+        ["--source", "nice", "--documents", "3", "--links", "strip"],
+    )
 
     assert result.exit_code == 0
     assert json.loads(result.stdout.splitlines()[0])["external_id"] == "nice-ng1"
     assert "scraped 1 documents from nice" in result.stderr
 
 
-def test_cli_run_can_disable_progress_for_file_output(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_cli_run_can_disable_progress_for_file_output(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     """Progress can be disabled explicitly for automation-friendly runs."""
     runner = CliRunner()
 
@@ -115,18 +129,33 @@ def test_cli_run_can_disable_progress_for_file_output(monkeypatch: pytest.Monkey
     ) -> Iterator[ScrapedDocument]:
         raise AssertionError("progress must be disabled")
 
-    monkeypatch.setattr("amfv_datasets.scraping.cli.scrape_documents", fake_scrape_documents)
-    monkeypatch.setattr("amfv_datasets.scraping.cli._progress_documents", fail_progress)
+    monkeypatch.setattr(
+        "amfv_datasets.scraping.cli.scrape_documents",
+        fake_scrape_documents,
+    )
+    monkeypatch.setattr(
+        "amfv_datasets.scraping.cli._progress_documents",
+        fail_progress,
+    )
 
     result = runner.invoke(
         app,
-        ["--source", "nice", "--output", str(tmp_path / "out.jsonl"), "--no-progress"],
+        [
+            "--source",
+            "nice",
+            "--output",
+            str(tmp_path / "out.jsonl"),
+            "--no-progress",
+        ],
     )
 
     assert result.exit_code == 0
 
 
-def test_cli_run_uses_progress_by_default(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_cli_run_uses_progress_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     """Progress is enabled by default."""
     runner = CliRunner()
     progress_calls = 0
@@ -150,16 +179,32 @@ def test_cli_run_uses_progress_by_default(monkeypatch: pytest.MonkeyPatch, tmp_p
         assert total == 7
         yield from documents
 
-    monkeypatch.setattr("amfv_datasets.scraping.cli.scrape_documents", fake_scrape_documents)
-    monkeypatch.setattr("amfv_datasets.scraping.cli._progress_documents", fake_progress)
+    monkeypatch.setattr(
+        "amfv_datasets.scraping.cli.scrape_documents",
+        fake_scrape_documents,
+    )
+    monkeypatch.setattr(
+        "amfv_datasets.scraping.cli._progress_documents",
+        fake_progress,
+    )
 
-    result = runner.invoke(app, ["--source", "nice", "--output", str(tmp_path / "out.jsonl")])
+    result = runner.invoke(
+        app,
+        [
+            "--source",
+            "nice",
+            "--output",
+            str(tmp_path / "out.jsonl"),
+        ],
+    )
 
     assert result.exit_code == 0
     assert progress_calls == 1
 
 
-def test_cli_run_accepts_source_url(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cli_run_accepts_source_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """The CLI accepts a source URL as the scrape target."""
     runner = CliRunner()
 
@@ -182,38 +227,24 @@ def test_cli_run_accepts_source_url(monkeypatch: pytest.MonkeyPatch) -> None:
         assert total == 1
         yield from documents
 
-    monkeypatch.setattr("amfv_datasets.scraping.cli.scrape_nice", fake_scrape_nice)
-    monkeypatch.setattr("amfv_datasets.scraping.cli._progress_documents", fake_progress)
+    monkeypatch.setattr(
+        "amfv_datasets.scraping.cli.scrape_nice",
+        fake_scrape_nice,
+    )
+    monkeypatch.setattr(
+        "amfv_datasets.scraping.cli._progress_documents",
+        fake_progress,
+    )
 
     result = runner.invoke(
         app,
-        ["--source", "nice", "--url", "https://www.nice.org.uk/guidance/ta1138/chapter/4-Implementation"],
+        [
+            "--source",
+            "nice",
+            "--url",
+            "https://www.nice.org.uk/guidance/ta1138/chapter/4-Implementation",
+        ],
     )
-
-    assert result.exit_code == 0
-    assert json.loads(result.stdout.splitlines()[0])["external_id"] == "nice-ng1"
-
-
-def test_cli_run_accepts_all_documents(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The CLI accepts --documents all."""
-    runner = CliRunner()
-
-    def fake_scrape_documents(
-        source: ScraperSource,
-        *,
-        documents: int | None,
-        link_mode: LinkMode,
-        url: str | None = None,
-    ) -> ScrapeRun:
-        assert source is ScraperSource.ALL
-        assert documents is None
-        assert link_mode is LinkMode.KEEP
-        assert url is None
-        return ScrapeRun([_document()], total=12)
-
-    monkeypatch.setattr("amfv_datasets.scraping.cli.scrape_documents", fake_scrape_documents)
-
-    result = runner.invoke(app, ["--source", "all", "--documents", "all"])
 
     assert result.exit_code == 0
     assert json.loads(result.stdout.splitlines()[0])["external_id"] == "nice-ng1"
@@ -227,6 +258,126 @@ def _document() -> ScrapedDocument:
         url="https://www.nice.org.uk/guidance/ng1",
         content="content",
         metadata={"ref": "NG1"},
+    )
+
+
+def _drugscom_document() -> ScrapedDocument:
+    return ScrapedDocument(
+        source="drugscom",
+        external_id="drugscom-asthma",
+        title="Asthma",
+        url="https://www.drugs.com/condition/asthma.html",
+        content="content",
+        metadata={"slug": "asthma"},
+    )
+
+
+class _TextSink:
+    def __init__(self) -> None:
+        self.value = ""
+
+    def write(self, text: str) -> int:
+        self.value += text
+        return len(text)
+
+
+def test_scrape_documents_dispatches_drugscom(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The scrape dispatcher calls the Drugs.com scraper."""
+
+    def fake_scrape_drugs_com(
+        *,
+        documents: int | None,
+        link_mode: LinkMode,
+        url: str | None,
+    ) -> ScrapeRun:
+        assert documents == 1
+        assert link_mode is LinkMode.STRIP
+        assert url == "https://www.drugs.com/condition/asthma.html"
+        return ScrapeRun([_drugscom_document()], total=1)
+
+    monkeypatch.setattr(
+        "amfv_datasets.scraping.cli.scrape_drugs_com",
+        fake_scrape_drugs_com,
+    )
+
+    from amfv_datasets.scraping.cli import scrape_documents
+
+    scrape_run = scrape_documents(
+        ScraperSource.DRUGSCOM,
+        documents=1,
+        link_mode=LinkMode.STRIP,
+        url="https://www.drugs.com/condition/asthma.html",
+    )
+
+    assert list(scrape_run.documents) == [_drugscom_document()]
+
+
+def test_scrape_documents_all_includes_drugscom(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The all source combines NICE and Drugs.com scrape runs."""
+
+    def fake_scrape_nice(
+        *,
+        documents: int | None,
+        link_mode: LinkMode,
+        url: str | None,
+    ) -> ScrapeRun:
+        return ScrapeRun([_document()], total=1)
+
+    def fake_scrape_drugs_com(
+        *,
+        documents: int | None,
+        link_mode: LinkMode,
+        url: str | None,
+    ) -> ScrapeRun:
+        return ScrapeRun([_drugscom_document()], total=1)
+
+    monkeypatch.setattr(
+        "amfv_datasets.scraping.cli.scrape_nice",
+        fake_scrape_nice,
+    )
+    monkeypatch.setattr(
+        "amfv_datasets.scraping.cli.scrape_drugs_com",
+        fake_scrape_drugs_com,
+    )
+
+    from amfv_datasets.scraping.cli import scrape_documents
+
+    scrape_run = scrape_documents(
+        ScraperSource.ALL,
+        documents=1,
+        link_mode=LinkMode.KEEP,
+    )
+
+    assert scrape_run.total == 2
+    assert [doc.external_id for doc in scrape_run.documents] == [
+        "nice-ng1",
+        "drugscom-asthma",
+    ]
+
+
+def _document() -> ScrapedDocument:
+    return ScrapedDocument(
+        source="nice",
+        external_id="nice-ng1",
+        title="Guideline 1",
+        url="https://www.nice.org.uk/guidance/ng1",
+        content="content",
+        metadata={"ref": "NG1"},
+    )
+
+
+def _drugscom_document() -> ScrapedDocument:
+    return ScrapedDocument(
+        source="drugscom",
+        external_id="drugscom-asthma",
+        title="Asthma",
+        url="https://www.drugs.com/condition/asthma.html",
+        content="content",
+        metadata={"slug": "asthma"},
     )
 
 

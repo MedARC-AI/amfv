@@ -74,7 +74,10 @@ def scrape_listing_documents[ListingItemT](
     documents: int | None,
     client_factory: Callable[[], AbstractContextManager[httpx.Client]],
     list_page: Callable[[httpx.Client, int], Iterable[ListingItemT]],
-    scrape_item: Callable[[httpx.Client, ListingItemT], ScrapedDocument],
+    scrape_item: Callable[
+        [httpx.Client, ListingItemT],
+        ScrapedDocument | None,
+    ],
     document_delay_seconds: float = 5.0,
     first_page_items: Iterable[ListingItemT] | None = None,
 ) -> Iterable[ScrapedDocument]:
@@ -99,6 +102,7 @@ def scrape_listing_documents[ListingItemT](
     with client_factory() as client:
         page = 1
         scraped = 0
+        attempted = 0
         page_items = list(first_page_items) if first_page_items is not None else None
         while documents is None or scraped < documents:
             if page_items is None:
@@ -111,9 +115,16 @@ def scrape_listing_documents[ListingItemT](
             for item in items:
                 if documents is not None and scraped >= documents:
                     break
-                if scraped and document_delay_seconds:
+                if attempted and document_delay_seconds:
                     time.sleep(document_delay_seconds)
-                yield scrape_item(client, item)
+
+                document = scrape_item(client, item)
+                attempted += 1
+
+                if document is None:
+                    continue
+
+                yield document
                 scraped += 1
             page += 1
 
