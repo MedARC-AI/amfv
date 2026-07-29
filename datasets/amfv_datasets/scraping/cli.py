@@ -8,6 +8,7 @@ import sys
 from collections.abc import Iterable
 from dataclasses import asdict
 from enum import StrEnum
+from itertools import chain
 from pathlib import Path
 from typing import Annotated, TextIO
 
@@ -25,6 +26,7 @@ from rich.progress import (
 )
 
 from amfv_datasets.scraping.base import ScrapedDocument, ScrapeRun
+from amfv_datasets.scraping.drugs_com import scrape_drugs_com
 from amfv_datasets.scraping.html import LinkMode
 from amfv_datasets.scraping.nice import scrape_nice
 
@@ -34,6 +36,7 @@ class ScraperSource(StrEnum):
 
     ALL = "all"
     NICE = "nice"
+    DRUGSCOM = "drugscom"
 
 
 class OutputFormat(StrEnum):
@@ -61,20 +64,50 @@ def scrape_documents(
             implemented source.
         documents: Number of documents to scrape. When unset, each source runs
             until it is exhausted (default: None).
-        link_mode: Whether links are kept as markdown links or stripped to their
-            visible text.
+        link_mode: Whether links are kept as markdown links or stripped to
+            their visible text.
         url: Source URL to scrape as a single document (default: None).
     """
     if documents is not None and documents < 1:
         raise ValueError(f"documents must be at least 1; got {documents}")
 
+    scrape_runs: list[ScrapeRun] = []
+
     for selected_source in _expand_source(source):
         match selected_source:
             case ScraperSource.NICE:
-                return scrape_nice(documents=documents, link_mode=link_mode, url=url)
+                scrape_runs.append(
+                    scrape_nice(
+                        documents=documents,
+                        link_mode=link_mode,
+                        url=url,
+                    )
+                )
+
+            case ScraperSource.DRUGSCOM:
+                scrape_runs.append(
+                    scrape_drugs_com(
+                        documents=documents,
+                        link_mode=link_mode,
+                        url=url,
+                    )
+                )
+
             case ScraperSource.ALL:
                 raise AssertionError("expanded source cannot be all")
-    raise AssertionError(f"unsupported source: {source}")
+
+    if not scrape_runs:
+        raise AssertionError(f"unsupported source: {source}")
+
+    if len(scrape_runs) == 1:
+        return scrape_runs[0]
+
+    total = None if any(run.total is None for run in scrape_runs) else sum(run.total or 0 for run in scrape_runs)
+
+    return ScrapeRun(
+        documents=chain.from_iterable(run.documents for run in scrape_runs),
+        total=total,
+    )
 
 
 def write_jsonl(documents: Iterable[ScrapedDocument], output: TextIO) -> int:
@@ -125,7 +158,10 @@ def write_markdown_files(documents: Iterable[ScrapedDocument], output_path: Path
 
 def _expand_source(source: ScraperSource) -> tuple[ScraperSource, ...]:
     if source is ScraperSource.ALL:
-        return (ScraperSource.NICE,)
+        return (
+            ScraperSource.NICE,
+            ScraperSource.DRUGSCOM,
+        )
     return (source,)
 
 
