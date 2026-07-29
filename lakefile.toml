@@ -1,0 +1,12 @@
+name = "amfv"
+version = "0.1.0"
+defaultTargets = ["AMFV", "amfv_logic"]
+
+[[lean_lib]]
+name = "AMFV"
+srcDir = "formal"
+
+[[lean_exe]]
+name = "amfv_logic"
+srcDir = "formal"
+root = "AMFV.LogicalEval"

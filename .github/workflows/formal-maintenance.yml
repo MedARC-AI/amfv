@@ -1,0 +1,72 @@
+name: Formal maintenance
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 8 * * 1"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/formal-maintenance.yml"
+      - "lean-toolchain"
+      - "lakefile.toml"
+      - "lake-manifest.json"
+      - "formal/**"
+      - "tools/check_lean_specs.py"
+      - "tools/check_logic_fixtures.py"
+      - "baseline/**/*.py"
+      - "datasets/**/*.py"
+      - "decomposer/**/*.py"
+      - "search/**/*.py"
+      - "training/**/*.py"
+      - "utils/**/*.py"
+      - "verifier/**/*.py"
+  pull_request:
+    paths:
+      - ".github/workflows/formal-maintenance.yml"
+      - "lean-toolchain"
+      - "lakefile.toml"
+      - "lake-manifest.json"
+      - "formal/**"
+      - "tools/check_lean_specs.py"
+      - "tools/check_logic_fixtures.py"
+      - "baseline/**/*.py"
+      - "datasets/**/*.py"
+      - "decomposer/**/*.py"
+      - "search/**/*.py"
+      - "training/**/*.py"
+      - "utils/**/*.py"
+      - "verifier/**/*.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: formal-maintenance-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  maintain:
+    name: Lean 4.32 proof and conformance gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install pinned Lean toolchain
+        uses: leanprover/lean-action@v1
+        with:
+          auto-config: false
+          build: false
+          test: false
+          lint: false
+
+      - name: Build without warnings
+        run: lake build --wfail
+
+      - name: Check theorem links, tests, dependencies, and axiom footprints
+        run: python3 tools/check_lean_specs.py
+
+      - name: Replay shared logical evaluation fixtures
+        run: python3 tools/check_logic_fixtures.py

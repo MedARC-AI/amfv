@@ -26,3 +26,21 @@ Following Baichuan-M3, the task is split into three models across four steps:
 | [`training`](training/README.md)   | Training experiments and recipes for the above | Independent |
 
 The **Workspace** column marks membership in the root `uv` workspace. Independent packages (`baseline`, `training`) are excluded so they can evolve on their own.
+
+## Formal logical evaluation
+
+AMFV uses a dependency-free Lean 4.32.0 library to model structural invariants
+at high-risk boundaries such as source URL admission, scraper accounting,
+verification receipts, cache freshness, and evaluation success.
+
+```sh
+lake build --wfail
+python3 tools/check_lean_specs.py
+python3 tools/check_logic_fixtures.py
+```
+
+Python functions annotated with `# lean-spec:` are backed by a named theorem
+and an adversarial runtime test. This establishes conformance to the modeled
+invariant; it does not claim that Lean verifies Python bytecode, arbitrary HTML,
+medical truth, or corpus completeness. See [`formal/README.md`](formal/README.md)
+for the maintenance workflow and proof boundaries.

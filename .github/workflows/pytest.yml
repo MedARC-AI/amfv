@@ -17,6 +17,12 @@ on:
       - "verifier/**"
       - "baseline/**"
       - "training/**"
+      - "formal/**"
+      - "tools/check_lean_specs.py"
+      - "tools/check_logic_fixtures.py"
+      - "lakefile.toml"
+      - "lake-manifest.json"
+      - "lean-toolchain"
   pull_request:
     paths:
       - ".github/workflows/pytest.yml"
@@ -30,6 +36,12 @@ on:
       - "verifier/**"
       - "baseline/**"
       - "training/**"
+      - "formal/**"
+      - "tools/check_lean_specs.py"
+      - "tools/check_logic_fixtures.py"
+      - "lakefile.toml"
+      - "lake-manifest.json"
+      - "lean-toolchain"
 
 jobs:
   test:

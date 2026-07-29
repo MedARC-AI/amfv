@@ -20,7 +20,9 @@ from amfv_datasets.scraping.html import (
 from amfv_datasets.scraping.nice import (
     GuidanceListingPage,
     GuidanceRef,
+    GuidelineExtractionReceipt,
     NiceFetchError,
+    OmittedSection,
     build_guideline_text,
     guidance_ref_from_url,
     list_published_guidance,
@@ -30,9 +32,11 @@ from amfv_datasets.scraping.nice import (
 
 __all__ = [
     "GuidanceRef",
+    "GuidelineExtractionReceipt",
     "GuidanceListingPage",
     "LinkMode",
     "NiceFetchError",
+    "OmittedSection",
     "OutputFormat",
     "ScrapeError",
     "ScrapeRun",
