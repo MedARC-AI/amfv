@@ -124,10 +124,7 @@ def _absolutize_links(html_text: str, *, base_url: str) -> str:
     for image in root.xpath(".//img[@src]"):
         image.set("src", urljoin(base_url, image.get("src")))
 
-    return "".join(
-        lxml_html.tostring(child, encoding="unicode")
-        for child in root
-    )
+    return "".join(lxml_html.tostring(child, encoding="unicode") for child in root)
 
 
 __all__ = [

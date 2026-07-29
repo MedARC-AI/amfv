@@ -150,6 +150,7 @@ def test_scrape_listing_documents_delays_between_documents(monkeypatch: pytest.M
     assert [document.external_id for document in documents] == ["item-1", "item-2", "item-3"]
     assert delays == [5.0, 5.0]
 
+
 def test_scrape_listing_documents_skips_none_documents() -> None:
     """Items returning None are skipped without counting as scraped."""
 
