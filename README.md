@@ -42,5 +42,8 @@ python3 tools/check_logic_fixtures.py
 Python functions annotated with `# lean-spec:` are backed by a named theorem
 and an adversarial runtime test. This establishes conformance to the modeled
 invariant; it does not claim that Lean verifies Python bytecode, arbitrary HTML,
-medical truth, or corpus completeness. See [`formal/README.md`](formal/README.md)
-for the maintenance workflow and proof boundaries.
+medical truth, or corpus completeness.
+
+See [`FORMAL_LOGIC.md`](FORMAL_LOGIC.md) for the complete developer and
+maintenance guide. The shorter [`formal/README.md`](formal/README.md) is a
+directory-level quick reference.
