@@ -23,6 +23,32 @@ def test_absolute_unique_urls_normalizes_relative_urls() -> None:
     ) == ["https://example.org/guidance/ng1", "https://example.org/guidance/ng2"]
 
 
+# lean-spec-test: AMFV.Scraping.UrlPolicy.accepted_chapter_has_allowed_authority
+def test_absolute_unique_urls_enforces_authority_policy() -> None:
+    """Host policies reject lookalike paths, credentials, and unusual ports."""
+    assert absolute_unique_urls(
+        [
+            "/guidance/ng1/chapter/recommendations?tab=contents",
+            "https://evil.example/guidance/ng1/chapter/recommendations",
+            "https://user@www.nice.org.uk/guidance/ng1/chapter/credentials",
+            "https://www.nice.org.uk:444/guidance/ng1/chapter/port",
+            "javascript:/guidance/ng1/chapter/script",
+            "https://www.nice.org.uk/guidance/ng1/chapter/recommendations#duplicate",
+        ],
+        base_url="https://www.nice.org.uk",
+        allowed_hosts=("nice.org.uk", "www.nice.org.uk"),
+    ) == ["https://www.nice.org.uk/guidance/ng1/chapter/recommendations"]
+
+
+def test_absolute_unique_urls_canonicalization_is_idempotent() -> None:
+    """Canonical URLs remain unchanged when normalized again."""
+    first_pass = absolute_unique_urls(
+        ["/guidance/ng1?tab=contents#heading"],
+        base_url="https://example.org",
+    )
+    assert absolute_unique_urls(first_pass, base_url="https://example.org") == first_pass
+
+
 def test_first_matching_urls_uses_first_xpath_with_matches() -> None:
     """URL extraction falls back across XPath selectors."""
     html_text = """
@@ -37,6 +63,23 @@ def test_first_matching_urls_uses_first_xpath_with_matches() -> None:
         xpaths=("//aside/a/@href", "//nav/a/@href", "//main/a/@href"),
         base_url="https://example.org",
     ) == ["https://example.org/first"]
+
+
+def test_first_matching_urls_falls_back_when_policy_rejects_first_xpath() -> None:
+    """Rejected candidates do not prevent an accepted fallback selector."""
+    html_text = """
+    <html>
+      <nav><a href="https://evil.example/guidance/ng1/chapter/lookalike">Bad</a></nav>
+      <main><a href="/guidance/ng1/chapter/good">Good</a></main>
+    </html>
+    """
+
+    assert first_matching_urls(
+        html_text,
+        xpaths=("//nav/a/@href", "//main/a/@href"),
+        base_url="https://www.nice.org.uk",
+        allowed_hosts=("nice.org.uk", "www.nice.org.uk"),
+    ) == ["https://www.nice.org.uk/guidance/ng1/chapter/good"]
 
 
 def test_document_title_uses_heading_and_strips_suffix() -> None:

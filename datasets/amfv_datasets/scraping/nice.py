@@ -38,7 +38,7 @@ from amfv_datasets.scraping.base import (
     default_client,
     scrape_listing_documents,
 )
-from amfv_datasets.scraping.html import LinkMode, document_title, first_matching_urls, html_to_markdown
+from amfv_datasets.scraping.html import LinkMode, absolute_unique_urls, document_title, html_to_markdown
 from amfv_datasets.scraping.nextjs import script_json_by_id
 
 BASE_URL = "https://www.nice.org.uk"
@@ -75,6 +75,7 @@ _SKIP_OVERVIEW_TEXT_PREFIXES = (
 )
 _NUMBERED_HEADING_RE = re.compile(r"^\s*\d+(?:\.\d+)*\s+")
 _SKIP_CHAPTER_SUFFIXES = ("finding-more-information-and-committee-details",)
+_NICE_HOSTS = ("nice.org.uk", "www.nice.org.uk")
 
 
 class _NiceScrapeStrategy(StrEnum):
@@ -99,10 +100,46 @@ class GuidanceRef:
 
 @dataclass(frozen=True)
 class GuidanceListingPage:
-    """A NICE published-guidance listing page."""
+    """A NICE published-guidance listing page.
+
+    `total` is NICE's source-reported count before AMFV filters unsupported
+    guidance types. It is not an exact count of eligible or emitted documents.
+    """
 
     refs: list[GuidanceRef]
     total: int | None
+
+
+@dataclass(frozen=True)
+class OmittedSection:
+    """A discovered source section intentionally omitted from the document."""
+
+    url: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class GuidelineExtractionReceipt:
+    """Auditable result of extracting overview/chapter source sections."""
+
+    content: str
+    section_count: int
+    title: str
+    discovered_count: int
+    retained_urls: tuple[str, ...]
+    omitted_sections: tuple[OmittedSection, ...]
+    transformations: tuple[str, ...]
+
+    # lean-spec: AMFV.Scraping.ExtractionReceipt.accounted_receipt_matches_disposition_count
+    def is_accounted(self) -> bool:
+        """Return whether disposition cardinalities match the discovered count."""
+        return self.discovered_count == len(self.retained_urls) + len(self.omitted_sections)
+
+
+@dataclass(frozen=True)
+class _ChapterLinkDiscovery:
+    accepted: tuple[str, ...]
+    rejected: tuple[OmittedSection, ...]
 
 
 def _listing_url(*, page: int) -> str:
@@ -149,20 +186,12 @@ def _parse_listing(html_text: str) -> GuidanceListingPage:
             logger.debug("Skipping unsupported NICE guidance type %s for %s", prefix, ref)
             continue
         slug = ref.lower()
-        path = doc.get("pathAndQuery") or _page_path(ref=ref, slug=slug)
-        page_url = (
-            _page_url(ref=ref, slug=slug)
-            if prefix in _ADVICE_PREFIXES
-            else f"{BASE_URL}{path}"
-            if path.startswith("/")
-            else path
-        )
         refs.append(
             GuidanceRef(
                 ref=ref,
                 slug=slug,
                 title=(doc.get("title") or ref).strip(),
-                page_url=page_url,
+                page_url=_page_url(ref=ref, slug=slug),
             )
         )
     total = results.get("resultCount")
@@ -181,14 +210,38 @@ def list_published_guidance(client: httpx.Client, page: int = 1) -> GuidanceList
     return _parse_listing(response.text)
 
 
-def _chapter_links(html_text: str, slug: str) -> list[str]:
-    """Return absolute chapter URLs from a guidance overview table of contents."""
+# lean-spec: AMFV.Scraping.UrlPolicy.accepted_chapter_respects_source_boundary
+def _chapter_links(html_text: str, slug: str) -> _ChapterLinkDiscovery:
+    """Return accepted and rejected chapter URLs from a table of contents."""
     chapter_path_match = f"contains(@href, '/guidance/{slug}/chapter/') or contains(@href, '/advice/{slug}/chapter/')"
     nav_xpaths = (
         f"//*[contains(concat(' ', normalize-space(@class), ' '), ' stacked-nav ')]//a[{chapter_path_match}]/@href",
         f"//ul[contains(concat(' ', normalize-space(@class), ' '), ' nav-list ')]//li//a[{chapter_path_match}]/@href",
     )
-    return first_matching_urls(html_text, xpaths=nav_xpaths, base_url=BASE_URL)
+    doc = lxml_html.fromstring(html_text)
+    rejected: list[OmittedSection] = []
+    for xpath in nav_xpaths:
+        raw_urls = doc.xpath(xpath)
+        if not raw_urls:
+            continue
+        authority_accepted = absolute_unique_urls(raw_urls, base_url=BASE_URL, allowed_hosts=_NICE_HOSTS)
+        accepted = [url for url in authority_accepted if _is_scoped_chapter_url(url, slug)]
+        for raw_url in raw_urls:
+            normalized = absolute_unique_urls([raw_url], base_url=BASE_URL, allowed_hosts=_NICE_HOSTS)
+            if normalized and _is_scoped_chapter_url(normalized[0], slug):
+                continue
+            normalized_rejection = absolute_unique_urls([raw_url], base_url=BASE_URL)
+            rejected_url = normalized_rejection[0] if normalized_rejection else raw_url
+            reason = "out_of_scope_url" if normalized else "unsafe_url"
+            rejected.append(OmittedSection(url=rejected_url, reason=reason))
+        if accepted:
+            return _ChapterLinkDiscovery(accepted=tuple(accepted), rejected=tuple(dict.fromkeys(rejected)))
+    return _ChapterLinkDiscovery(accepted=(), rejected=tuple(dict.fromkeys(rejected)))
+
+
+def _is_scoped_chapter_url(url: str, slug: str) -> bool:
+    path = urlparse(url).path.lower()
+    return path.startswith(f"/guidance/{slug}/chapter/") or path.startswith(f"/advice/{slug}/chapter/")
 
 
 def _overview_markdown(html_text: str, *, ref: GuidanceRef, link_mode: LinkMode) -> str:
@@ -283,7 +336,19 @@ def build_guideline_text(
         link_mode: Whether links are kept as markdown links or stripped to their
             visible text (default: LinkMode.KEEP).
     """
-    overview = client.get(ref.page_url)
+    receipt = _build_guideline_receipt(client, ref, link_mode=link_mode)
+    return receipt.content, receipt.section_count, receipt.title
+
+
+def _build_guideline_receipt(
+    client: httpx.Client,
+    ref: GuidanceRef,
+    *,
+    link_mode: LinkMode = LinkMode.KEEP,
+) -> GuidelineExtractionReceipt:
+    """Scrape a guideline and account for retained and omitted sections."""
+    page_url = _validated_page_url(ref)
+    overview = client.get(page_url)
     overview.raise_for_status()
     title = (
         ref.title
@@ -294,28 +359,61 @@ def build_guideline_text(
             suffixes=(" | Guidance | NICE", " | Advice | NICE"),
         )
     )
-    chapter_urls = _chapter_links(overview.text, ref.slug)
-    if not chapter_urls:
+    chapter_links = _chapter_links(overview.text, ref.slug)
+    if not chapter_links.accepted:
         raise NiceFetchError(f"No chapters found for guidance '{ref.ref}'")
 
     sections: list[str] = []
+    retained_urls: list[str] = []
+    omitted_sections = list(chapter_links.rejected)
     overview_markdown = _overview_markdown(overview.text, ref=ref, link_mode=link_mode)
     if overview_markdown:
         sections.append(overview_markdown)
+        retained_urls.append(page_url)
+    else:
+        overview_reason = (
+            "overview_omitted_by_source_policy" if _ref_prefix(ref.ref) in {"ES", "MIB"} else "empty_overview"
+        )
+        omitted_sections.append(OmittedSection(url=page_url, reason=overview_reason))
 
-    for url in chapter_urls:
+    for url in chapter_links.accepted:
         if _is_skipped_chapter(url):
+            omitted_sections.append(OmittedSection(url=url, reason="non_content_chapter"))
             continue
         chapter = client.get(url)
         chapter.raise_for_status()
         markdown = _chapter_markdown(chapter.text, link_mode=link_mode)
         if markdown:
             sections.append(markdown)
+            retained_urls.append(url)
+        else:
+            omitted_sections.append(OmittedSection(url=url, reason="empty_chapter"))
 
     content = "\n\n".join(sections).strip()
     if not content:
         raise NiceFetchError(f"No readable content for guidance '{ref.ref}'")
-    return content, len(sections), title
+    transformations = [
+        "canonicalize_chapter_urls",
+        "convert_html_to_markdown",
+        "drop_numeric_citation_markers",
+        "filter_overview_boilerplate",
+        "normalize_numbered_headings",
+        "normalize_whitespace",
+    ]
+    if link_mode is LinkMode.STRIP:
+        transformations.append("strip_links")
+    receipt = GuidelineExtractionReceipt(
+        content=content,
+        section_count=len(sections),
+        title=title,
+        discovered_count=1 + len(chapter_links.accepted) + len(chapter_links.rejected),
+        retained_urls=tuple(retained_urls),
+        omitted_sections=tuple(omitted_sections),
+        transformations=tuple(transformations),
+    )
+    if not receipt.is_accounted():
+        raise AssertionError(f"Incomplete extraction receipt for guidance '{ref.ref}'")
+    return receipt
 
 
 def scrape_guideline(
@@ -332,19 +430,25 @@ def scrape_guideline(
         link_mode: Whether links are kept as markdown links or stripped to their
             visible text (default: LinkMode.KEEP).
     """
-    content, section_count, title = build_guideline_text(client, ref, link_mode=link_mode)
+    receipt = _build_guideline_receipt(client, ref, link_mode=link_mode)
     return ScrapedDocument(
         source="nice",
         external_id=f"nice-{ref.slug}",
-        title=title,
-        url=ref.page_url,
-        content=content,
-        section_count=section_count,
+        title=receipt.title,
+        url=_validated_page_url(ref),
+        content=receipt.content,
+        section_count=receipt.section_count,
         metadata={
             "ref": ref.ref,
             "slug": ref.slug,
             "prefix": _ref_prefix(ref.ref),
             "scrape_strategy": _scrape_strategy(ref),
+            "retained_urls": list(receipt.retained_urls),
+            "omitted_sections": [
+                {"url": omitted.url, "reason": omitted.reason} for omitted in receipt.omitted_sections
+            ],
+            "transformations": list(receipt.transformations),
+            "discovered_section_count": receipt.discovered_count,
         },
     )
 
@@ -362,6 +466,13 @@ def _page_url(*, ref: str, slug: str) -> str:
     return f"{BASE_URL}{_page_path(ref=ref, slug=slug)}"
 
 
+def _validated_page_url(ref: GuidanceRef) -> str:
+    validated = guidance_ref_from_url(ref.page_url)
+    if validated.ref != ref.ref.upper() or validated.slug != ref.slug.lower():
+        raise NiceFetchError(f"Guidance reference {ref.ref!r} does not match its NICE page URL {ref.page_url!r}")
+    return validated.page_url
+
+
 def _scrape_strategy(ref: GuidanceRef) -> str:
     prefix = _ref_prefix(ref.ref)
     if prefix in _ADVICE_PREFIXES:
@@ -371,6 +482,7 @@ def _scrape_strategy(ref: GuidanceRef) -> str:
     return _NiceScrapeStrategy.CHAPTER.value
 
 
+# lean-spec: AMFV.Scraping.ListingAccounting.source_total_is_not_exact_after_filtering
 def scrape_nice(
     *,
     documents: int | None,
@@ -386,6 +498,9 @@ def scrape_nice(
         link_mode: Whether links are kept as markdown links or stripped to their
             visible text (default: LinkMode.KEEP).
         url: NICE source URL to scrape as a single document (default: None).
+
+    Listing runs report an indeterminate total because NICE's source count
+    includes guidance types filtered out by AMFV. Single-URL runs report one.
     """
     if url is not None:
 
@@ -397,9 +512,8 @@ def scrape_nice(
 
     with default_client() as client:
         first_page = list_published_guidance(client, page=1)
-    total = first_page.total if documents is None or first_page.total is None else min(documents, first_page.total)
     return ScrapeRun(
-        total=total,
+        total=None,
         documents=scrape_listing_documents(
             documents=documents,
             client_factory=default_client,
@@ -414,11 +528,13 @@ def scrape_nice(
 __all__ = [
     "BASE_URL",
     "DOCUMENT_DELAY_SECONDS",
+    "GuidelineExtractionReceipt",
     "GuidanceListingPage",
     "NICE_DATASET_DISPLAY_NAME",
     "NICE_DATASET_NAME",
     "GuidanceRef",
     "NiceFetchError",
+    "OmittedSection",
     "build_guideline_text",
     "guidance_ref_from_url",
     "list_published_guidance",
