@@ -25,6 +25,7 @@ from rich.progress import (
 )
 
 from amfv_datasets.scraping.base import ScrapedDocument, ScrapeRun
+from amfv_datasets.scraping.cco import scrape_cco
 from amfv_datasets.scraping.html import LinkMode
 from amfv_datasets.scraping.nice import scrape_nice
 
@@ -33,6 +34,7 @@ class ScraperSource(StrEnum):
     """Supported scraper sources."""
 
     ALL = "all"
+    CCO = "cco"
     NICE = "nice"
 
 
@@ -70,6 +72,8 @@ def scrape_documents(
 
     for selected_source in _expand_source(source):
         match selected_source:
+            case ScraperSource.CCO:
+                return scrape_cco(documents=documents, link_mode=link_mode, url=url)
             case ScraperSource.NICE:
                 return scrape_nice(documents=documents, link_mode=link_mode, url=url)
             case ScraperSource.ALL:
@@ -125,7 +129,7 @@ def write_markdown_files(documents: Iterable[ScrapedDocument], output_path: Path
 
 def _expand_source(source: ScraperSource) -> tuple[ScraperSource, ...]:
     if source is ScraperSource.ALL:
-        return (ScraperSource.NICE,)
+        return (ScraperSource.CCO, ScraperSource.NICE)
     return (source,)
 
 
@@ -230,16 +234,19 @@ def _markdown_filename(document: ScrapedDocument) -> str:
 
 
 def _markdown_document(document: ScrapedDocument) -> str:
-    metadata = [
+    lines = [
         f"# {document.title}",
         "",
         f"Source: <{document.url}>",
         f"External ID: `{document.external_id}`",
-        "",
-        document.content.strip(),
-        "",
     ]
-    return "\n".join(metadata)
+    for key, value in document.metadata.items():
+        if value and key != "pdf_url":
+            lines.append(f"{key.replace('_', ' ').title()}: {value}")
+    lines.append("")
+    lines.append(document.content.strip())
+    lines.append("")
+    return "\n".join(lines)
 
 
 def main() -> None:

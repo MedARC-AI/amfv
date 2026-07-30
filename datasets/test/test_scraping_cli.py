@@ -5,8 +5,6 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from typer.testing import CliRunner
-
 from amfv_datasets.scraping.base import ScrapedDocument, ScrapeRun
 from amfv_datasets.scraping.cli import (
     ScraperSource,
@@ -16,6 +14,7 @@ from amfv_datasets.scraping.cli import (
     write_markdown_files,
 )
 from amfv_datasets.scraping.html import LinkMode
+from typer.testing import CliRunner
 
 
 def test_write_jsonl_serializes_documents() -> None:
@@ -56,7 +55,8 @@ def test_write_markdown_files_saves_documents_to_directory(tmp_path: Path) -> No
 
     assert count == 1
     assert (output_path / "nice-ng1.md").read_text(encoding="utf-8") == (
-        "# Guideline 1\n\nSource: <https://www.nice.org.uk/guidance/ng1>\nExternal ID: `nice-ng1`\n\ncontent\n"
+        "# Guideline 1\n\nSource: <https://www.nice.org.uk/guidance/ng1>\n"
+        "External ID: `nice-ng1`\nRef: NG1\n\ncontent\n"
     )
 
 
