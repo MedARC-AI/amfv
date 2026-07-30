@@ -27,6 +27,7 @@ from rich.progress import (
 from amfv_datasets.scraping.base import ScrapedDocument, ScrapeRun
 from amfv_datasets.scraping.html import LinkMode
 from amfv_datasets.scraping.nice import scrape_nice
+from amfv_datasets.scraping.wikidoc import scrape_wikidoc
 
 
 class ScraperSource(StrEnum):
@@ -34,6 +35,7 @@ class ScraperSource(StrEnum):
 
     ALL = "all"
     NICE = "nice"
+    WIKIDOC = "wikidoc"
 
 
 class OutputFormat(StrEnum):
@@ -72,6 +74,8 @@ def scrape_documents(
         match selected_source:
             case ScraperSource.NICE:
                 return scrape_nice(documents=documents, link_mode=link_mode, url=url)
+            case ScraperSource.WIKIDOC:
+                return scrape_wikidoc(documents=documents, link_mode=link_mode, url=url)
             case ScraperSource.ALL:
                 raise AssertionError("expanded source cannot be all")
     raise AssertionError(f"unsupported source: {source}")
@@ -125,7 +129,7 @@ def write_markdown_files(documents: Iterable[ScrapedDocument], output_path: Path
 
 def _expand_source(source: ScraperSource) -> tuple[ScraperSource, ...]:
     if source is ScraperSource.ALL:
-        return (ScraperSource.NICE,)
+        return (ScraperSource.NICE, ScraperSource.WIKIDOC)
     return (source,)
 
 
