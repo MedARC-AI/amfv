@@ -1,0 +1,20 @@
+{
+  "@odata.context": "https://www.who.int/api/hubs/$metadata#publications(Title,ItemDefaultUrl,FormatedDate,Tag,DownloadUrl)",
+  "@odata.count": 356,
+  "value": [
+    {
+      "ItemDefaultUrl": "/9789240121805",
+      "Title": "Guidelines for the prevention of bloodstream infections and other infections associated with the use of intravascular catheters: part 2: central venous catheters",
+      "FormatedDate": "28 May 2026",
+      "Tag": "Guideline",
+      "DownloadUrl": "https://iris.who.int/server/api/core/bitstreams/f750f24d-c0c2-425c-85fd-ec310d2ce994/content"
+    },
+    {
+      "ItemDefaultUrl": "/9789240121744",
+      "Title": "WHO guideline for screening and treatment of cervical pre-cancer lesions for cervical cancer prevention",
+      "FormatedDate": "8 May 2026",
+      "Tag": "Guideline",
+      "DownloadUrl": "https://iris.who.int/server/api/core/bitstreams/32214b73-0e95-4243-9e83-617948510dcd/content"
+    }
+  ]
+}
