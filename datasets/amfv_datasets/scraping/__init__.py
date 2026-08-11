@@ -27,6 +27,12 @@ from amfv_datasets.scraping.nice import (
     scrape_guideline,
     scrape_nice,
 )
+from amfv_datasets.scraping.pdf import (
+    PdfBackend,
+    PdfConversionError,
+    count_markdown_sections,
+    pdf_to_markdown,
+)
 from amfv_datasets.scraping.who import (
     WhoFetchError,
     WhoListingPage,
@@ -44,6 +50,8 @@ __all__ = [
     "LinkMode",
     "NiceFetchError",
     "OutputFormat",
+    "PdfBackend",
+    "PdfConversionError",
     "ScrapeError",
     "ScrapeRun",
     "ScrapedDocument",
@@ -56,6 +64,7 @@ __all__ = [
     "build_guideline_text",
     "build_publication_text",
     "clean_text",
+    "count_markdown_sections",
     "document_title",
     "default_client",
     "first_matching_urls",
@@ -63,6 +72,7 @@ __all__ = [
     "html_to_markdown",
     "list_published_guidance",
     "list_publications",
+    "pdf_to_markdown",
     "publication_ref_from_url",
     "scrape_guideline",
     "scrape_listing_documents",

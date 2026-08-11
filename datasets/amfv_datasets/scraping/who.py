@@ -1,14 +1,17 @@
 """Scrape WHO guideline publications into normalized markdown documents.
 
 WHO (World Health Organization) publishes guidelines primarily as PDFs hosted on
-iris.who.int. The publication landing pages expose a short HTML Overview section
-plus bibliographic metadata. For Milestone 1 we scrape that Overview text rather
-than PDFs, because PDF extraction loses reading order and interleaves
-headers/footers. Full-text PDF extraction is intentionally deferred.
+iris.who.int. The publication landing page carries only a short HTML Overview,
+so the guideline body itself comes from the linked PDF, converted to markdown by
+`amfv_datasets.scraping.pdf`. Each document is the Overview followed by the
+converted guideline text; `metadata["content_scope"]` records whether the full
+body was recovered.
+
+Sampled WHO guideline PDFs are born-digital with a clean text layer, so
+conversion runs without OCR.
 
 Discovery uses WHO's Sitefinity OData publications hub API, filtered to the
-Guidelines publishing office. Extraction fetches each publication HTML page and
-converts the Overview block to markdown.
+Guidelines publishing office.
 
 Attribution:
 The publishing-office filter UUID and PDF-first approach in Meditron's WHO
@@ -21,7 +24,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
@@ -37,6 +40,12 @@ from amfv_datasets.scraping.base import (
     scrape_listing_documents,
 )
 from amfv_datasets.scraping.html import LinkMode, clean_text, document_title, html_to_markdown
+from amfv_datasets.scraping.pdf import (
+    PdfBackend,
+    PdfConversionError,
+    count_markdown_sections,
+    pdf_to_markdown,
+)
 
 BASE_URL = "https://www.who.int"
 GUIDELINES_LISTING_URL = f"{BASE_URL}/publications/who-guidelines"
@@ -47,7 +56,11 @@ LISTING_PAGE_SIZE = 25
 DOCUMENT_DELAY_SECONDS = 5.0
 WHO_LICENSE = "CC BY-NC-SA 3.0 IGO"
 WHO_ATTRIBUTION = "© World Health Organization. Licensed under CC BY-NC-SA 3.0 IGO."
-CONTENT_SCOPE = "overview"
+CONTENT_SCOPE_FULL = "full"
+CONTENT_SCOPE_OVERVIEW = "overview"
+PDF_TIMEOUT_SECONDS = 180.0
+
+type PdfMarkdownConverter = Callable[[bytes, str, str], str]
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +69,7 @@ _PUBLICATION_PATH_RE = re.compile(
     re.IGNORECASE,
 )
 _ISBN_RE = re.compile(r"ISBN:\s*([\d\-]+)", re.IGNORECASE)
+
 
 class WhoFetchError(ScrapeError):
     """Raised when a WHO publication cannot be fetched or parsed."""
@@ -96,9 +110,7 @@ def publication_ref_from_url(url: str) -> WhoPublicationRef:
 
     match = _PUBLICATION_PATH_RE.match(parsed.path.rstrip("/") + "/")
     if not match:
-        raise WhoFetchError(
-            f"Enter a URL like https://www.who.int/publications/i/item/9789240121805; got {url!r}"
-        )
+        raise WhoFetchError(f"Enter a URL like https://www.who.int/publications/i/item/9789240121805; got {url!r}")
 
     publication_id = match.group("publication_id")
     return WhoPublicationRef(
@@ -246,19 +258,60 @@ def _page_download_url(doc: lxml_html.HtmlElement) -> str | None:
     return None
 
 
+def _convert_guideline_pdf(data: bytes, title: str, publication_id: str) -> str:
+    """Convert a downloaded WHO guideline PDF into markdown."""
+    return pdf_to_markdown(data, running_header=title, name=f"{publication_id}.pdf")
+
+
+def _guideline_body(
+    client: httpx.Client,
+    ref: WhoPublicationRef,
+    *,
+    title: str,
+    download_url: str,
+    pdf_converter: PdfMarkdownConverter,
+) -> tuple[str, int] | None:
+    """Download and convert a guideline PDF, or return None when unavailable.
+
+    A single unconvertible PDF must not abort a long listing run, so transport
+    and conversion failures are logged and reported as a missing body.
+    """
+    try:
+        response = client.get(download_url, timeout=PDF_TIMEOUT_SECONDS)
+        response.raise_for_status()
+        payload = response.content
+        body = pdf_converter(payload, title, ref.publication_id).strip()
+    except (httpx.HTTPError, PdfConversionError) as exc:
+        logger.warning("Falling back to Overview for '%s': %s", ref.publication_id, exc)
+        return None
+    if not body:
+        logger.warning("PDF for '%s' produced no markdown; falling back to Overview", ref.publication_id)
+        return None
+    return body, len(payload)
+
+
 def build_publication_text(
     client: httpx.Client,
     ref: WhoPublicationRef,
     *,
     link_mode: LinkMode = LinkMode.KEEP,
+    include_full_text: bool = True,
+    pdf_converter: PdfMarkdownConverter | None = None,
 ) -> tuple[str, int, str, dict[str, Any]]:
-    """Scrape a publication Overview into markdown text and bibliographic metadata.
+    """Scrape a publication into markdown text and bibliographic metadata.
+
+    The Overview from the landing page leads, followed by the guideline body
+    converted from the linked PDF when one is available.
 
     Args:
-        client: HTTP client used to fetch the publication page.
+        client: HTTP client used to fetch the publication page and PDF.
         ref: WHO publication reference to scrape.
         link_mode: Whether links are kept as markdown links or stripped to their
             visible text (default: LinkMode.KEEP).
+        include_full_text: Whether to download and convert the guideline PDF.
+            Disable for a fast Overview-only scrape (default: True).
+        pdf_converter: Converter receiving PDF bytes, title and publication id.
+            Defaults to the Docling-backed converter (default: None).
     """
     response = client.get(ref.page_url)
     response.raise_for_status()
@@ -269,27 +322,41 @@ def build_publication_text(
     if not sections:
         raise WhoFetchError(f"No publication content section for '{ref.publication_id}'")
 
-    title = (
-        ref.title
-        if ref.title != ref.publication_id
-        else document_title(html_text, fallback=ref.publication_id)
-    )
+    title = ref.title if ref.title != ref.publication_id else document_title(html_text, fallback=ref.publication_id)
     overview_html = _overview_html(sections[0])
-    markdown = html_to_markdown(overview_html, link_mode=link_mode, base_url=BASE_URL).strip()
-    if not markdown:
+    overview = html_to_markdown(overview_html, link_mode=link_mode, base_url=BASE_URL).strip()
+    if not overview:
         raise WhoFetchError(f"No readable Overview content for '{ref.publication_id}'")
+
+    download_url = ref.download_url or _page_download_url(doc)
+    body: tuple[str, int] | None = None
+    if include_full_text and download_url:
+        body = _guideline_body(
+            client,
+            ref,
+            title=title,
+            download_url=download_url,
+            pdf_converter=pdf_converter or _convert_guideline_pdf,
+        )
+    elif include_full_text:
+        logger.warning("No PDF link for '%s'; emitting Overview only", ref.publication_id)
+
+    content = f"{overview}\n\n{body[0]}" if body else overview
+    section_count = 1 + count_markdown_sections(body[0]) if body else 1
 
     extra_metadata: dict[str, Any] = {
         "publication_date": ref.publication_date or _page_publication_date(doc),
         "tag": ref.tag or _page_tag(doc),
         "isbn": _page_isbn(html_text),
-        "download_url": ref.download_url or _page_download_url(doc),
-        "content_scope": CONTENT_SCOPE,
+        "download_url": download_url,
+        "content_scope": CONTENT_SCOPE_FULL if body else CONTENT_SCOPE_OVERVIEW,
+        "pdf_backend": PdfBackend.DOCLING.value if body else None,
+        "pdf_bytes": body[1] if body else None,
         "license": WHO_LICENSE,
         "attribution": WHO_ATTRIBUTION,
         "listing_category": "who-guidelines",
     }
-    return markdown, 1, title, extra_metadata
+    return content, section_count, title, extra_metadata
 
 
 def scrape_publication(
@@ -297,16 +364,28 @@ def scrape_publication(
     ref: WhoPublicationRef,
     *,
     link_mode: LinkMode = LinkMode.KEEP,
+    include_full_text: bool = True,
+    pdf_converter: PdfMarkdownConverter | None = None,
 ) -> ScrapedDocument:
     """Scrape a WHO publication into a normalized document.
 
     Args:
-        client: HTTP client used to fetch the publication page.
+        client: HTTP client used to fetch the publication page and PDF.
         ref: WHO publication reference to scrape.
         link_mode: Whether links are kept as markdown links or stripped to their
             visible text (default: LinkMode.KEEP).
+        include_full_text: Whether to download and convert the guideline PDF
+            (default: True).
+        pdf_converter: Converter receiving PDF bytes, title and publication id.
+            Defaults to the Docling-backed converter (default: None).
     """
-    content, section_count, title, metadata = build_publication_text(client, ref, link_mode=link_mode)
+    content, section_count, title, metadata = build_publication_text(
+        client,
+        ref,
+        link_mode=link_mode,
+        include_full_text=include_full_text,
+        pdf_converter=pdf_converter,
+    )
     return ScrapedDocument(
         source="who",
         external_id=f"who-{ref.publication_id}",
@@ -326,6 +405,7 @@ def scrape_who(
     documents: int | None,
     link_mode: LinkMode = LinkMode.KEEP,
     url: str | None = None,
+    include_full_text: bool = True,
 ) -> ScrapeRun:
     """Scrape WHO documents from a URL or guideline listing pages.
 
@@ -336,12 +416,20 @@ def scrape_who(
         link_mode: Whether links are kept as markdown links or stripped to their
             visible text (default: LinkMode.KEEP).
         url: WHO publication URL to scrape as a single document (default: None).
+        include_full_text: Whether to download and convert each guideline PDF.
+            Requires the `pdf` extra; without it documents fall back to the
+            Overview (default: True).
     """
     if url is not None:
 
         def scrape_url() -> Iterable[ScrapedDocument]:
             with default_client() as client:
-                yield scrape_publication(client, publication_ref_from_url(url), link_mode=link_mode)
+                yield scrape_publication(
+                    client,
+                    publication_ref_from_url(url),
+                    link_mode=link_mode,
+                    include_full_text=include_full_text,
+                )
 
         return ScrapeRun(documents=scrape_url(), total=1)
 
@@ -355,7 +443,12 @@ def scrape_who(
             client_factory=default_client,
             first_page_items=first_page.refs,
             list_page=lambda client, page: list_publications(client, page).refs,
-            scrape_item=lambda client, ref: scrape_publication(client, ref, link_mode=link_mode),
+            scrape_item=lambda client, ref: scrape_publication(
+                client,
+                ref,
+                link_mode=link_mode,
+                include_full_text=include_full_text,
+            ),
             document_delay_seconds=DOCUMENT_DELAY_SECONDS,
         ),
     )
@@ -363,9 +456,11 @@ def scrape_who(
 
 __all__ = [
     "BASE_URL",
-    "CONTENT_SCOPE",
+    "CONTENT_SCOPE_FULL",
+    "CONTENT_SCOPE_OVERVIEW",
     "DOCUMENT_DELAY_SECONDS",
     "GUIDELINES_LISTING_URL",
+    "PdfMarkdownConverter",
     "WHO_ATTRIBUTION",
     "WHO_LICENSE",
     "WhoFetchError",
