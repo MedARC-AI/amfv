@@ -130,14 +130,8 @@ def test_scrape_statement_preserves_clinical_structure_and_metadata() -> None:
     }
     assert "- Assess the infant:\n  - Check vital signs." in document.content
     assert "[risk calculator](https://cps.ca/en/tools/risk-calculator)" in document.content
-    assert (
-        "Current citation[1](https://cps.ca/en/documents/position/febrile-young-infants#ref1)."
-        in document.content
-    )
-    assert (
-        "Legacy citation[2](https://cps.ca/en/documents/position/febrile-young-infants#ref2)."
-        in document.content
-    )
+    assert "Current citation[1](#ref1)." in document.content
+    assert "Legacy citation[2](#ref2)." in document.content
     assert "38<sup>o</sup>C" in document.content
     assert "10<sup>9</sup>/L" in document.content
     assert "# Management of well-appearing" not in document.content
@@ -157,3 +151,38 @@ def test_scrape_statement_preserves_clinical_structure_and_metadata() -> None:
     assert "assets/img/test.png" not in document.content
     assert "window.track" not in document.content
     assert "Contact CPS" not in document.content
+
+
+def test_scrape_statement_flags_pdf_landing_page() -> None:
+    """A thin PDF landing page is explicit in document metadata."""
+    page_url = f"{BASE_URL}/en/documents/position/technical-report"
+    pdf_url = f"{BASE_URL}/uploads/technical-report.pdf"
+    html_text = f"""
+    <main id="main-content"><div class="statement-wrapper">
+      <h1>Technical report</h1>
+      <p>Posted: Nov 24, 2023</p>
+      <h3>Principal author(s)</h3>
+      <p>Example Author</p>
+      <a href="{pdf_url}">Technical report PDF</a>
+      <p>Disclaimer: Refer to the complete report.</p>
+    </div></main>
+    """
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert str(request.url) == page_url
+        return httpx.Response(200, text=html_text)
+
+    ref = CpsStatementRef("technical-report", "Technical report", page_url)
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        document = scrape_statement(client, ref)
+
+    assert "Technical report PDF" in document.content
+    assert document.section_count == 1
+    assert document.metadata == {
+        "slug": "technical-report",
+        "posted": "Nov 24, 2023",
+        "content_length": len(document.content),
+        "content_scope": "landing_page",
+        "download_url": pdf_url,
+    }

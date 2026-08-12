@@ -77,3 +77,17 @@ def test_html_to_markdown_absolutizes_remote_image_references() -> None:
     assert html_to_markdown(html_text, base_url="https://example.org") == (
         "![Treatment flowchart](https://example.org/uploads/flowchart.png)"
     )
+
+
+def test_html_to_markdown_keeps_same_document_fragments_relative() -> None:
+    """Same-document references do not repeat the full document URL."""
+    html_text = '<p>Recommendation<a href="#ref12">[12]</a>.</p>'
+
+    assert (
+        html_to_markdown(
+            html_text,
+            base_url="https://example.org/guideline",
+            drop_numeric_citations=False,
+        )
+        == "Recommendation[[12]](#ref12)."
+    )
