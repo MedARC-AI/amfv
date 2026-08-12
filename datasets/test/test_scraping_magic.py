@@ -1,4 +1,9 @@
-"""Tests for MAGICapp scraping helpers."""
+"""Tests for MAGICapp scraping helpers.
+
+Sections mirror magic.py's layout: shared fixtures, then catalogue access, HTML repair,
+conversion and markdown cleanup, section keep/drop policy, recommendation and PICO
+rendering, document assembly, and the scrape API.
+"""
 
 import time
 
@@ -20,7 +25,12 @@ from amfv_datasets.scraping.magic import (
     scrape_magic_guideline,
 )
 
+# ---------------------------------------------------------------------------
+# Shared fixtures
+# ---------------------------------------------------------------------------
+
 JSON_PATH = "https://s3.amazonaws.com/files.magicapp.org/guideline/abc/guideline_1-1_0.json"
+
 
 CATALOGUE = [
     {
@@ -55,6 +65,7 @@ CATALOGUE = [
         "publishedRecommendationCount": 0,
     },
 ]
+
 
 GUIDELINE = {
     "name": "Management of juvenile idiopathic arthritis",
@@ -111,6 +122,63 @@ def _client(catalogue: list[dict] | None = None, guideline: dict | None = None) 
     return httpx.Client(transport=httpx.MockTransport(handler))
 
 
+def _catalogue_entry(short_code: str, name: str, json_path: str, institution: str = "ANZMUSC") -> dict:
+    return {
+        "shortCode": short_code,
+        "guidelineId": 1,
+        "name": name,
+        "jsonPath": json_path,
+        "language": "en",
+        "institutionName": institution,
+        "publishedRecommendationCount": 1,
+    }
+
+
+def _run_catalogue(
+    monkeypatch: pytest.MonkeyPatch,
+    catalogue: list[dict],
+    bodies: dict[str, dict],
+    *,
+    include_drafts: bool = False,
+) -> list:
+    """Run scrape_magic over an in-memory catalogue, serving `bodies` by json path."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "api.magicapp.org":
+            return httpx.Response(200, json=catalogue)
+        body = bodies.get(str(request.url))
+        return httpx.Response(200, json=body) if body is not None else httpx.Response(404)
+
+    # scrape_magic opens one client for the catalogue and another for the documents,
+    # so the factory has to hand back a fresh client each time.
+    monkeypatch.setattr(magic, "default_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+    monkeypatch.setattr(base.time, "sleep", lambda _seconds: None)
+    return list(scrape_magic(documents=None, include_drafts=include_drafts))
+
+
+def _render(guideline: dict) -> str:
+    """Render a guideline payload through the real code path."""
+    with _client(guideline=guideline) as client:
+        ref = list_published_guidelines(client).refs[0]
+        content, _section_count, _title, _emitted = build_magic_guideline_text(client, ref)
+    return content
+
+
+def _render_body(html: str) -> str:
+    """Render one section body through the real code path."""
+    return _render(
+        {
+            "name": "Malaria",
+            "sections": [{"heading": "Treating malaria", "text": html, "recommendations": [], "subSections": []}],
+        }
+    )
+
+
+# ---------------------------------------------------------------------------
+# Catalogue access and document selection
+# ---------------------------------------------------------------------------
+
+
 def test_list_published_guidelines_parses_catalogue() -> None:
     """Catalogue entries become refs, skipping non-English and incomplete rows."""
     with _client() as client:
@@ -148,127 +216,6 @@ def test_guideline_ref_page_url_points_at_the_viewer() -> None:
     assert ref.page_url == "https://app.magicapp.org/#/guideline/nyxpZL"
 
 
-def test_build_magic_guideline_text_renders_sections_and_recommendations() -> None:
-    """Nested sections become headings and recommendations are inlined beneath them."""
-    with _client() as client:
-        ref = list_published_guidelines(client).refs[0]
-        content, section_count, title, _ = build_magic_guideline_text(client, ref)
-        stripped, _, _, _ = build_magic_guideline_text(client, ref, link_mode=LinkMode.STRIP)
-
-    assert title == "Management of juvenile idiopathic arthritis"
-    assert section_count == 1
-    assert content == (
-        "## Disease modifying therapy\n"
-        "\n"
-        "Therapy is chosen by disease severity.\n"
-        "\n"
-        "### Methotrexate\n"
-        "\n"
-        "See the [dosing table](https://example.org/dose).\n"
-        "\n"
-        "#### Recommendation 1 (WEAK)\n"
-        "\n"
-        "Consider methotrexate at 15mg/m2 once a week.\n"
-        "\n"
-        "*Remarks:*\n"
-        "\n"
-        "Preferred over leflunomide.\n"
-        "\n"
-        "#### Recommendation\n"
-        "\n"
-        "Review response after three months.\n"
-        "\n"
-        "Box 1.1 Sustainable Development Goals."
-    )
-    assert "[dosing table](https://example.org/dose)" not in stripped
-    assert "See the dosing table." in stripped
-
-
-def test_build_magic_guideline_text_does_not_label_info_boxes_as_recommendations() -> None:
-    """Strength INFO marks an editorial callout box, so it is emitted as plain content.
-
-    MAGICapp reuses the recommendation structure for boxes, and the catalogue's
-    publishedRecommendationCount excludes them. Labelling them would present
-    editorial material as clinical advice.
-    """
-    with _client() as client:
-        ref = list_published_guidelines(client).refs[0]
-        content, _, _, _ = build_magic_guideline_text(client, ref)
-
-    assert "Box 1.1 Sustainable Development Goals." in content
-    assert content.count("#### Recommendation") == 2
-
-
-def test_build_magic_guideline_text_uses_the_publishers_own_label() -> None:
-    """A body opening with its own label supplies the label, rather than repeating it.
-
-    The publisher's wording carries meaning a generic "Recommendation" would lose:
-    a practice point is explicitly what a panel wrote where the evidence review
-    found insufficient data.
-    """
-    with _client() as client:
-        ref = list_published_guidelines(client).refs[0]
-        content, _, _, _ = build_magic_guideline_text(client, ref)
-
-    assert "#### Recommendation 1 (WEAK)\n\nConsider methotrexate" in content
-    assert "#### Recommendation (WEAK)" not in content
-
-
-def test_build_magic_guideline_text_keeps_a_wholly_bolded_recommendation() -> None:
-    """A wholly bolded recommendation keeps its text and balanced markup.
-
-    WHO publishes these, e.g. "**RECOMMENDATION 3: A companion of choice is
-    recommended for all women throughout labour and childbirth.**". The span is
-    unwrapped before the label is cut at the colon; cutting inside it left the
-    closing half behind as a literal "**" at the end of the body.
-    """
-    guideline = {
-        "name": "Intrapartum care",
-        "sections": [
-            {
-                "heading": "Labour care",
-                "text": "",
-                "subSections": [],
-                "recommendations": [
-                    {
-                        "text": (
-                            "<p><strong>RECOMMENDATION 3: A companion of choice is recommended "
-                            "for all women throughout labour and childbirth.</strong></p>"
-                        ),
-                        "strength": "STRONG",
-                    }
-                ],
-            }
-        ],
-    }
-    with _client(guideline=guideline) as client:
-        ref = list_published_guidelines(client).refs[0]
-        content, _, _, _ = build_magic_guideline_text(client, ref)
-
-    assert "A companion of choice is recommended for all women throughout labour and childbirth." in content
-    assert "### RECOMMENDATION 3 (STRONG)" in content
-    assert content.count("**") % 2 == 0
-
-
-def test_build_magic_guideline_text_skips_platform_boilerplate() -> None:
-    """MAGICapp's repeated 'how to use' section is dropped, not indexed."""
-    with _client() as client:
-        ref = list_published_guidelines(client).refs[0]
-        content, _, _, _ = build_magic_guideline_text(client, ref)
-
-    assert "How To Use This Guideline" not in content
-    assert "open the evidence behind it" not in content
-    assert "Disease modifying therapy" in content
-
-
-def test_build_magic_guideline_text_rejects_a_guideline_without_sections() -> None:
-    """A document with no sections is an error rather than an empty record."""
-    with _client(guideline={"name": "Empty", "sections": []}) as client:
-        ref = list_published_guidelines(client).refs[0]
-        with pytest.raises(MagicFetchError, match="No sections found"):
-            build_magic_guideline_text(client, ref)
-
-
 def test_magic_ref_from_url_resolves_a_short_code() -> None:
     """A viewer URL is resolved to its catalogue entry."""
     with _client() as client:
@@ -301,634 +248,44 @@ def test_magic_ref_from_url_rejects_an_unknown_short_code() -> None:
             magic_ref_from_url(client, "https://app.magicapp.org/#/guideline/zzzzzz")
 
 
-PLACEHOLDER_JSON_PATH = "https://s3.amazonaws.com/files.magicapp.org/guideline/ghi/guideline_3-1_0.json"
-STUB_JSON_PATH = "https://s3.amazonaws.com/files.magicapp.org/guideline/jkl/guideline_4-1_0.json"
+def test_list_published_guidelines_upgrades_http_content_urls_to_https() -> None:
+    """The file host refuses plain HTTP with 403, so http:// entries are upgraded.
 
-# A published catalogue entry whose body renders to nothing. MAGICapp really does
-# publish these, for example 'Test guideline 3'.
-PLACEHOLDER_GUIDELINE = {"name": "Beta-blockers for hypertension", "sections": [{"heading": "", "text": ""}]}
-
-# Renders to one short line. Published, not empty, and useless: it would enter the
-# corpus as a document about beta-blockers that says nothing about them.
-STUB_GUIDELINE = {
-    "name": "Beta-blockers for hypertension",
-    "sections": [
-        {
-            "heading": "Beta-blockers for hypertension",
-            "text": "<p>Evidence profiles for beta-blockers for hypertension, not yet publicly available.</p>",
-        }
-    ],
-}
-
-
-def _catalogue_entry(short_code: str, name: str, json_path: str, institution: str = "ANZMUSC") -> dict:
-    return {
-        "shortCode": short_code,
-        "guidelineId": 1,
-        "name": name,
-        "jsonPath": json_path,
-        "language": "en",
-        "institutionName": institution,
-        "publishedRecommendationCount": 1,
-    }
-
-
-def _run_catalogue(
-    monkeypatch: pytest.MonkeyPatch,
-    catalogue: list[dict],
-    bodies: dict[str, dict],
-    *,
-    include_drafts: bool = False,
-) -> list:
-    """Run scrape_magic over an in-memory catalogue, serving `bodies` by json path."""
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.host == "api.magicapp.org":
-            return httpx.Response(200, json=catalogue)
-        body = bodies.get(str(request.url))
-        return httpx.Response(200, json=body) if body is not None else httpx.Response(404)
-
-    # scrape_magic opens one client for the catalogue and another for the documents,
-    # so the factory has to hand back a fresh client each time.
-    monkeypatch.setattr(magic, "default_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
-    monkeypatch.setattr(base.time, "sleep", lambda _seconds: None)
-    return list(scrape_magic(documents=None, include_drafts=include_drafts))
-
-
-def test_scrape_magic_skips_unreadable_guidelines_instead_of_aborting(monkeypatch: pytest.MonkeyPatch) -> None:
-    """An empty guideline is logged and skipped, leaving the rest of the run intact."""
-    monkeypatch.setattr(magic, "MIN_CONTENT_CHARS", 1)
-    scraped = _run_catalogue(
-        monkeypatch,
-        [
-            _catalogue_entry("aaaaaa", "Beta-blockers for hypertension", PLACEHOLDER_JSON_PATH),
-            _catalogue_entry("nyxpZL", "Management of juvenile idiopathic arthritis", JSON_PATH),
-        ],
-        {PLACEHOLDER_JSON_PATH: PLACEHOLDER_GUIDELINE, JSON_PATH: GUIDELINE},
-    )
-
-    assert [document.external_id for document in scraped] == ["magic-nyxpZL"]
-    assert "methotrexate" in scraped[0].content.lower()
-
-
-def test_scrape_magic_drops_placeholder_guidelines_below_the_content_minimum(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A published stub too short to say anything does not become a document."""
-    scraped = _run_catalogue(
-        monkeypatch,
-        [_catalogue_entry("aaaaaa", "Beta-blockers for hypertension", STUB_JSON_PATH)],
-        {STUB_JSON_PATH: STUB_GUIDELINE},
-    )
-
-    assert scraped == []
-
-
-def test_scrape_magic_skips_tutorial_and_workshop_organisations(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Training material is dropped, and a real guideline is not."""
-    monkeypatch.setattr(magic, "MIN_CONTENT_CHARS", 1)
-    scraped = _run_catalogue(
-        monkeypatch,
-        [
-            _catalogue_entry("tutor1", "TUTORIAL - BMJ RapidRecs", PLACEHOLDER_JSON_PATH, "MAGICapp Tutorials"),
-            _catalogue_entry("nyxpZL", "Management of juvenile idiopathic arthritis", JSON_PATH),
-        ],
-        {PLACEHOLDER_JSON_PATH: GUIDELINE, JSON_PATH: GUIDELINE},
-    )
-
-    assert [document.external_id for document in scraped] == ["magic-nyxpZL"]
-
-
-def test_scrape_magic_drops_publisher_marked_drafts(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A title the publisher marks a draft is dropped; a clean title with status DEV is kept.
-
-    Monash publishes j97pAn as "DRAFT FOR PUBLIC CONSULTATION: ..." - guidance its own
-    panel is still consulting readers on. The catalogue status field is never the test:
-    DEV describes the authoring workspace, and jboXZL carries it on a finished,
-    published guideline.
+    Six English catalogue entries carry an http:// jsonPath and every one of them
+    is refused over HTTP but served over HTTPS. Without this they would be skipped
+    as unreachable, losing guidelines that carry real recommendations.
     """
-    monkeypatch.setattr(magic, "MIN_CONTENT_CHARS", 1)
-    published_dev = _catalogue_entry("jboXZL", "Supervised exercise for intermittent claudication", JSON_PATH)
-    published_dev["status"] = "DEV"
-    scraped = _run_catalogue(
-        monkeypatch,
-        [
-            _catalogue_entry("j97pAn", "DRAFT FOR PUBLIC CONSULTATION: Dementia Guidelines", STUB_JSON_PATH),
-            published_dev,
-        ],
-        {STUB_JSON_PATH: GUIDELINE, JSON_PATH: GUIDELINE},
-    )
+    catalogue = [
+        {
+            "shortCode": "eEZlLD",
+            "guidelineId": 387,
+            "name": "VTE, Thrombophilia, Antithrombotic Therapy and Pregnancy",
+            "jsonPath": "http://files.magicapp.org/guideline/abc/json/guideline_387-0_2.json",
+            "language": "en",
+            "institutionName": "Norsk Selskap for Trombose og Hemostase",
+            "publishedRecommendationCount": 39,
+        }
+    ]
 
-    assert [document.external_id for document in scraped] == ["magic-jboXZL"]
-
-
-def test_scrape_magic_keeps_drafts_when_asked(monkeypatch: pytest.MonkeyPatch) -> None:
-    """include_drafts keeps what a default catalogue run drops."""
-    monkeypatch.setattr(magic, "MIN_CONTENT_CHARS", 1)
-    scraped = _run_catalogue(
-        monkeypatch,
-        [_catalogue_entry("j97pAn", "DRAFT FOR PUBLIC CONSULTATION: Dementia Guidelines", JSON_PATH)],
-        {JSON_PATH: GUIDELINE},
-        include_drafts=True,
-    )
-
-    assert [document.external_id for document in scraped] == ["magic-j97pAn"]
-
-
-def _render(guideline: dict) -> str:
-    """Render a guideline payload through the real code path."""
-    with _client(guideline=guideline) as client:
+    with _client(catalogue=catalogue) as client:
         ref = list_published_guidelines(client).refs[0]
-        content, _section_count, _title, _emitted = build_magic_guideline_text(client, ref)
-    return content
 
+    assert ref.json_path == "https://files.magicapp.org/guideline/abc/json/guideline_387-0_2.json"
 
-BOILERPLATE_WITH_GUIDANCE = {
-    "name": "Patient blood management",
-    "sections": [
-        {
-            "heading": "Glossary",
-            "text": "<p>Confidence interval: a range of values.</p>",
-            "recommendations": [],
-            "subSections": [],
-        },
-        {
-            "heading": "Introduction",
-            "text": "<p>Context for the guideline.</p>",
-            "recommendations": [
-                {
-                    "text": "<p>Pregnancies at risk of fetal anaemia should be assessed by Doppler ultrasound.</p>",
-                    "strength": "NOTSET",
-                }
-            ],
-            "subSections": [],
-        },
-    ],
-}
 
+def test_list_published_guidelines_tolerates_junk_numeric_fields() -> None:
+    """A non-numeric numeric field in one catalogue entry does not abort the run."""
+    catalogue = [dict(CATALOGUE[0], guidelineId="unknown", publishedRecommendationCount="N/A")]
+    with _client(catalogue=catalogue) as client:
+        refs = list_published_guidelines(client).refs
 
-def test_build_magic_guideline_text_skips_front_matter_without_recommendations() -> None:
-    """A glossary carrying no guidance is dropped as boilerplate."""
-    content = _render(BOILERPLATE_WITH_GUIDANCE)
+    assert refs[0].guideline_id == 0
+    assert refs[0].recommendation_count == 0
 
-    assert "Glossary" not in content
-    assert "Confidence interval" not in content
 
-
-DECORATED_HEADINGS = {
-    "name": "Cervical screening",
-    "sections": [
-        {
-            "heading": "<p><strong>How to use these guidelines</strong></p>",
-            "text": "<p>Read the recommendations first.</p>",
-            "recommendations": [],
-            "subSections": [],
-        },
-        {
-            "heading": "7.2 Conflicts of interest",
-            "text": "<p>Panel members declared the following.</p>",
-            "recommendations": [],
-            "subSections": [],
-        },
-        {
-            "heading": "Appendices",
-            "text": "",
-            "recommendations": [],
-            "subSections": [
-                {
-                    "heading": "Appendix A. Guideline development process",
-                    "text": "<p>Each recommendation was tabled as an agenda item.</p>",
-                    "recommendations": [],
-                    "subSections": [],
-                },
-                {
-                    "heading": "App E - Working Party members and project team contributions",
-                    "text": "<p>Ms Chloe Jennett, Program Coordinator.</p>",
-                    "recommendations": [],
-                    "subSections": [],
-                },
-                {
-                    "heading": "Appendix F. Safety Monitoring",
-                    "text": "<p>Report adverse events within 24 hours.</p>",
-                    "recommendations": [],
-                    "subSections": [],
-                },
-            ],
-        },
-    ],
-}
-
-
-def test_build_magic_guideline_text_skips_decorated_front_matter_headings() -> None:
-    """Emphasis, section numbers and appendix labels no longer defeat the skip list.
-
-    The lookup is an exact string match, so a publisher that bolds its headings -
-    Cancer Council Australia bolds all of them - used to bypass the skip list
-    entirely. Numbering and "Appendix A." labels defeated it the same way.
-    """
-    content = _render(DECORATED_HEADINGS)
-
-    assert "How to use these guidelines" not in content
-    assert "Read the recommendations first" not in content
-    assert "Conflicts of interest" not in content
-    assert "Panel members declared" not in content
-
-
-def test_build_magic_guideline_text_skips_admin_sections_inside_an_appendix() -> None:
-    """Administrative topics inside an appendix go; the appendix itself stays.
-
-    "Appendices" is a container word - it says where a section sits, not what it
-    holds - so matching it would drop a whole back-of-document container on no
-    evidence. The topics one level down are what name methodology.
-
-    "Appendix A. Guideline development process" is deliberately *not* asserted here
-    any more: reading all 59 sections with that wording found 20 of 58 carry a real
-    clinical statement, so only the "Guideline Development Group" wording is matched
-    now. The rest of this fixture still goes.
-    """
-    content = _render(DECORATED_HEADINGS)
-
-    assert "Working Party members" not in content
-    assert "Chloe Jennett" not in content
-
-
-def test_build_magic_guideline_text_keeps_appendix_content_that_is_not_administrative() -> None:
-    """A clinical appendix section survives, so the container is not dropped wholesale."""
-    content = _render(DECORATED_HEADINGS)
-
-    assert "Safety Monitoring" in content
-    assert "Report adverse events within 24 hours" in content
-
-
-INTEREST_DISCLOSURES = {
-    "name": "Atrial fibrillation",
-    "sections": [
-        {
-            "heading": "Anticoagulation",
-            "text": "<p>Offer anticoagulation to patients at elevated stroke risk.</p>",
-            "recommendations": [],
-            "subSections": [],
-        },
-        {
-            "heading": "Acronyms and abbreviations",
-            "text": "<p>NOAC: non-vitamin K oral anticoagulant.</p>",
-            "recommendations": [],
-            "subSections": [],
-        },
-        {
-            "heading": "Declaration of conflicting interests",
-            "text": "<p>Dr X: national co-ordinator for Boehringer Ingelheim on dabigatran.</p>",
-            "recommendations": [],
-            "subSections": [],
-        },
-        {
-            "heading": "Annex 3. Summary and management of declared interests from GDG members",
-            "text": "<p>Member honoraria are tabled below.</p>",
-            "recommendations": [],
-            "subSections": [],
-        },
-    ],
-}
-
-
-ACKNOWLEDGMENT_WORDINGS = {
-    "name": "Dementia care",
-    "sections": [
-        {
-            "heading": "Risk reduction",
-            "text": "<p>Encourage regular physical activity.</p>",
-            "recommendations": [],
-            "subSections": [],
-        },
-        {
-            "heading": "Publication and acknowledgments",
-            "text": "<p>Funded by the Department of Health. Co-Chairs: Professor V. Srikanth.</p>",
-            "recommendations": [],
-            "subSections": [],
-        },
-        {
-            "heading": "Acknowledgement",
-            "text": "<p>We thank the working group members.</p>",
-            "recommendations": [],
-            "subSections": [],
-        },
-    ],
-}
-
-
-def test_build_magic_guideline_text_skips_acknowledgment_wordings() -> None:
-    """Publishers word acknowledgment sections a dozen ways; one stem catches them all.
-
-    "Publication and acknowledgments" (j97pAn) is 22,242 characters of funders and
-    contributors that no exact name on the skip list covered, and the singular
-    "Acknowledgement" missed the plural-only exact names.
-    """
-    content = _render(ACKNOWLEDGMENT_WORDINGS)
-
-    assert "physical activity" in content
-    assert "Funded by the Department" not in content
-    assert "thank the working group" not in content
-
-
-GUIDELINE_PAPERWORK = {
-    "name": "Inflammatory arthritis",
-    "sections": [
-        {
-            "heading": "Executive Summary",
-            "text": "<p>The panel does not recommend routine use of MDMA-assisted psychotherapy.</p>",
-            "recommendations": [],
-            "subSections": [],
-        },
-        {
-            "heading": "Initial DMARD therapy",
-            "text": "<p>Methotrexate is usually first line.</p>",
-            "recommendations": [{"text": "<p>Consider methotrexate in combination.</p>", "strength": "WEAK"}],
-            "subSections": [],
-        },
-        {
-            "heading": "Methods and Processes - Evidence Review",
-            "text": "<p>Questions were validated by stakeholder consultation.</p>",
-            "recommendations": [],
-            "subSections": [],
-        },
-        {
-            "heading": "Guideline Expert Advisory Panel and Technical Team",
-            "text": "<p>Prof R. Buchbinder, Monash University, Rheumatology.</p>",
-            "recommendations": [],
-            "subSections": [],
-        },
-        {
-            "heading": "Guideline Meeting Attendance Record and Recommendation Authorship",
-            "text": "<p>Click here to view attendance at each meeting.</p>",
-            "recommendations": [],
-            "subSections": [],
-        },
-        {
-            "heading": "Appendices - Living evidence updates, forest plots and other supplementary information",
-            "text": "<p>Update 1 (July 2024) - no new evidence.</p>",
-            "recommendations": [],
-            "subSections": [],
-        },
-    ],
-}
-
-
-def test_build_magic_guideline_text_skips_guideline_paperwork_sections() -> None:
-    """How the guideline was made, who wrote it, and links to evidence files are dropped."""
-    content = _render(GUIDELINE_PAPERWORK)
-
-    assert "Consider methotrexate in combination." in content
-    assert "Methotrexate is usually first line." in content
-    assert "stakeholder consultation" not in content
-    assert "Buchbinder" not in content
-    assert "attendance at each meeting" not in content
-    assert "no new evidence" not in content
-
-
-def test_build_magic_guideline_text_keeps_executive_summaries_by_name() -> None:
-    """An "Executive summary" names a container, not a kind of content, so it is not a rule.
-
-    It was one, corpus-wide, and that was wrong. 61 of the 212 guidelines have such a
-    section and 36 of them put their whole recommendation set in it: the WHO postpartum
-    haemorrhage guideline states 18 of its 46 recommendations there and nowhere else,
-    including the dose "30mg to 60mg of elemental iron and 400ug (0.4mg) of folic acid".
-    Removing the section removed the recommendation from the corpus entirely.
-
-    A rule may only name a heading whose content is paperwork whatever the publisher put
-    under it. This one fails that test in both directions, so the guidelines whose summary
-    really is front matter say so themselves, in _GUIDELINE_SKIP_HEADINGS, each one checked
-    against the rendered text first.
-    """
-    content = _render(GUIDELINE_PAPERWORK)
-
-    assert "does not recommend routine use of MDMA-assisted psychotherapy" in content
-
-
-def test_build_magic_guideline_text_keeps_an_executive_summary_that_states_scope() -> None:
-    """The content guards reach an executive summary like any other skipped section.
-
-    Nine of the 74 are held this way. Their scope statements are what a verifier needs in
-    order not to confirm an out-of-scope claim, and dropping the section by name would take
-    them with it.
-    """
-    guideline = {
-        "name": "WHO guidelines for malaria",
-        "sections": [
-            {
-                "heading": "Executive summary",
-                "text": (
-                    "<p>WHO malaria recommendations are intended to be short, actionable "
-                    "statements.</p>"
-                    "<p>These guidelines do not apply to people travelling from non-endemic "
-                    "settings.</p>"
-                ),
-                "recommendations": [],
-                "subSections": [],
-            }
-        ],
-    }
-    content = _render(guideline)
-
-    assert "do not apply to people travelling from non-endemic settings" in content
-
-
-INLINE_PAPERWORK = {
-    "name": "Inflammatory arthritis",
-    "sections": [
-        {
-            "heading": "Initial DMARD therapy",
-            "text": (
-                "<p>Methotrexate is usually first line.</p>"
-                "<p><strong>Authorship: </strong>The following Expert Advisory Panel members "
-                "participated in the development of this recommendation:</p>"
-                "<figure class='table'><table><tbody><tr><td>Rachelle Buchbinder</td>"
-                "<td>Monash University</td></tr></tbody></table></figure>"
-                "<p>Triple therapy is the usual combination.</p>"
-            ),
-            "recommendations": [{"text": "<p>Consider methotrexate in combination.</p>", "strength": "WEAK"}],
-            "subSections": [],
-        },
-        {
-            "heading": "Introduction",
-            "text": (
-                "<p><strong>Background</strong><br>Inflammatory arthritis causes joint damage."
-                "<br><br><strong>About this living guideline</strong><br>Funded by ANZMUSC with "
-                "$1,320,000.<br><br><strong>Copyright</strong><br>This work is copyright.</p>"
-            ),
-            "recommendations": [],
-            "subSections": [],
-        },
-    ],
-}
-
-
-def test_build_magic_guideline_text_drops_authorship_tables_inside_kept_sections() -> None:
-    """A panel table sits in the body of a clinical section, out of the skip list's reach.
-
-    The section holds the recommendation as well, so it cannot be dropped whole;
-    the label and the table it introduces are removed on their own.
-    """
-    content = _render(INLINE_PAPERWORK)
-
-    assert "Consider methotrexate in combination." in content
-    assert "Methotrexate is usually first line." in content
-    assert "Triple therapy is the usual combination." in content
-    assert "Rachelle Buchbinder" not in content
-    assert "participated in the development" not in content
-
-
-def test_build_magic_guideline_text_drops_paperwork_written_between_line_breaks() -> None:
-    """Some publishers write a whole introduction as one paragraph split by <br>.
-
-    The clinical opening has to survive while the funding and copyright blocks
-    after it are removed, so the paragraph is cut at the publisher's own labels
-    rather than dropped whole.
-    """
-    content = _render(INLINE_PAPERWORK)
-
-    assert "Inflammatory arthritis causes joint damage." in content
-    assert "About this living guideline" not in content
-    assert "$1,320,000" not in content
-    assert "This work is copyright" not in content
-
-
-def test_build_magic_guideline_text_skips_interest_disclosure_sections() -> None:
-    """Named individuals' payment disclosures leave the corpus; clinical text stays.
-
-    A claim about patient care cannot be verified against "Dr X received honoraria
-    from company Y", and these are real people's payment records headed for an open
-    corpus, so every observed disclosure-heading shape is skip-listed.
-    """
-    content = _render(INTEREST_DISCLOSURES)
-
-    assert "Offer anticoagulation" in content
-    assert "NOAC" not in content
-    assert "Boehringer Ingelheim" not in content
-    assert "honoraria" not in content
-
-
-def test_build_magic_guideline_text_measures_the_skip_ceiling_as_text_not_markup() -> None:
-    """The oversize guard reads what a reader would lose, not the markup around it.
-
-    One catalogue search-strategy section is 1,673,817 characters of HTML holding
-    2,664 of readable text; measuring HTML kept it on markup weight alone.
-    """
-    bloated = '<p data-pad="' + "x" * (2 * magic.MAX_SKIPPED_SECTION_CHARS) + '">Databases were searched.</p>'
-    guideline = {
-        "name": "Any guideline",
-        "sections": [
-            {"heading": "Treatment", "text": "<p>Treat early.</p>", "recommendations": [], "subSections": []},
-            {"heading": "Search strategy", "text": bloated, "recommendations": [], "subSections": []},
-        ],
-    }
-    content = _render(guideline)
-
-    assert "Treat early." in content
-    assert "Databases were searched." not in content
-
-
-def test_build_magic_guideline_text_keeps_a_skip_listed_section_too_big_to_drop_on_its_heading() -> None:
-    """A skip-listed heading over a huge readable body is not front matter, so it stays."""
-    prose = "<p>" + "Give oxytocin. " * (magic.MAX_SKIPPED_SECTION_CHARS // 10) + "</p>"
-    guideline = {
-        "name": "Any guideline",
-        "sections": [
-            {"heading": "Methods", "text": prose, "recommendations": [], "subSections": []},
-        ],
-    }
-    content = _render(guideline)
-
-    assert "Give oxytocin." in content
-
-
-def test_build_magic_guideline_text_keeps_a_generic_heading_that_carries_guidance() -> None:
-    """Publishers file real recommendations under generic headings, so those stay.
-
-    The National Blood Authority puts four recommendations under 'Introduction'; a
-    skip driven by the heading alone would delete them.
-    """
-    content = _render(BOILERPLATE_WITH_GUIDANCE)
-
-    assert "Introduction" in content
-    assert "Doppler ultrasound" in content
-
-
-PICO_GUIDELINE = {
-    "name": "Chronic pain",
-    "sections": [
-        {
-            "heading": "Opioid therapy",
-            "text": "",
-            "recommendations": [],
-            "subSections": [],
-            "picos": [
-                {
-                    "population": "Patients with chronic non-cancer pain",
-                    "intervention": "Trial of opioids",
-                    "comparator": "Continue established therapy without opioids",
-                    "summary": "<p>Minimally important difference for pain on a 10-cm VAS is 1 cm.</p>",
-                    "outcomes": {
-                        "dichotomousOutcomes": [{"absoluteDifference": 0.23, "interventionTotalParticipants": 900}],
-                        "continuousOutcomes": [],
-                    },
-                }
-            ],
-        }
-    ],
-}
-
-
-EFFECT_ESTIMATE_PICO = {
-    "name": "Caesarean prophylaxis",
-    "sections": [
-        {
-            "heading": "Antibiotic choice",
-            "text": "",
-            "recommendations": [],
-            "subSections": [],
-            "picos": [
-                {
-                    "population": "Women receiving routine antibiotic prophylaxis for caesarean section",
-                    "intervention": "First-generation cephalosporins",
-                    "comparator": "Broad-spectrum penicillins",
-                    "summary": "<p>It is unclear whether cephalosporins reduce maternal sepsis.</p>",
-                    "outcomes": {
-                        "dichotomousOutcomes": [
-                            {
-                                "outcome": "Severe infectious morbidity: sepsis",
-                                "relativeEffectType": "RR",
-                                "relativeEffect": 2.37,
-                                "relativeEffectConfidenceLow": 0.1,
-                                "relativeEffectConfidenceHigh": 56.41,
-                                "interventionTotalParticipants": 75.0,
-                                "interventionStudies": "1",
-                                "qualityOfEvidenceLevel": "VERY_LOW",
-                            },
-                            {
-                                "outcome": "Puerperal infection: endometritis",
-                                "relativeEffectType": "RR",
-                                "relativeEffect": 1.1,
-                                "relativeEffectConfidenceLow": 0.76,
-                                "relativeEffectConfidenceHigh": 1.6,
-                                "interventionTotalParticipants": 1161.0,
-                                "interventionStudies": "7",
-                                "qualityOfEvidenceLevel": "LOW",
-                            },
-                            {
-                                "outcome": "An outcome the publisher hid",
-                                "relativeEffect": 9.9,
-                                "relativeEffectType": "RR",
-                                "isHidden": True,
-                                "qualityOfEvidenceLevel": "HIGH",
-                            },
-                            {"outcome": "A name and nothing else", "qualityOfEvidenceLevel": "NOTSET"},
-                        ]
-                    },
-                }
-            ],
-        }
-    ],
-}
+# ---------------------------------------------------------------------------
+# HTML repair, before conversion
+# ---------------------------------------------------------------------------
 
 
 def test_markdown_moves_punctuation_out_of_an_emphasis_edge_that_cannot_parse() -> None:
@@ -988,277 +345,6 @@ def test_markdown_keeps_prose_after_the_last_line_of_a_split_emphasis_run() -> N
     assert "**Cohorting of patients** is recommended" not in content
 
 
-def test_build_magic_guideline_text_prints_the_effect_estimates_behind_a_pico() -> None:
-    """The numbers the panel weighed, which its prose often does not state.
-
-    WHO's caesarean-prophylaxis guideline says "it is unclear whether ... reduce maternal
-    sepsis" eleven times while the results table it carries records RR 2.37 from 75
-    participants in one study at very low certainty. The prose is right and the interval
-    does span no effect, but a verifier could only ever quote the word "unclear" and
-    never how thin the evidence behind it was. 22,187 outcomes across the corpus.
-    """
-    content = _render(EFFECT_ESTIMATE_PICO)
-
-    assert "*Effect estimates:*" in content
-    sepsis = "- Severe infectious morbidity: sepsis: RR 2.37 (95% CI 0.1 to 56.41), "
-    assert sepsis + "75 participants, 1 study, certainty very low" in content
-    assert (
-        "- Puerperal infection: endometritis: RR 1.1 (95% CI 0.76 to 1.6), 1161 participants, 7 studies, certainty low"
-        in content
-    )
-    # the written summary is still there, above the numbers
-    assert content.index("It is unclear whether") < content.index("*Effect estimates:*")
-
-
-NUMBERS_WITHOUT_PROSE = {
-    "name": "Pancreas transplant",
-    "sections": [
-        {
-            "heading": "Immunosuppression",
-            "text": "",
-            "recommendations": [],
-            "subSections": [],
-            "picos": [
-                {
-                    "population": "Adult pancreas transplant recipients with suspected COVID-19",
-                    "intervention": "Adjustment to maintenance immunosuppression therapy",
-                    "comparator": "Routine care",
-                    "summary": "",
-                    "outcomes": {
-                        "dichotomousOutcomes": [
-                            {
-                                "outcome": "Graft loss",
-                                "relativeEffectType": "RR",
-                                "relativeEffect": 1.4,
-                                "relativeEffectConfidenceLow": 0.9,
-                                "relativeEffectConfidenceHigh": 2.2,
-                                "interventionTotalParticipants": 210.0,
-                                "interventionStudies": "3",
-                                "qualityOfEvidenceLevel": "MODERATE",
-                            }
-                        ]
-                    },
-                },
-                {
-                    "population": "Patients with carotid stenosis",
-                    "intervention": "Trans-carotid artery revascularisation",
-                    "comparator": "Carotid endarterectomy",
-                    "summary": "",
-                },
-            ],
-        }
-    ],
-}
-
-
-def test_build_magic_guideline_text_prints_a_pico_whose_only_answer_is_numbers() -> None:
-    """The outcome table is an answer, so a question carrying one is not empty.
-
-    The gate used to require written prose, so an evidence question with a full results
-    table and no paragraph printed nothing at all - numbers included. That hid 7,119
-    outcomes across 118 of the 212 corpus documents. A question with neither prose nor
-    numbers still goes: 172 of those exist, all three parts filled in and nothing
-    reported, which is a perfect topical match that answers nothing.
-    """
-    content = _render(NUMBERS_WITHOUT_PROSE)
-
-    assert "- Population: Adult pancreas transplant recipients with suspected COVID-19" in content
-    assert "- Graft loss: RR 1.4 (95% CI 0.9 to 2.2), 210 participants, 3 studies, certainty moderate" in content
-    # no prose, so no summary label - the numbers stand on their own
-    assert "*Summary of findings:*" not in content
-    # and the question with neither prose nor numbers is still suppressed
-    assert "carotid stenosis" not in content
-
-
-def test_build_magic_guideline_text_skips_hidden_and_bare_outcomes() -> None:
-    """A hidden outcome is the publisher's call, and a bare name asserts nothing.
-
-    `LOW` also has to map to "low": the per-outcome certainty field spells the scale
-    differently from `keyInfo.evidenceStrength`, which uses WEAK for the same level, so
-    sharing one table would drop every LOW rating silently.
-    """
-    content = _render(EFFECT_ESTIMATE_PICO)
-
-    assert "An outcome the publisher hid" not in content
-    assert "A name and nothing else" not in content
-    assert "certainty low" in content
-
-
-def test_build_magic_guideline_text_keeps_the_readable_head_of_a_pico() -> None:
-    """The clinical question and its findings are kept; the effect estimates are not."""
-    content = _render(PICO_GUIDELINE)
-
-    assert "- Population: Patients with chronic non-cancer pain" in content
-    assert "- Intervention: Trial of opioids" in content
-    assert "*Summary of findings:*\n\nMinimally important difference for pain on a 10-cm VAS is 1 cm." in content
-    assert "absoluteDifference" not in content
-    assert "interventionTotalParticipants" not in content
-
-
-TABLE_SUMMARY_PICO = {
-    "name": "Dental diagnostics",
-    "sections": [
-        {
-            "heading": "Detection of caries",
-            "text": "",
-            "recommendations": [],
-            "subSections": [],
-            "picos": [
-                {
-                    "population": "Adults with primary caries",
-                    "intervention": "Visual examination",
-                    "comparator": "Radiographs",
-                    "summary": "<table><tr><td>Pooled sensitivity</td><td>0.96 (95% CI)</td></tr></table>",
-                }
-            ],
-        }
-    ],
-}
-
-
-def test_build_magic_guideline_text_starts_a_pico_summary_table_on_its_own_line() -> None:
-    """A summary that opens with a table still renders as one.
-
-    A markdown table must begin at the start of a line, so a first row glued
-    onto the label line turned the whole table into a paragraph of literal pipes.
-    """
-    content = _render(TABLE_SUMMARY_PICO)
-
-    assert "*Summary of findings:*\n\n|" in content
-    assert "Pooled sensitivity" in content
-
-
-def _diphtheria_pico(pico_id: int, intervention: str, summary: str) -> dict:
-    return {
-        "picoId": pico_id,
-        "population": "People with diphtheria",
-        "intervention": intervention,
-        "comparator": "No treatment",
-        "summary": f"<p>{summary}</p>",
-    }
-
-
-MISFILED_PICO_GUIDELINE = {
-    "name": "Diphtheria",
-    "sections": [
-        {
-            # The publisher lists every PICO here, including two answered two sections
-            # later - the Ea7gOL shape.
-            "heading": "5. Recommendation for antibiotics treatment",
-            "text": "",
-            "subSections": [],
-            "picos": [
-                _diphtheria_pico(129843, "Antibiotics", "Antibiotics shorten carriage."),
-                _diphtheria_pico(129844, "Sensitivity testing before antitoxin", "Testing rarely changes management."),
-                _diphtheria_pico(129850, "Antitoxin timing", "Earlier administration lowers mortality."),
-            ],
-            "recommendations": [{"text": "<p>Offer antibiotics to all cases.</p>", "strength": "STRONG"}],
-        },
-        {
-            "heading": "6.3 Recommendation on DAT sensitivity testing",
-            "text": "",
-            "subSections": [],
-            "picos": [],
-            "recommendations": [
-                {
-                    "text": "<p>Do not delay antitoxin for sensitivity testing.</p>",
-                    "strength": "STRONG",
-                    "picos": [
-                        _diphtheria_pico(
-                            129844, "Sensitivity testing before antitoxin", "Testing rarely changes management."
-                        )
-                    ],
-                }
-            ],
-        },
-        {
-            "heading": "6.4 Recommendation on DAT dose",
-            "text": "",
-            "subSections": [],
-            "picos": [],
-            "recommendations": [
-                {
-                    "text": "<p>Give antitoxin within 48 hours.</p>",
-                    "strength": "STRONG",
-                    "picos": [_diphtheria_pico(129850, "Antitoxin timing", "Earlier administration lowers mortality.")],
-                },
-                {
-                    "text": "<p>Use the higher dose in severe disease.</p>",
-                    "strength": "WEAK",
-                    "picos": [_diphtheria_pico(129850, "Antitoxin timing", "Earlier administration lowers mortality.")],
-                },
-            ],
-        },
-    ],
-}
-
-
-def test_build_magic_guideline_text_files_a_pico_under_the_recommendation_owning_it() -> None:
-    """Evidence prints where its recommendation is, not where the publisher listed it.
-
-    A PICO appears twice in the source - on the section introducing the question and
-    on the recommendation answering it, same `picoId`, identical text. Rendering only
-    the section-level list files evidence about antitoxin under the antibiotics
-    heading, telling a reader the wrong drug was studied. The move is volume-neutral:
-    the block prints once either way.
-    """
-    content = _render(MISFILED_PICO_GUIDELINE)
-
-    assert content.count("Testing rarely changes management.") == 1
-    assert content.index("Do not delay antitoxin for sensitivity testing.") < content.index(
-        "Testing rarely changes management."
-    )
-    # Answered inside the section listing it, so it stays put.
-    assert content.count("Antibiotics shorten carriage.") == 1
-    assert content.index("Antibiotics shorten carriage.") < content.index(
-        "Do not delay antitoxin for sensitivity testing."
-    )
-
-
-def test_build_magic_guideline_text_leaves_a_pico_shared_by_several_recommendations() -> None:
-    """A PICO with more than one owner stays at its section: each extra copy is a duplicate.
-
-    662 PICOs across the catalogue are owned by several recommendations, and printing
-    them under each owner adds 1.16 million characters of repeated evidence to the
-    English corpus - the measured reason the first attempt at this was reverted.
-    """
-    content = _render(MISFILED_PICO_GUIDELINE)
-
-    assert content.count("Earlier administration lowers mortality.") == 1
-    assert content.index("Earlier administration lowers mortality.") < content.index("Give antitoxin within 48 hours.")
-
-
-ARMS_GUIDELINE = {
-    "name": "Diabetes technology",
-    "sections": [
-        {
-            "heading": "Glucose monitoring",
-            "text": "",
-            "subSections": [],
-            "recommendations": [
-                {
-                    "text": "<p>Offer continuous glucose monitoring.</p>",
-                    "strength": "WEAK",
-                    "keyInfo": {
-                        "interventions": [
-                            {"picoElement": "I", "intervention": "CGM with alerts + MDI"},
-                            {"picoElement": "C", "intervention": "SMBG + MDI"},
-                        ]
-                    },
-                }
-            ],
-        }
-    ],
-}
-
-
-def test_build_magic_guideline_text_names_the_compared_arms() -> None:
-    """keyInfo.interventions names what the recommendation weighed against what."""
-    content = _render(ARMS_GUIDELINE)
-
-    assert "*Compared:*\n\nCGM with alerts + MDI versus SMBG + MDI" in content
-
-
 BASE64_GUIDELINE = {
     "name": "Stroke care",
     "sections": [
@@ -1301,93 +387,6 @@ def test_build_magic_guideline_text_emits_no_embedded_image_data() -> None:
     # assertion is here to prove the prose beside a dropped image survives.
     assert "Repeat imaging at 24 hours." in content
     assert "Offer thrombolysis." in content
-
-
-def test_scrape_magic_survives_a_guideline_the_server_refuses(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The catalogue lists guidelines whose JSON returns 403; the run continues.
-
-    MAGICapp really does publish catalogue entries pointing at files that are not
-    publicly readable, so a catalogue run meets this in the wild.
-    """
-    monkeypatch.setattr(magic, "MIN_CONTENT_CHARS", 1)
-    forbidden = "https://files.magicapp.org/guideline/forbidden/guideline_9-1_0.json"
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.host == "api.magicapp.org":
-            return httpx.Response(
-                200,
-                json=[
-                    _catalogue_entry("DjxqOL", "Demo guideline", forbidden),
-                    _catalogue_entry("nyxpZL", "Management of juvenile idiopathic arthritis", JSON_PATH),
-                ],
-            )
-        if str(request.url) == forbidden:
-            return httpx.Response(403, text="Forbidden")
-        return httpx.Response(200, json=GUIDELINE)
-
-    monkeypatch.setattr(magic, "default_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
-    monkeypatch.setattr(base.time, "sleep", lambda _seconds: None)
-
-    assert [document.external_id for document in scrape_magic(documents=None)] == ["magic-nyxpZL"]
-
-
-def test_list_published_guidelines_upgrades_http_content_urls_to_https() -> None:
-    """The file host refuses plain HTTP with 403, so http:// entries are upgraded.
-
-    Six English catalogue entries carry an http:// jsonPath and every one of them
-    is refused over HTTP but served over HTTPS. Without this they would be skipped
-    as unreachable, losing guidelines that carry real recommendations.
-    """
-    catalogue = [
-        {
-            "shortCode": "eEZlLD",
-            "guidelineId": 387,
-            "name": "VTE, Thrombophilia, Antithrombotic Therapy and Pregnancy",
-            "jsonPath": "http://files.magicapp.org/guideline/abc/json/guideline_387-0_2.json",
-            "language": "en",
-            "institutionName": "Norsk Selskap for Trombose og Hemostase",
-            "publishedRecommendationCount": 39,
-        }
-    ]
-
-    with _client(catalogue=catalogue) as client:
-        ref = list_published_guidelines(client).refs[0]
-
-    assert ref.json_path == "https://files.magicapp.org/guideline/abc/json/guideline_387-0_2.json"
-
-
-CERTAINTY_GUIDELINE = {
-    "name": "Dementia care",
-    "sections": [
-        {
-            "heading": "Biomarkers",
-            "text": "",
-            "subSections": [],
-            "recommendations": [
-                {
-                    "text": "<p>Consider a blood-based biomarker test as a triaging test.</p>",
-                    "strength": "WEAK",
-                    "keyInfo": {"evidenceStrength": "WEAK"},
-                }
-            ],
-        }
-    ],
-}
-
-
-def test_build_magic_guideline_text_translates_certainty_to_grade_wording() -> None:
-    """`evidenceStrength: WEAK` is GRADE's Low certainty and is emitted as such.
-
-    MAGICapp never uses LOW in this field; WEAK occupies that slot. Emitting the raw
-    token puts WEAK in one label twice meaning two different things - the strength of
-    the recommendation (weak/conditional) and the certainty of its evidence (low).
-    """
-    with _client(guideline=CERTAINTY_GUIDELINE) as client:
-        ref = list_published_guidelines(client).refs[0]
-        content, _, _, _ = build_magic_guideline_text(client, ref)
-
-    assert "### Recommendation (WEAK) — certainty of evidence: Low" in content
-    assert "certainty of evidence: WEAK" not in content
 
 
 TRACKED_CHANGES_GUIDELINE = {
@@ -1433,39 +432,6 @@ def test_build_magic_guideline_text_drops_editor_deletions() -> None:
     assert "Two trials contributed 96% of the data." in content
     assert "maycanmay" not in content
     assert "968" not in content
-
-
-ROOT_RECOMMENDATIONS_GUIDELINE = {
-    "name": "Fluid and drug therapy in ARDS",
-    "sections": [{"heading": "Scope", "text": "<p>Adults with ARDS.</p>", "recommendations": [], "subSections": []}],
-    "recommendations": [
-        {
-            "text": "<p>We recommend not using corticosteroids in routine therapy of adults with ARDS.</p>",
-            "strength": "STRONG_AGAINST",
-        },
-        {
-            "text": "<p>We suggest use of a restrictive fluid therapy in adults with ARDS.</p>",
-            "strength": "WEAK",
-        },
-    ],
-}
-
-
-def test_build_magic_guideline_text_keeps_recommendations_on_the_document_root() -> None:
-    """Recommendations hanging off the document root are collected, not just section ones.
-
-    The Scandinavian Society of Anaesthesiology publishes a guideline whose nine
-    recommendations sit on the root with none in any section; the catalogue's
-    publishedRecommendationCount of 9 confirms they are the real content. Walking
-    only sections dropped all nine.
-    """
-    with _client(guideline=ROOT_RECOMMENDATIONS_GUIDELINE) as client:
-        ref = list_published_guidelines(client).refs[0]
-        content, _, _, _ = build_magic_guideline_text(client, ref)
-
-    assert "We recommend not using corticosteroids in routine therapy of adults with ARDS." in content
-    assert "We suggest use of a restrictive fluid therapy in adults with ARDS." in content
-    assert "## Recommendation (STRONG_AGAINST)" in content
 
 
 BARE_LEADING_TRACKED_GUIDELINE = {
@@ -1627,137 +593,6 @@ def test_build_magic_guideline_text_balances_a_label_bolded_in_several_spans() -
     assert content.count("**") % 2 == 0
 
 
-def test_build_magic_guideline_text_leaves_body_markers_alone_after_a_clean_label() -> None:
-    """A label line carrying no markers of its own never costs the body any.
-
-    The National Blood Authority follows a bolded "Expert opinion point" line with
-    a bolded "EOP1" code opening the body; repairing balance by stripping leading
-    asterisks unconditionally broke that pair.
-    """
-    guideline = {
-        "name": "Prophylaxis",
-        "sections": [
-            {
-                "heading": "Testing",
-                "text": "",
-                "subSections": [],
-                "recommendations": [
-                    {
-                        "text": (
-                            "<p><strong>Expert opinion point</strong></p>"
-                            "<p><strong>EOP1</strong>: All women should have an antibody screen.</p>"
-                        ),
-                        "strength": "NOTSET",
-                    }
-                ],
-            }
-        ],
-    }
-    content = _render(guideline)
-
-    assert "**EOP1**: All women should have an antibody screen." in content
-    assert "### Expert opinion point" in content
-    assert content.count("**") % 2 == 0
-
-
-NUMBERED_LABEL_GUIDELINE = {
-    "name": "HCC surveillance",
-    "sections": [
-        {
-            "heading": "Surveillance",
-            "text": "",
-            "subSections": [],
-            "recommendations": [
-                {
-                    "text": (
-                        "<p><strong>2.1 Adapted evidence-based recommendation&nbsp;</strong></p>"
-                        "<p>Do not routinely offer surveillance for people with limited life expectancy.</p>"
-                    ),
-                    "strength": "STRONG_AGAINST",
-                }
-            ],
-        }
-    ],
-}
-
-
-def test_build_magic_guideline_text_takes_a_number_prefixed_label() -> None:
-    """A publisher label opening with a section number is still the label.
-
-    Publishers write "2.1 Adapted evidence-based recommendation" (guideline E83abn);
-    an opener pattern anchored on words alone stamped a generic "Recommendation" on
-    top, stacking two headers.
-    """
-    content = _render(NUMBERED_LABEL_GUIDELINE)
-
-    assert "### 2.1 Adapted evidence-based recommendation (STRONG_AGAINST)" in content
-    assert "Do not routinely offer surveillance for people with limited life expectancy." in content
-    assert "### Recommendation (STRONG_AGAINST)" not in content
-
-
-def test_build_magic_guideline_text_keeps_a_research_recommendation_label() -> None:
-    """A body opening "RESEARCH RECOMMENDATION" keeps that label, not "Recommendation".
-
-    Phoenix Australia opens 41 recommendation bodies with it; stamping the generic
-    label above it presented a research agenda as clinical guidance.
-    """
-    guideline = {
-        "name": "PTSD",
-        "sections": [
-            {
-                "heading": "Children",
-                "text": "",
-                "subSections": [],
-                "recommendations": [
-                    {
-                        "text": (
-                            "<p><strong>RESEARCH RECOMMENDATION</strong></p>"
-                            "<p>For children and adolescents, further trials are needed.</p>"
-                        ),
-                        "strength": "NOTSET",
-                    }
-                ],
-            }
-        ],
-    }
-    content = _render(guideline)
-
-    assert "### RESEARCH RECOMMENDATION\n\nFor children and adolescents, further trials are needed." in content
-
-
-def test_build_magic_guideline_text_drops_possibly_outdated_recommendations() -> None:
-    """A recommendation the publisher marks POSSIBLY_OUTDATED stays out of the corpus.
-
-    UNDER_REVIEW and NEW_EVIDENCE still mark current guidance and are kept.
-    """
-    guideline = {
-        "name": "Anticoagulation",
-        "sections": [
-            {
-                "heading": "Therapy",
-                "text": "",
-                "subSections": [],
-                "recommendations": [
-                    {
-                        "text": "<p>Offer warfarin as first-line.</p>",
-                        "strength": "STRONG",
-                        "status": "POSSIBLY_OUTDATED",
-                    },
-                    {
-                        "text": "<p>Offer a DOAC as first-line.</p>",
-                        "strength": "STRONG",
-                        "status": "UNDER_REVIEW",
-                    },
-                ],
-            }
-        ],
-    }
-    content = _render(guideline)
-
-    assert "warfarin" not in content
-    assert "Offer a DOAC as first-line." in content
-
-
 def test_build_magic_guideline_text_moves_whitespace_out_of_emphasis_tags() -> None:
     """Whitespace just inside an emphasis tag moves outside before conversion.
 
@@ -1779,171 +614,6 @@ def test_build_magic_guideline_text_moves_whitespace_out_of_emphasis_tags() -> N
     content = _render(guideline)
 
     assert "(*moderate confidence)*" in content
-
-
-def test_list_published_guidelines_tolerates_junk_numeric_fields() -> None:
-    """A non-numeric numeric field in one catalogue entry does not abort the run."""
-    catalogue = [dict(CATALOGUE[0], guidelineId="unknown", publishedRecommendationCount="N/A")]
-    with _client(catalogue=catalogue) as client:
-        refs = list_published_guidelines(client).refs
-
-    assert refs[0].guideline_id == 0
-    assert refs[0].recommendation_count == 0
-
-
-CONTRIBUTOR_CHAPTER = {
-    "name": "WHO guidelines for malaria",
-    "sections": [
-        {
-            "heading": "Case management",
-            "text": "<p>Treat uncomplicated malaria with an artemisinin-based combination therapy.</p>",
-            "recommendations": [{"text": "<p>Give artesunate for at least 24 hours.</p>", "strength": "STRONG"}],
-            "subSections": [],
-        },
-        {
-            "heading": "Contributors and interests",
-            "text": "<p>The many contributors are acknowledged in the sub-sections below.</p>",
-            "recommendations": [],
-            "subSections": [
-                {
-                    "heading": "Recommendations for vector control",
-                    "text": (
-                        "<h4><strong>Members of the Guidelines Development Group (GDG) (2019)</strong></h4>"
-                        "<p>Dr Constance Bart-Plange, Independent Malaria Consultant, Accra, Ghana</p>"
-                    ),
-                    "recommendations": [],
-                    "subSections": [],
-                }
-            ],
-        },
-    ],
-}
-
-
-def test_build_magic_guideline_text_skips_contributor_chapters() -> None:
-    """A contributor chapter goes, even though its subsections are headed "Recommendations for...".
-
-    WHO files 117,757 characters of member rosters and interest declarations under
-    "Contributors and interests" (LwRMXj) and heads each block "Recommendations for
-    vector control", "Recommendations for treatment" and so on — they group the
-    contributors by which recommendations those people worked on. So nothing keyed on
-    the word "recommendation" can identify this block; the parent heading is the only
-    handle on it.
-    """
-    content = _render(CONTRIBUTOR_CHAPTER)
-
-    assert "Give artesunate for at least 24 hours." in content
-    assert "artemisinin-based combination therapy" in content
-    assert "Bart-Plange" not in content
-    assert "Contributors and interests" not in content
-
-
-def test_build_magic_guideline_text_skips_plural_guidelines_development_group() -> None:
-    """The plural defeats the singular "guideline development" topic word.
-
-    WHO writes "Guidelines Development Group", so the substring "guideline
-    development" does not occur and the section escaped the skip list.
-    """
-    guideline = {
-        "name": "WHO guidelines for malaria",
-        "sections": [
-            {
-                "heading": "Prevention",
-                "text": "<p>Deploy insecticide-treated nets for malaria prevention.</p>",
-                "recommendations": [],
-                "subSections": [],
-            },
-            {
-                "heading": "Guidelines development group",
-                "text": "<p>Dr John Gimnig (Chair), Centers for Disease Control and Prevention.</p>",
-                "recommendations": [],
-                "subSections": [],
-            },
-            {
-                "heading": "Guidelines Steering Group (2019)",
-                "text": "<p>Dr Rabindra Abeyasinghe, WHO Regional Office for the Western Pacific.</p>",
-                "recommendations": [],
-                "subSections": [],
-            },
-            {
-                "heading": "Members of the External Review Group (ERG)",
-                "text": "<p>Professor Ahmed Adeel, Independent Consultant.</p>",
-                "recommendations": [],
-                "subSections": [],
-            },
-        ],
-    }
-    content = _render(guideline)
-
-    assert "insecticide-treated nets" in content
-    assert "Gimnig" not in content
-    assert "Abeyasinghe" not in content
-    assert "Adeel" not in content
-
-
-PLATFORM_ADMINISTRATION = {
-    "name": "WHO guidelines for malaria",
-    "sections": [
-        {
-            "heading": "Executive summary",
-            "text": (
-                "<p>WHO malaria recommendations are intended to be short, actionable statements.</p>"
-                "<h4><strong>Scope</strong></h4>"
-                "<p>No guidance is given on the use of antimalarial agents to prevent malaria in "
-                "people travelling from non-endemic settings.</p>"
-                "<h4><strong>Link to WHO prequalification</strong></h4>"
-                "<p>The prequalification process consists of a transparent assessment.</p>"
-                "<h4><strong>Updating evidence-based guidance</strong></h4>"
-                "<p>The first edition was released in early 2021.</p>"
-                "<h4><strong>Dissemination</strong></h4>"
-                "<p>These Guidelines are available on the MAGICapp online platform.</p>"
-                "<h4><strong>Feedback</strong></h4>"
-                "<p>Write to gmpfeedback@who.int to identify recommendations needing update.</p>"
-            ),
-            "recommendations": [],
-            "subSections": [],
-        }
-    ],
-}
-
-
-def test_build_magic_guideline_text_drops_platform_administration_from_executive_summary() -> None:
-    """WHO opens its executive summary with several blocks of platform administration."""
-    content = _render(PLATFORM_ADMINISTRATION)
-
-    assert "short, actionable statements" in content
-    assert "prequalification process" not in content
-    assert "released in early 2021" not in content
-    assert "available on the MAGICapp online platform" not in content
-    assert "gmpfeedback@who.int" not in content
-
-
-def test_build_magic_guideline_text_keeps_the_scope_block_beside_the_dropped_ones() -> None:
-    """Scope sits in the same run of blocks and is kept deliberately.
-
-    A scope statement says what the guideline does *not* cover, which is what stops a
-    verifier confirming an out-of-scope claim against it.
-
-    Rendered under a short code no real guideline uses, because the default catalogue entry
-    borrows `nyxpZL`, and that guideline has a rule of its own dropping an inline "Scope"
-    heading. This test is about the general behaviour, not about that guideline.
-    """
-    catalogue = [{**CATALOGUE[0], "shortCode": "zzTEST"}]
-    with _client(catalogue=catalogue, guideline=PLATFORM_ADMINISTRATION) as client:
-        ref = list_published_guidelines(client).refs[0]
-        content, _sections, _title, _emitted = build_magic_guideline_text(client, ref)
-
-    assert "people travelling from non-endemic settings" in content
-
-
-def _render_body(html: str) -> str:
-    """Render one section body through the real code path."""
-    return _render(
-        {
-            "name": "Malaria",
-            "sections": [{"heading": "Treating malaria", "text": html, "recommendations": [], "subSections": []}],
-        }
-    )
 
 
 def test_markdown_removes_a_citation_without_stranding_its_separator() -> None:
@@ -2058,142 +728,6 @@ def test_markdown_removes_a_citation_link_without_leaving_an_empty_link() -> Non
     assert "post surgery; reduced survival at baseline." in content
     assert "wiki.cancer.org.au" not in content
     assert "[]" not in content
-
-
-def test_build_magic_guideline_text_drops_the_definition_of_whos_own_vocabulary() -> None:
-    """WHO explains what a guideline and a good practice statement are; that is a glossary.
-
-    Matched as a whole heading, never on the words inside it: 50 headings across the
-    catalogue read "Good practice statement 2", "Good practice statement 3" and so on,
-    and those are the recommendations themselves.
-    """
-    content = _render_body(
-        "<p>WHO malaria recommendations are intended to be short, actionable statements.</p>"
-        "<h4><strong>WHO guidelines, recommendations and good practice statements</strong></h4>"
-        "<p>A WHO guideline is any document developed by WHO containing recommendations.</p>"
-        "<p>The primary purpose of these Guidelines is to support policy-makers.</p>"
-    )
-
-    assert "short, actionable statements" in content
-    assert "any document developed by WHO" not in content
-    assert "support policy-makers" not in content
-
-
-def test_build_magic_guideline_text_keeps_a_good_practice_statement_recommendation() -> None:
-    """The label on a real recommendation must survive the rule that drops the definition."""
-    content = _render_body(
-        "<h4><strong>Good practice statement 3</strong></h4>"
-        "<p>Give a single low dose of primaquine to reduce transmissibility.</p>"
-    )
-
-    assert "single low dose of primaquine" in content
-    assert "Good practice statement 3" in content
-
-
-def test_build_magic_guideline_text_skips_a_guideline_translations_section() -> None:
-    """Links to the same guideline in other languages are navigation, not evidence.
-
-    An exact name rather than a topic word: the only other section in the catalogue
-    whose heading contains "translation" is 19,291 characters of "Knowledge translation
-    for self-care interventions" (Lr21gL), which is real content.
-    """
-    guideline = {
-        "name": "WHO guidelines for malaria",
-        "sections": [
-            {
-                # Not an executive summary: that heading is on the skip list now, and the
-                # question here is only whether the translations child is dropped.
-                "heading": "Treating malaria",
-                "text": "<p>WHO recommendations are short, actionable statements.</p>",
-                "recommendations": [],
-                "subSections": [
-                    {
-                        "heading": "Guideline translations",
-                        "text": '<ul><li><a href="https://app.magicapp.org/x">Lignes directrices</a></li></ul>',
-                        "recommendations": [],
-                        "subSections": [],
-                    },
-                    {
-                        "heading": "Knowledge translation for self-care interventions",
-                        "text": "<p>Health workers need training to deliver self-care interventions.</p>",
-                        "recommendations": [],
-                        "subSections": [],
-                    },
-                ],
-            }
-        ],
-    }
-    content = _render(guideline)
-
-    assert "short, actionable statements" in content
-    assert "Lignes directrices" not in content
-    assert "Health workers need training" in content
-
-
-def test_scrape_magic_guideline_records_how_many_recommendations_reached_content() -> None:
-    """Both counts travel with the document, so a silent loss is visible later.
-
-    Every field is read with `.get`, so a renamed or moved field would shorten a
-    document without raising. Carrying the publisher's count beside our own is
-    what makes that detectable after the fact.
-    """
-    guideline = {
-        "name": "Management of juvenile idiopathic arthritis",
-        "sections": [
-            {
-                "heading": "Therapy",
-                "text": "<p>Treat early.</p>",
-                "recommendations": [
-                    {"text": "<p>Offer methotrexate.</p>", "strength": "WEAK"},
-                    {"text": "<p>Box 1.1 Sustainable Development Goals.</p>", "strength": "INFO"},
-                ],
-                "subSections": [],
-            }
-        ],
-    }
-    with _client(guideline=guideline) as client:
-        document = scrape_magic_guideline(client, list_published_guidelines(client).refs[0])
-
-    # The catalogue entry claims ten; one recommendation reached content, and the
-    # INFO callout box is deliberately not counted as one.
-    assert document.metadata["recommendation_count"] == 10
-    assert document.metadata["recommendations_in_content"] == 1
-
-
-def test_build_magic_guideline_text_keeps_a_narrative_guideline_development_section() -> None:
-    """A "Guideline development process" write-up opens with background, and that is evidence.
-
-    Reading all 59 such sections in the catalogue found 20 of 58 carry a checkable
-    clinical statement — disease burden, a risk factor, a threshold, or a statement
-    that no studies were found. The same heading sits on clean roster sections too, so
-    only the narrow "group" wording is safe to match.
-    """
-    guideline = {
-        "name": "Head and neck cancer nutrition",
-        "sections": [
-            {
-                "heading": "Guideline development process",
-                "text": (
-                    "<p>Head and neck cancer is the fifth most common cancer worldwide. Tobacco and "
-                    "alcohol account for up to 80% of all cases, and malnutrition rates are reported "
-                    "between 30-50%.</p><p>The Working Group applied the GRADE methodology.</p>"
-                ),
-                "recommendations": [],
-                "subSections": [],
-            },
-            {
-                "heading": "Guideline Development Group",
-                "text": "<p>Professor A. Smith, Monash University, Dietetics.</p>",
-                "recommendations": [],
-                "subSections": [],
-            },
-        ],
-    }
-    content = _render(guideline)
-
-    assert "malnutrition rates are reported between 30-50%" in content
-    assert "fifth most common cancer worldwide" in content
-    assert "Professor A. Smith" not in content
 
 
 def test_markdown_expands_a_cell_that_spans_columns() -> None:
@@ -2420,24 +954,6 @@ def test_markdown_keeps_a_comma_that_belongs_to_the_sentence() -> None:
     assert "Resistance was detected, and treatment continued." in content
 
 
-def test_markdown_drops_a_bibliography_the_publisher_typed_inside_a_section_body() -> None:
-    """A References heading is on the skip list, but only a section's own heading is checked.
-
-    Cancer Council types `<h2>References</h2>` into the same text field as real guidance,
-    so it is promoted straight to a markdown heading with no skip-list check and rides
-    through — 19 bibliographies across 4 guidelines, one carrying a live Lancet citation.
-    """
-    content = _render_body(
-        "<p>Offer supportive care early in the disease course.</p>"
-        "<h2>References</h2><ol><li>NCCN. Survivorship. Version 1.2017.</li>"
-        "<li>Temel JS et al. N Engl J Med 2010.</li></ol>"
-    )
-
-    assert "Offer supportive care early in the disease course." in content
-    assert "References" not in content
-    assert "Temel" not in content
-
-
 def test_markdown_removes_wiki_page_furniture_pasted_in_with_the_text() -> None:
     """`[edit source]` and `Back to top` are the publisher's website controls, not their writing.
 
@@ -2462,160 +978,6 @@ def test_markdown_keeps_prose_that_merely_mentions_references() -> None:
     content = _render_body("<p>References to prior trials informed the panel and are discussed below.</p>")
 
     assert "References to prior trials informed the panel" in content
-
-
-def test_build_magic_guideline_text_drops_a_chapter_that_is_only_a_pointer() -> None:
-    """A chapter saying "click here for this section" is a topical match that delivers nothing.
-
-    22 of these survive into the corpus. The worst is headed "Recommendation" and its
-    whole body is a link to a BMJ page. Nothing is lost: where the pointer goes
-    elsewhere in the same document that section is in the corpus, and where it goes to
-    another MAGICapp guideline that guideline is in the corpus as its own document.
-    """
-    guideline = {
-        "name": "Colorectal cancer",
-        "sections": [
-            {
-                "heading": "The symptomatic patient",
-                "text": "<p>Refer patients with rectal bleeding for colonoscopy.</p>",
-                "recommendations": [],
-                "subSections": [],
-            },
-            {
-                "heading": "Population screening for colorectal cancer",
-                "text": '<p>Please click <a href="https://app.magicapp.org/x">here</a> for this section</p>',
-                "recommendations": [],
-                "subSections": [],
-            },
-        ],
-    }
-    content = _render(guideline)
-
-    assert "Refer patients with rectal bleeding" in content
-    assert "Population screening for colorectal cancer" not in content
-    assert "click" not in content
-
-
-def test_build_magic_guideline_text_keeps_a_section_that_points_and_then_recommends() -> None:
-    """A pointer above an actual recommendation is not a pointer-only section."""
-    guideline = {
-        "name": "Malaria",
-        "sections": [
-            {
-                "heading": "Pre-referral treatment options",
-                "text": "<p>See recommendation.</p>",
-                "recommendations": [{"text": "<p>Give rectal artesunate before referral.</p>", "strength": "STRONG"}],
-                "subSections": [],
-            }
-        ],
-    }
-    content = _render(guideline)
-
-    assert "Pre-referral treatment options" in content
-    assert "Give rectal artesunate before referral." in content
-
-
-def test_build_magic_guideline_text_keeps_a_sentence_that_points_and_also_states_a_dose() -> None:
-    """A pointer only directs; a sentence carrying a measurement is making a claim."""
-    guideline = {
-        "name": "Malaria",
-        "sections": [
-            {
-                "heading": "Dosing",
-                "text": "<p>See the table below, which gives artesunate at 2.4 mg/kg for at least 24 hours.</p>",
-                "recommendations": [],
-                "subSections": [],
-            }
-        ],
-    }
-    content = _render(guideline)
-
-    assert "2.4 mg/kg for at least 24 hours" in content
-
-
-def test_build_magic_guideline_text_keeps_a_discussion_section() -> None:
-    """A Discussion section is where a panel states what the evidence showed.
-
-    Reading all 73 in the catalogue found 30 of the 32 checked carry a statement a
-    verdict could rest on. It had been dropped by name because no such section holds a
-    recommendation *object* — true, and useless, the same way it was for executive
-    summaries.
-    """
-    guideline = {
-        "name": "Transient ischaemic attack",
-        "sections": [
-            {
-                "heading": "Discussion",
-                "text": (
-                    "<p>Early initiation of dual antiplatelet therapy with aspirin and clopidogrel in "
-                    "high risk non-cardioembolic TIA patients for up to 21 days reduces the risk of "
-                    "stroke recurrence over single antiplatelet treatment. For every 50 at-risk "
-                    "patients treated in this way, one patient will avoid having a recurrent stroke.</p>"
-                ),
-                "recommendations": [],
-                "subSections": [],
-            }
-        ],
-    }
-    content = _render(guideline)
-
-    assert "For every 50 at-risk patients treated in this way" in content
-    assert "reduces the risk of stroke recurrence" in content
-
-
-def test_build_magic_guideline_text_collapses_a_heading_that_only_repeats_its_child() -> None:
-    """A wrapper section with no text whose only child repeats its name emits one heading.
-
-    13 of these across 6 guidelines. Emitting both puts a heading in the document that
-    names something with nothing under it.
-    """
-    guideline = {
-        "name": "Colorectal cancer",
-        "sections": [
-            {
-                "heading": "Adjuvant therapy for stage III colon cancer",
-                "text": "",
-                "recommendations": [],
-                "subSections": [
-                    {
-                        "heading": "Adjuvant therapy for stage III colon cancer",
-                        "text": "<p>Offer oxaliplatin-based chemotherapy after resection.</p>",
-                        "recommendations": [],
-                        "subSections": [],
-                    }
-                ],
-            }
-        ],
-    }
-    content = _render(guideline)
-
-    assert content.count("Adjuvant therapy for stage III colon cancer") == 1
-    assert "Offer oxaliplatin-based chemotherapy after resection." in content
-
-
-def test_build_magic_guideline_text_keeps_both_headings_when_the_wrapper_has_content() -> None:
-    """Only an empty wrapper collapses; a parent carrying its own text keeps its heading."""
-    guideline = {
-        "name": "Colorectal cancer",
-        "sections": [
-            {
-                "heading": "Adjuvant therapy",
-                "text": "<p>Adjuvant therapy is considered after resection.</p>",
-                "recommendations": [],
-                "subSections": [
-                    {
-                        "heading": "Adjuvant therapy",
-                        "text": "<p>Offer oxaliplatin-based chemotherapy.</p>",
-                        "recommendations": [],
-                        "subSections": [],
-                    }
-                ],
-            }
-        ],
-    }
-    content = _render(guideline)
-
-    assert content.count("Adjuvant therapy\n") == 2
 
 
 def test_markdown_removes_back_to_top_in_every_form_the_publisher_uses() -> None:
@@ -2645,42 +1007,6 @@ def test_markdown_keeps_prose_that_happens_to_say_back_to_top() -> None:
     content = _render_body("<p>Scroll back to top of the page for the summary of findings.</p>")
 
     assert "Scroll back to top of the page for the summary of findings." in content
-
-
-def test_build_magic_guideline_text_skips_a_directory_of_other_organisations_guidelines() -> None:
-    """A resources section is a table of links to other bodies’ guidelines.
-
-    "companion resources" was already an exact name; "additional resources" and "other
-    resources" are the near-miss variants, and one is a 7,221-character directory. Worse
-    than useless: a chunk full of guideline names retrieves on a clinical query and
-    delivers only links.
-    """
-    guideline = {
-        "name": "Colorectal cancer",
-        "sections": [
-            {
-                "heading": "Follow-up after curative resection",
-                "text": "<p>Offer colonoscopy at one year after resection.</p>",
-                "recommendations": [],
-                "subSections": [],
-            },
-            {
-                "heading": "Additional resources",
-                "text": (
-                    "<p>There are many evidence-based resources on colorectal cancer available.</p>"
-                    '<table><tr><td>NICE</td><td><a href="https://www.nice.org.uk/guidance/cg131">'
-                    "Colorectal cancer: diagnosis and management</a></td></tr></table>"
-                ),
-                "recommendations": [],
-                "subSections": [],
-            },
-        ],
-    }
-    content = _render(guideline)
-
-    assert "Offer colonoscopy at one year after resection." in content
-    assert "Additional resources" not in content
-    assert "nice.org.uk" not in content
 
 
 def test_markdown_keeps_a_superscript_as_a_character_rather_than_flattening_it() -> None:
@@ -2810,374 +1136,6 @@ def test_markdown_keeps_a_paragraph_of_prose_that_happens_to_precede_a_figure() 
     assert "Seven RCTs reported shorter hospital stay" in content
 
 
-PICO_FRAME_UNDER_SKIPPED_PARENT = {
-    "name": "VTE prophylaxis after ischaemic stroke",
-    "sections": [
-        {
-            "heading": "About the Guidelines",
-            "text": "",
-            "recommendations": [],
-            "subSections": [
-                {
-                    "heading": "Population",
-                    "text": (
-                        "<p>These recommendations refer to patients who have suffered an ischaemic "
-                        "stroke. It specifically does not consider patients who have had "
-                        "intracerebral haemorrhage.</p>"
-                    ),
-                    "recommendations": [],
-                    "subSections": [],
-                },
-                {
-                    "heading": "3.2 Outcomes",
-                    "text": "<p>Death or dependency at follow up, measured with the Barthel Index.</p>",
-                    "recommendations": [],
-                    "subSections": [],
-                },
-                {
-                    "heading": "3.4 Values and preferences",
-                    "text": "<p>We had insufficient information to describe patient experiences.</p>",
-                    "recommendations": [],
-                    "subSections": [],
-                },
-                {
-                    "heading": "Literature search by SRT teams",
-                    "text": "<p>A search was run in Web of Science on 26 January 2024.</p>",
-                    "recommendations": [],
-                    "subSections": [],
-                },
-                {
-                    "heading": "Panel meetings",
-                    "text": "<p>We held five virtual panel meetings.</p>",
-                    "recommendations": [],
-                    "subSections": [],
-                },
-            ],
-        },
-    ],
-}
-
-
-METHODS_SECTION = {
-    "name": "Blood biomarkers",
-    "sections": [
-        {
-            "heading": "2 Methods",
-            "text": "<p>We followed the standard operating procedures in the WHO handbook.</p>",
-            "recommendations": [],
-            "subSections": [
-                {
-                    "heading": "2.5.2 EtD framework",
-                    "text": (
-                        "<p>'The panel recommends' indicates a strong recommendation, and 'the "
-                        "panel suggests' indicates a conditional recommendation.</p>"
-                    ),
-                    "recommendations": [],
-                    "subSections": [],
-                }
-            ],
-        }
-    ],
-}
-
-
-def test_build_magic_guideline_text_keeps_a_methods_section_holding_the_legend() -> None:
-    """A "Methods" section is kept when it explains what the guideline's labels mean.
-
-    "Methods" is on the skip list, and for most guidelines that is right: it is search
-    dates, database lists and panel rosters. `nyO1Yj` is the exception that made the
-    heading untrustworthy - it files its recommendation legend under "2 Methods", so
-    dropping the heading left the corpus carrying "the panel suggests" with nothing
-    anywhere saying whether that meant strong or conditional guidance.
-
-    The heading cannot tell those apart, so the body is asked instead: the legend keeps
-    the section, and the process prose under it rides along, which is the price of not
-    having a way to cut inside a section.
-    """
-    content = _render(METHODS_SECTION)
-
-    assert "indicates a conditional recommendation" in content
-    assert "standard operating procedures" in content
-    assert "## 2 Methods" in content
-
-
-def test_build_magic_guideline_text_drops_a_methods_section_that_is_only_process() -> None:
-    """The same heading goes when the body is nothing but how the work was done.
-
-    This is the case the skip list exists for, and the one that pays for keeping the
-    entry: 76 of the corpus's 89 Methods sections are this, 1.3 million characters of
-    search strategies and meeting counts.
-    """
-    content = _render(
-        {
-            "name": "Blood biomarkers",
-            "sections": [
-                {
-                    "heading": "Methods",
-                    "text": "<p>A search was run in Web of Science on 26 January 2024. We held five meetings.</p>",
-                    "recommendations": [],
-                    "subSections": [],
-                },
-                {
-                    "heading": "Treatment",
-                    "text": "<p>Start therapy within 24 hours.</p>",
-                    "recommendations": [],
-                    "subSections": [],
-                },
-            ],
-        }
-    )
-
-    assert "Web of Science" not in content
-    assert "five meetings" not in content
-    assert "Start therapy within 24 hours." in content
-
-
-def test_build_magic_guideline_text_keeps_a_skipped_section_stating_who_it_applies_to() -> None:
-    """A section says who the guideline covers, so it survives its own heading.
-
-    The North Star's non-negotiable: a fact can be true for adults and false for
-    children. `jz7xeL` says "These guidelines only refer to adults." in its Methods
-    section and nowhere else, and `jxxdwj` excludes children in as many words. Dropping
-    the heading takes the sentence that stops a paediatric claim being confirmed against
-    an adult guideline.
-    """
-    content = _render(
-        {
-            "name": "Transient ischaemic attack",
-            "sections": [
-                {
-                    "heading": "Methods",
-                    "text": ("<p>These guidelines only refer to adults. A search was run in Embase.</p>"),
-                    "recommendations": [],
-                    "subSections": [],
-                },
-            ],
-        }
-    )
-
-    assert "These guidelines only refer to adults." in content
-
-
-def test_build_magic_guideline_text_keeps_a_section_defining_its_recommendation_symbols() -> None:
-    """A legend drawn rather than written counts too.
-
-    `j1WBYn` keys its recommendations by colour, and "The GREEN symbol denotes a
-    non-GRADE-based strong recommendation" is the only place it says what its own symbols
-    mean - the same interpretation contract as a worded legend.
-    """
-    content = _render(
-        {
-            "name": "COVID-19 critical care",
-            "sections": [
-                {
-                    "heading": "Methods",
-                    "text": (
-                        "<p>The GREEN symbol denotes a non-GRADE-based strong recommendation "
-                        "of a best practice statement.</p>"
-                    ),
-                    "recommendations": [],
-                    "subSections": [],
-                },
-            ],
-        }
-    )
-
-    assert "GREEN symbol denotes" in content
-
-
-def test_markdown_drops_a_contributor_byline_written_into_a_clinical_section() -> None:
-    """A journal byline inside a clinical section goes; the guidance around it stays.
-
-    `rj1KVn` opens "Corticosteroids for community-acquired pneumonia" with a Contributors
-    line naming eleven authors with their degrees. The section holds the recommendation,
-    so the skip list must not touch it - only the byline block can go.
-    """
-    content = _render_body(
-        "<p><strong>Contributors:</strong></p>"
-        "<p>Reed A.C. Siemieniuk, MD; Per O. Vandvik, MD, PhD; Gordon H. Guyatt, MD, MSc</p>"
-        "<p><strong>Corticosteroids</strong></p>"
-        "<p>We suggest corticosteroids for patients with severe pneumonia.</p>"
-    )
-
-    assert "Siemieniuk" not in content
-    assert "We suggest corticosteroids for patients with severe pneumonia." in content
-
-
-def test_markdown_drops_a_paperwork_label_sharing_a_line_with_its_value() -> None:
-    """A paperwork label sharing its line with its value still goes.
-
-    The block rule needs a label with a line to itself, because it removes the paragraphs
-    that follow it. WHO writes `<p><strong>Funding</strong>: WHO.</p>` instead, so the
-    whole-line-bold test failed and four guidelines carried a visible "Funding: WHO." into
-    the corpus under a label the list already knew.
-    """
-    content = _render_body(
-        "<p><strong>Funding</strong>: WHO.</p>"
-        "<p>Oral rehydration salts are recommended for children with dehydration.</p>"
-    )
-
-    assert "Funding" not in content
-    assert "Oral rehydration salts are recommended" in content
-
-
-def test_build_magic_guideline_text_keeps_the_pico_frame_under_a_skipped_heading() -> None:
-    """A skipped parent keeps the PICO frame filed under it and drops the process prose.
-
-    Skipping a section normally takes its whole subtree, which is right for who sat on
-    the panel and which databases were searched. Publishers file the PICO frame under
-    those headings too, and it is the only place the corpus says who a recommendation
-    applies to. Three guidelines rely on this today - the two Australian Pregnancy and
-    Postnatal Care guidelines and the Malawi malaria guideline all hang their scope
-    statement under "About the Guidelines". ("Methods" was the fourth and largest case
-    until 2026-08-05, when it left the skip list entirely and its subtree stopped needing
-    a rescue.)
-    """
-    content = _render(PICO_FRAME_UNDER_SKIPPED_PARENT)
-
-    assert "does not consider patients who have had intracerebral haemorrhage" in content
-    assert "Barthel Index" in content
-    # An evidence-gap statement in a GRADE Evidence-to-Decision domain, which eight
-    # recommendations in the ASH thrombocytopenia guideline cite as "(see section 3.4)".
-    assert "insufficient information to describe patient experiences" in content
-    assert "Web of Science" not in content
-    assert "five virtual panel meetings" not in content
-    # The parent's own heading still goes, and the children take its level so no
-    # heading level is skipped where it stood.
-    assert "# Methods" not in content
-    assert "## Population" in content
-    # The number stays in the rendered heading - only the skip-list lookup strips it.
-    assert "## 3.2 Outcomes" in content
-
-
-PICO_ARMS_WITHOUT_KEY_INFO = {
-    "name": "Critical bleeding in immune thrombocytopenia",
-    "sections": [
-        {
-            "heading": "Recommendations for children",
-            "text": "",
-            "subSections": [],
-            "recommendations": [
-                {
-                    "title": "<p>Corticosteroids for children with a critical bleed</p>",
-                    "strength": "STRONG",
-                    "text": "<p>The panel recommends corticosteroids.</p>",
-                    "keyInfo": {},
-                    "picos": [
-                        {
-                            "intervention": "<p>Corticosteroids</p>",
-                            "comparator": "<p>No corticosteroids</p>",
-                            "summary": "",
-                        },
-                        {
-                            "intervention": "<p>High-dose dexamethasone</p>",
-                            "comparator": "<p>Prednisone</p>",
-                            "summary": "<p>Dexamethasone raised platelet counts faster.</p>",
-                        },
-                    ],
-                }
-            ],
-        },
-    ],
-}
-
-
-def test_build_magic_guideline_text_names_the_arms_when_key_info_is_empty() -> None:
-    """A recommendation still says what it compared when only its PICOs know.
-
-    Publishers do not always fill in `keyInfo.interventions`. The comparison can still be
-    on the recommendation's PICOs, but a PICO carrying no findings is suppressed, so the
-    arms reached the corpus nowhere - every pediatric recommendation in the ASH
-    thrombocytopenia guideline named its arms in the source and not in the output, while
-    its adult half named them. Arms from a PICO that does render are not repeated.
-    """
-    content = _render(PICO_ARMS_WITHOUT_KEY_INFO)
-
-    assert "*Compared:*" in content
-    assert "Corticosteroids versus No corticosteroids" in content
-    # A PICO carrying findings is left alone: where those render, the same intervention
-    # and comparator are printed with them, and repeating the pair here would put the
-    # same words in the document twice.
-    assert "High-dose dexamethasone versus Prednisone" not in content
-
-
-WHO_ROSTER_ANNEX = {
-    "name": "Prophylactic antibiotics for caesarean section",
-    "sections": [
-        {
-            "heading": "Annex 1. External experts and WHO staff involved in the preparation of the recommendation",
-            "text": "<p><strong>Edgardo ABALOS</strong></p><p>Vice Director</p><p>Rosario, Argentina</p>",
-            "recommendations": [],
-            "subSections": [],
-        },
-        {
-            "heading": "Annex 2. Priority outcomes used in decisionmaking",
-            "text": "<p>Maternal sepsis, wound infection and endometritis were rated critical.</p>",
-            "recommendations": [],
-            "subSections": [],
-        },
-    ],
-}
-
-
-def test_build_magic_guideline_text_skips_the_who_contributor_annex() -> None:
-    """WHO's roster annex goes; the annex beside it, which carries outcomes, stays.
-
-    Every WHO guideline carries "Annex 1. External experts and WHO staff involved in the
-    preparation of ..." - name, job title, department, city, thirty times over. 32 of them
-    hold 193,791 characters between them and not one clinical sentence. The heading never
-    says "panel" or "membership", which is the only reason the existing list missed it.
-    """
-    content = _render(WHO_ROSTER_ANNEX)
-
-    assert "Edgardo ABALOS" not in content
-    assert "External experts and WHO staff" not in content
-    assert "Maternal sepsis, wound infection and endometritis were rated critical" in content
-
-
-MULTI_PICO_ARMS = {
-    "name": "Stroke rehabilitation",
-    "sections": [
-        {
-            "heading": "Rehabilitation",
-            "text": "",
-            "subSections": [],
-            "recommendations": [
-                {
-                    "title": "<p>Rehabilitation after stroke</p>",
-                    "strength": "WEAK",
-                    "text": "<p>Several programmes were assessed.</p>",
-                    "keyInfo": {
-                        "interventions": [
-                            {"intervention": "Sertraline", "picoElement": "I", "picoId": 1},
-                            {"intervention": "placebo", "picoElement": "C", "picoId": 1},
-                            {"intervention": "Pelvic floor muscle training", "picoElement": "I", "picoId": 2},
-                            {"intervention": "Usual rehabilitation care", "picoElement": "C", "picoId": 2},
-                        ]
-                    },
-                    "picos": [],
-                }
-            ],
-        },
-    ],
-}
-
-
-def test_build_magic_guideline_text_keeps_each_comparison_separate() -> None:
-    """Arms are paired by their own PICO, not merged into one combined comparison.
-
-    A recommendation answering several questions carries every arm in one flat list.
-    Merging them stated a comparison no trial performed - a stroke guideline came out as
-    "Sertraline, Pelvic floor muscle training versus placebo, Usual rehabilitation care",
-    from which a reader could take "Sertraline versus Usual rehabilitation care".
-    """
-    content = _render(MULTI_PICO_ARMS)
-
-    assert "- Sertraline versus placebo" in content
-    assert "- Pelvic floor muscle training versus Usual rehabilitation care" in content
-    assert "Sertraline, Pelvic floor muscle training" not in content
-
-
 SUPERSCRIPT_INSIDE_LINK = {
     "name": "Prophylactic antibiotics",
     "sections": [
@@ -3250,127 +1208,6 @@ def test_build_magic_guideline_text_drops_the_comma_between_two_citations() -> N
     assert ",." not in content
     # A comma in ordinary prose is untouched.
     assert "Rates vary by setting, region and season." in content
-
-
-ABSTRACT_WITH_EVIDENCE = {
-    "name": "Transient ischaemic attack",
-    "sections": [
-        {
-            "heading": "Abstract",
-            "text": (
-                "<p>These guidelines only refer to adults. High risk TIA was defined as an "
-                "ABCD2 score of 4 or greater. There are no data from randomised controlled "
-                "trials on prediction tool use.</p>"
-            ),
-            "recommendations": [],
-            "subSections": [],
-        },
-        {
-            "heading": "Acknowledgements",
-            "text": "<p>We thank the reviewers for their comments.</p>",
-            "recommendations": [],
-            "subSections": [],
-        },
-    ],
-}
-
-
-def test_build_magic_guideline_text_keeps_the_abstract() -> None:
-    """An abstract states the question, the population and what the evidence showed.
-
-    It reads like front matter and is not. Across all 26 in the English catalogue only
-    3.3% of their sentences appear anywhere else in their own document, and all 26 repeat
-    less than half of themselves - the redundancy argument that had it on the skip list
-    fails outright. The European Stroke Organisation TIA guideline's abstract holds the
-    only statement in the document that its recommendations apply to adults.
-    """
-    content = _render(ABSTRACT_WITH_EVIDENCE)
-
-    assert "These guidelines only refer to adults" in content
-    assert "no data from randomised controlled trials" in content
-    # The genuine front matter beside it still goes.
-    assert "We thank the reviewers" not in content
-
-
-JOURNAL_SUBMISSION_FIELDS = {
-    "name": "Transient ischaemic attack",
-    "sections": [
-        {
-            "heading": "Authors",
-            "text": "<p>Guillaume Turc 1, Georgios Tsivgoulis 2,3, Heinrich J. Audebert 4</p>",
-            "recommendations": [],
-            "subSections": [],
-        },
-        {
-            "heading": "Guarantor",
-            "text": "<p>A specific guarantor does not exist. The working group developed the manuscript.</p>",
-            "recommendations": [],
-            "subSections": [],
-        },
-        {
-            "heading": "Authors' conclusions",
-            "text": "<p>Aspirin reduced recurrent stroke in the pooled analysis.</p>",
-            "recommendations": [],
-            "subSections": [],
-        },
-    ],
-}
-
-
-def test_build_magic_guideline_text_skips_journal_submission_fields() -> None:
-    """The byline and the guarantor go; a heading that merely starts with "Authors" stays.
-
-    21 "Authors" sections hold 32,901 characters of names with affiliation numbers, and 14
-    "Guarantor" sections average 45 characters of "a specific guarantor does not exist".
-    Both are matched as exact headings: the substring "author" would take "Authors'
-    conclusions", which is where a systematic review states what it found.
-    """
-    content = _render(JOURNAL_SUBMISSION_FIELDS)
-
-    assert "Guillaume Turc" not in content
-    assert "specific guarantor does not exist" not in content
-    assert "Aspirin reduced recurrent stroke" in content
-
-
-GRADE_TABLE_UNDER_A_ROSTER_HEADING = {
-    "name": "Antenatal nutrition",
-    "sections": [
-        {
-            "heading": "Annex 7: Guideline Development Group (GDG) judgements",
-            "text": (
-                "<table><tr><td>Recommendation</td><td>A.1.1</td></tr>"
-                "<tr><td>Certainty of the evidence</td><td>Moderate (macrosomia)</td></tr>"
-                "<tr><td>Effects</td><td>Favours this option</td></tr>"
-                "<tr><td>Certainty of the evidence</td><td>Low (LBW)</td></tr>"
-                "<tr><td>Effects</td><td>Favours other options</td></tr></table>"
-            ),
-            "recommendations": [],
-            "subSections": [],
-        },
-        {
-            "heading": "Annex 8: Guideline Development Group members",
-            "text": "<p>Dr Ariful Alam, Nutrition. None declared.</p>",
-            "recommendations": [],
-            "subSections": [],
-        },
-    ],
-}
-
-
-def test_build_magic_guideline_text_keeps_a_grade_table_under_a_skipped_heading() -> None:
-    """One heading, two kinds of content: the judgements table stays, the roster goes.
-
-    "Guideline Development Group" names a roster in 19 of the 20 sections carrying it, and
-    in the twentieth it names 27,750 characters of certainty ratings and effect directions,
-    one row per recommendation. No wording in the heading separates them, so the body is
-    asked instead - both GRADE signals, more than once, so a roster that mentions GRADE in
-    passing is not rescued.
-    """
-    content = _render(GRADE_TABLE_UNDER_A_ROSTER_HEADING)
-
-    assert "Certainty of the evidence" in content
-    assert "Favours this option" in content
-    assert "Dr Ariful Alam" not in content
 
 
 BOLD_ACROSS_A_LINE_BREAK = {
@@ -3601,195 +1438,180 @@ def test_markdown_drops_an_emphasis_tag_holding_only_a_zero_width_space() -> Non
     assert "**" not in content
 
 
-def test_build_magic_guideline_text_keeps_a_section_mapping_its_own_words_to_a_strength() -> None:
-    """A guideline's key to its OWN wording is kept, whatever heading it is filed under.
+# ---------------------------------------------------------------------------
+# Conversion and markdown cleanup passes
+# ---------------------------------------------------------------------------
 
-    nyO1Yj files "'The panel recommends' indicates a strong recommendation" under "2
-    Methods", and without it the corpus carries "the panel suggests" with nothing saying
-    whether that means strong or conditional guidance.
 
-    The generic GRADE definition does not count, and the second half of this test is the
-    point: "A strong recommendation is given when there is high-certainty evidence" is
-    textbook material any guideline could carry, and treating it as a legend held 14
-    front-matter sections in the corpus.
-    """
-    specific = _render_body(
-        "<p>'The panel recommends' indicates a strong recommendation, and 'the panel "
-        "suggests' indicates a conditional recommendation.</p>"
-    )
-    assert "indicates a conditional recommendation" in specific
+def test_build_magic_guideline_text_keeps_appendix_content_that_is_not_administrative() -> None:
+    """A clinical appendix section survives, so the container is not dropped wholesale."""
+    content = _render(DECORATED_HEADINGS)
 
-    generic = _render(
+    assert "Safety Monitoring" in content
+    assert "Report adverse events within 24 hours" in content
+
+
+INLINE_PAPERWORK = {
+    "name": "Inflammatory arthritis",
+    "sections": [
         {
-            "name": "Postnatal care",
-            "sections": [
-                {
-                    "heading": "Reading guide",
-                    "text": (
-                        "<p>A strong recommendation is given when there is high-certainty evidence "
-                        "that the benefits clearly outweigh the harms.</p>"
-                    ),
-                    "recommendations": [],
-                    "subSections": [],
-                },
-                {
-                    "heading": "Infant feeding",
-                    "text": "<p>Advise exclusive breastfeeding to six months.</p>",
-                    "recommendations": [],
-                    "subSections": [],
-                },
-            ],
-        }
-    )
-    assert "A strong recommendation is given when" not in generic
-    assert "Advise exclusive breastfeeding to six months." in generic
-
-
-def test_build_magic_guideline_text_keeps_a_working_group_that_reports_findings() -> None:
-    """A roster heading over a review's own results is kept; the rosters still go.
-
-    Nine of the ten sections named for a working group are lists of names. The tenth, in
-    WHO's mpox guideline, is where the review reports what it found - including that it
-    found nothing, which the corpus keeps deliberately, because a verifier that cannot see
-    "no evidence" has to guess instead.
-    """
-    content = _render(
+            "heading": "Initial DMARD therapy",
+            "text": (
+                "<p>Methotrexate is usually first line.</p>"
+                "<p><strong>Authorship: </strong>The following Expert Advisory Panel members "
+                "participated in the development of this recommendation:</p>"
+                "<figure class='table'><table><tbody><tr><td>Rachelle Buchbinder</td>"
+                "<td>Monash University</td></tr></tbody></table></figure>"
+                "<p>Triple therapy is the usual combination.</p>"
+            ),
+            "recommendations": [{"text": "<p>Consider methotrexate in combination.</p>", "strength": "WEAK"}],
+            "subSections": [],
+        },
         {
-            "name": "Mpox",
-            "sections": [
-                {
-                    "heading": "GDG topic-specific working groups",
-                    "text": (
-                        "<p>The first stage appraised available evidence from comparative interventional "
-                        "trials, which yielded no evidence. Only one small cohort study addressed the timing "
-                        "of ART initiation; this study did not show a difference in outcomes.</p>"
-                    ),
-                    "recommendations": [],
-                    "subSections": [],
-                },
-                {
-                    "heading": "Working group members",
-                    "text": "<p>Dr A. Mwale, Ministry of Health, Lilongwe. Dr B. Banda, WHO, Geneva.</p>",
-                    "recommendations": [],
-                    "subSections": [],
-                },
-            ],
-        }
-    )
-
-    assert "yielded no evidence" in content
-    assert "did not show a difference in outcomes" in content
-    assert "Dr A. Mwale" not in content
+            "heading": "Introduction",
+            "text": (
+                "<p><strong>Background</strong><br>Inflammatory arthritis causes joint damage."
+                "<br><br><strong>About this living guideline</strong><br>Funded by ANZMUSC with "
+                "$1,320,000.<br><br><strong>Copyright</strong><br>This work is copyright.</p>"
+            ),
+            "recommendations": [],
+            "subSections": [],
+        },
+    ],
+}
 
 
-def test_build_magic_guideline_text_keeps_conclusions_and_target_audience() -> None:
-    """Two headings left the skip list because they carry findings and scope.
+def test_build_magic_guideline_text_drops_authorship_tables_inside_kept_sections() -> None:
+    """A panel table sits in the body of a clinical section, out of the skip list's reach.
 
-    Of the 19 Conclusion sections the list used to delete, 7 held a sentence a verdict
-    could rest on. Of the 9 Target audience sections, 7 stated what the guideline covers or
-    where it applies - the category that already took `scope and audience` off the list.
+    The section holds the recommendation as well, so it cannot be dropped whole;
+    the label and the table it introduces are removed on their own.
     """
-    content = _render(
-        {
-            "name": "Melanoma",
-            "sections": [
-                {
-                    "heading": "Conclusion",
-                    "text": (
-                        "<p>Active surveillance will offer equivalent survival rates to immediate completion "
-                        "lymph node dissection.</p>"
-                    ),
-                    "recommendations": [],
-                    "subSections": [],
-                },
-                {
-                    "heading": "Target audience",
-                    "text": (
-                        "<p>This guideline is relevant for all settings and should be considered as global "
-                        "guidance. It does not cover children under 18.</p>"
-                    ),
-                    "recommendations": [],
-                    "subSections": [],
-                },
-            ],
-        }
-    )
+    content = _render(INLINE_PAPERWORK)
 
-    assert "equivalent survival rates" in content
-    assert "It does not cover children under 18." in content
+    assert "Consider methotrexate in combination." in content
+    assert "Methotrexate is usually first line." in content
+    assert "Triple therapy is the usual combination." in content
+    assert "Rachelle Buchbinder" not in content
+    assert "participated in the development" not in content
 
 
-def test_build_magic_guideline_text_drops_the_front_matter_block_whole() -> None:
-    """A skipped container now takes its summaries and its scope block with it.
+def test_build_magic_guideline_text_drops_paperwork_written_between_line_breaks() -> None:
+    """Some publishers write a whole introduction as one paragraph split by <br>.
 
-    Both were rescued from under a skipped parent earlier and are not any more - Evan's
-    call on 2026-08-06, wanting everything above the first clinical chapter gone. The
-    scope statement is the deletion that matters, and it is deliberate: `jW0ZbL` loses
-    "The Guidelines do not include ... preterm or low birthweight babies."
-
-    What still holds is `_states_guideline_scope`, which keeps a section stating scope in
-    its own body text whatever it is called - so a Methods section saying "These guidelines
-    only refer to adults" survives. It is the dedicated front-matter block that goes.
+    The clinical opening has to survive while the funding and copyright blocks
+    after it are removed, so the paragraph is cut at the publisher's own labels
+    rather than dropped whole.
     """
-    content = _render(
-        {
-            "name": "Postnatal care",
-            "sections": [
-                {
-                    "heading": "About the Guidelines",
-                    "text": "<p>Developed by the National Health and Medical Research Council.</p>",
-                    "recommendations": [],
-                    "subSections": [
-                        {
-                            "heading": "Summaries",
-                            "text": "<p>Routine iron supplementation is not recommended.</p>",
-                            "recommendations": [],
-                            "subSections": [],
-                        },
-                        {
-                            "heading": "Scope and audience",
-                            "text": "<p>The Guidelines do not include care for preterm babies.</p>",
-                            "recommendations": [],
-                            "subSections": [],
-                        },
-                    ],
-                },
-                {
-                    "heading": "Postnatal assessment",
-                    "text": "<p>Check blood pressure before discharge.</p>",
-                    "recommendations": [],
-                    "subSections": [],
-                },
-            ],
-        }
-    )
+    content = _render(INLINE_PAPERWORK)
 
-    assert "Routine iron supplementation is not recommended." not in content
-    assert "The Guidelines do not include care for preterm babies." not in content
-    assert "Check blood pressure before discharge." in content
+    assert "Inflammatory arthritis causes joint damage." in content
+    assert "About this living guideline" not in content
+    assert "$1,320,000" not in content
+    assert "This work is copyright" not in content
 
 
-def test_build_magic_guideline_text_still_keeps_scope_stated_in_a_section_body() -> None:
-    """Dropping the scope block does not drop every scope sentence in the corpus.
+def test_markdown_drops_a_bibliography_the_publisher_typed_inside_a_section_body() -> None:
+    """A References heading is on the skip list, but only a section's own heading is checked.
 
-    `_states_guideline_scope` reads a section's own text, so `jz7xeL`'s "These guidelines
-    only refer to adults." in its Methods section is untouched by the change above.
+    Cancer Council types `<h2>References</h2>` into the same text field as real guidance,
+    so it is promoted straight to a markdown heading with no skip-list check and rides
+    through — 19 bibliographies across 4 guidelines, one carrying a live Lancet citation.
     """
-    content = _render(
-        {
-            "name": "Transient ischaemic attack",
-            "sections": [
-                {
-                    "heading": "Methods",
-                    "text": "<p>These guidelines only refer to adults. A search was run in Embase.</p>",
-                    "recommendations": [],
-                    "subSections": [],
-                },
-            ],
-        }
+    content = _render_body(
+        "<p>Offer supportive care early in the disease course.</p>"
+        "<h2>References</h2><ol><li>NCCN. Survivorship. Version 1.2017.</li>"
+        "<li>Temel JS et al. N Engl J Med 2010.</li></ol>"
     )
 
-    assert "These guidelines only refer to adults." in content
+    assert "Offer supportive care early in the disease course." in content
+    assert "References" not in content
+    assert "Temel" not in content
+
+
+def test_build_magic_guideline_text_drops_a_chapter_that_is_only_a_pointer() -> None:
+    """A chapter saying "click here for this section" is a topical match that delivers nothing.
+
+    22 of these survive into the corpus. The worst is headed "Recommendation" and its
+    whole body is a link to a BMJ page. Nothing is lost: where the pointer goes
+    elsewhere in the same document that section is in the corpus, and where it goes to
+    another MAGICapp guideline that guideline is in the corpus as its own document.
+    """
+    guideline = {
+        "name": "Colorectal cancer",
+        "sections": [
+            {
+                "heading": "The symptomatic patient",
+                "text": "<p>Refer patients with rectal bleeding for colonoscopy.</p>",
+                "recommendations": [],
+                "subSections": [],
+            },
+            {
+                "heading": "Population screening for colorectal cancer",
+                "text": '<p>Please click <a href="https://app.magicapp.org/x">here</a> for this section</p>',
+                "recommendations": [],
+                "subSections": [],
+            },
+        ],
+    }
+    content = _render(guideline)
+
+    assert "Refer patients with rectal bleeding" in content
+    assert "Population screening for colorectal cancer" not in content
+    assert "click" not in content
+
+
+def test_build_magic_guideline_text_keeps_a_sentence_that_points_and_also_states_a_dose() -> None:
+    """A pointer only directs; a sentence carrying a measurement is making a claim."""
+    guideline = {
+        "name": "Malaria",
+        "sections": [
+            {
+                "heading": "Dosing",
+                "text": "<p>See the table below, which gives artesunate at 2.4 mg/kg for at least 24 hours.</p>",
+                "recommendations": [],
+                "subSections": [],
+            }
+        ],
+    }
+    content = _render(guideline)
+
+    assert "2.4 mg/kg for at least 24 hours" in content
+
+
+def test_markdown_drops_a_contributor_byline_written_into_a_clinical_section() -> None:
+    """A journal byline inside a clinical section goes; the guidance around it stays.
+
+    `rj1KVn` opens "Corticosteroids for community-acquired pneumonia" with a Contributors
+    line naming eleven authors with their degrees. The section holds the recommendation,
+    so the skip list must not touch it - only the byline block can go.
+    """
+    content = _render_body(
+        "<p><strong>Contributors:</strong></p>"
+        "<p>Reed A.C. Siemieniuk, MD; Per O. Vandvik, MD, PhD; Gordon H. Guyatt, MD, MSc</p>"
+        "<p><strong>Corticosteroids</strong></p>"
+        "<p>We suggest corticosteroids for patients with severe pneumonia.</p>"
+    )
+
+    assert "Siemieniuk" not in content
+    assert "We suggest corticosteroids for patients with severe pneumonia." in content
+
+
+def test_markdown_drops_a_paperwork_label_sharing_a_line_with_its_value() -> None:
+    """A paperwork label sharing its line with its value still goes.
+
+    The block rule needs a label with a line to itself, because it removes the paragraphs
+    that follow it. WHO writes `<p><strong>Funding</strong>: WHO.</p>` instead, so the
+    whole-line-bold test failed and four guidelines carried a visible "Funding: WHO." into
+    the corpus under a label the list already knew.
+    """
+    content = _render_body(
+        "<p><strong>Funding</strong>: WHO.</p>"
+        "<p>Oral rehydration salts are recommended for children with dehydration.</p>"
+    )
+
+    assert "Funding" not in content
+    assert "Oral rehydration salts are recommended" in content
 
 
 def test_every_inline_paperwork_label_is_reachable_by_its_hint() -> None:
@@ -3804,79 +1626,6 @@ def test_every_inline_paperwork_label_is_reachable_by_its_hint() -> None:
     stranded = sorted(label for label in _INLINE_PAPERWORK_LABELS if not _INLINE_PAPERWORK_HINT_RE.search(label))
 
     assert not stranded, f"labels the hint regex can never reach: {stranded}"
-
-
-def test_build_magic_guideline_text_drops_a_recommendation_marked_a_draft() -> None:
-    """A recommendation the publisher heads "DRAFT" is not settled guidance.
-
-    Three publishers mark a draft in the text while `status` still says UPDATED or NEW, so
-    the field cannot catch it. It is the same case as POSSIBLY_OUTDATED - advice the panel
-    does not yet stand behind - and goes the same way, the statement with it.
-    """
-    content = _render(
-        {
-            "name": "Stroke",
-            "sections": [
-                {
-                    "heading": "Dysphagia",
-                    "text": "<p>Screen all patients for swallowing difficulty.</p>",
-                    "recommendations": [
-                        {
-                            "text": (
-                                "<p><strong><u>DRAFT RECOMMENDATION - AUGUST 2024</u></strong></p>"
-                                "<p>Acupuncture should not be used for dysphagia.</p>"
-                            ),
-                            "strength": "WEAK",
-                            "status": "UPDATED",
-                        },
-                        {
-                            "text": "<p>Offer texture-modified diets where indicated.</p>",
-                            "strength": "STRONG",
-                            "status": "NEW",
-                        },
-                    ],
-                    "subSections": [],
-                }
-            ],
-        }
-    )
-
-    assert "Acupuncture should not be used" not in content
-    assert "DRAFT RECOMMENDATION" not in content
-    assert "Offer texture-modified diets where indicated." in content
-
-
-def test_build_magic_guideline_text_keeps_a_recommendation_that_merely_mentions_a_draft() -> None:
-    """Only a recommendation that OPENS with the marker goes.
-
-    Four recommendations in the catalogue mention a draft in passing - a committee that
-    "will provide advice on draft recommendations" - and dropping those would delete real
-    guidance on a word.
-    """
-    content = _render(
-        {
-            "name": "Pregnancy care",
-            "sections": [
-                {
-                    "heading": "Governance",
-                    "text": "<p>Oversight arrangements.</p>",
-                    "recommendations": [
-                        {
-                            "text": (
-                                "<p>The Expert Advisory Committee will convene to provide advice on "
-                                "draft recommendations before publication.</p>"
-                            ),
-                            "strength": "PRACTICE",
-                            "status": "NOTSET",
-                        }
-                    ],
-                    "subSections": [],
-                }
-            ],
-        }
-    )
-
-    assert "will convene to provide advice on draft recommendations" in content
 
 
 def test_markdown_drops_a_paragraph_that_is_only_a_pointer() -> None:
@@ -4051,32 +1800,6 @@ def test_build_magic_guideline_text_drops_a_section_whose_body_was_all_cross_ref
     assert "Access to all recommendations and flowcharts" not in content
 
 
-def test_build_magic_guideline_text_keeps_a_heading_that_never_carried_a_body() -> None:
-    """An outline level with no text of its own is not an emptied section."""
-    guideline = {
-        "name": "Stroke",
-        "sections": [
-            {
-                "heading": "Acute management",
-                "text": "",
-                "recommendations": [],
-                "subSections": [
-                    {
-                        "heading": "Thrombolysis",
-                        "text": "<p>Give alteplase within 4.5 hours.</p>",
-                        "recommendations": [],
-                        "subSections": [],
-                    }
-                ],
-            }
-        ],
-    }
-    content = _render(guideline)
-
-    assert "Acute management" in content
-    assert "Give alteplase within 4.5 hours." in content
-
-
 def test_markdown_drops_a_directory_of_other_organisations_resources() -> None:
     """A list of organisations and their web addresses goes; the advice around it stays.
 
@@ -4194,42 +1917,6 @@ def test_markdown_keeps_an_approval_that_is_a_fact_about_a_drug() -> None:
 
     assert "Oral semaglutide tablet is now approved by" in content
     assert "reviewed and approved by the WHO Guideline Review Committee" in content
-
-
-def test_build_magic_guideline_text_drops_a_recommendation_marked_draft_in_its_remarks() -> None:
-    """Some publishers put the draft marker in the remarks, not at the head of the text.
-
-    "This is a draft recommendation that has not yet been approved by NHMRC" appears under 49
-    recommendations whose text reads like any other. The panel has not signed them off.
-    """
-    guideline = {
-        "name": "Postnatal care",
-        "sections": [
-            {
-                "heading": "Perineal care",
-                "text": "",
-                "recommendations": [
-                    {
-                        "strength": "STRONG",
-                        "text": "<p>Offer ice packs for perineal pain in the first 24 hours.</p>",
-                        "remarks": (
-                            "<p>Approved by LEAPP Steering Committee 14 May 2026. This is a draft "
-                            "recommendation that has not yet been approved by NHMRC.</p>"
-                        ),
-                    },
-                    {
-                        "strength": "STRONG",
-                        "text": "<p>Assess the perineum at every postnatal contact.</p>",
-                    },
-                ],
-                "subSections": [],
-            }
-        ],
-    }
-    content = _render(guideline)
-
-    assert "Offer ice packs for perineal pain" not in content
-    assert "Assess the perineum at every postnatal contact." in content
 
 
 def test_markdown_drops_a_cross_reference_that_ends_without_a_full_stop() -> None:
@@ -4441,40 +2128,6 @@ def test_markdown_drops_a_caption_that_is_only_a_table_number() -> None:
     assert content.count("Table") == 1
 
 
-def test_build_magic_guideline_text_keeps_a_strength_key_written_as_a_table() -> None:
-    """A guideline that draws its key as a grid is still defining its own labels.
-
-    The CARI guidelines have no sentence reading "indicates a strong recommendation" - they
-    write a row headed Level 1 "We recommend" and a row headed Level 2 "We suggest", with
-    columns for patients, clinicians and policy. Adding "guideline development methodology"
-    to the skip list deleted that key from three guidelines until the guard learned this
-    shape. Without it a reader cannot tell what Level 1 means.
-    """
-    guideline = {
-        "name": "ADPKD",
-        "sections": [
-            {
-                "heading": "Guideline development methodology",
-                "text": (
-                    "<p>The guideline was developed by a working group over 18 months.</p>"
-                    "<table><tr><td>Level 1 &ldquo;We recommend&rdquo;</td>"
-                    "<td>Most people in your situation would want the recommended course of "
-                    "action and only a small proportion would not.</td></tr>"
-                    "<tr><td>Level 2 &ldquo;We suggest&rdquo;</td>"
-                    "<td>The majority of people would want the recommended course of action, "
-                    "but many would not.</td></tr></table>"
-                ),
-                "recommendations": [],
-                "subSections": [],
-            }
-        ],
-    }
-    content = _render(guideline)
-
-    assert "Level 1" in content
-    assert "Most people in your situation would want the recommended course of action" in content
-
-
 def test_markdown_drops_a_search_strategy_written_inside_a_section_body() -> None:
     """The skip list matches sections; publishers also write this as a heading in the HTML.
 
@@ -4588,137 +2241,6 @@ def test_markdown_drops_a_pointer_whose_wording_is_split_by_emphasis() -> None:
     assert "Methotrexate is usually first line." in content
 
 
-def test_build_magic_guideline_text_drops_a_publishing_programme_write_up() -> None:
-    """A programme heading explains the publisher, not the care given to a patient.
-
-    Keyed on the programme name rather than on "background and methods", because the two
-    sections carrying that wording without a programme name are disease background: 8nyb0E
-    opens "Chronic non-cancer pain comprises any painful condition that persists for three
-    months or longer... 15-19% of Canadian adults experience chronic non-cancer pain".
-    """
-    guideline = {
-        "name": "Uncomplicated skin abscesses",
-        "sections": [
-            {
-                "heading": "Adults and children with uncomplicated skin abscesses",
-                "text": "<p>Incision and drainage is the mainstay of treatment.</p>",
-                "recommendations": [],
-                "subSections": [],
-            },
-            {
-                "heading": "BMJ Rapid Recommendations: Background and Methods",
-                "text": (
-                    "<p>Translating research to clinical practice is challenging. BMJ Rapid "
-                    "Recommendations aims to create trustworthy clinical practice "
-                    "recommendations in record time.</p>"
-                ),
-                "recommendations": [],
-                "subSections": [],
-            },
-        ],
-    }
-    content = _render(guideline)
-
-    assert "Incision and drainage is the mainstay of treatment." in content
-    assert "BMJ Rapid Recommendations" not in content
-
-
-def test_build_magic_guideline_text_keeps_a_bare_background_and_methods_section() -> None:
-    """Without a programme name the same heading sits on disease background."""
-    guideline = {
-        "name": "Chronic non-cancer pain",
-        "sections": [
-            {
-                "heading": "Background and methods",
-                "text": (
-                    "<p>Chronic non-cancer pain comprises any painful condition that persists "
-                    "for three months or longer and is not associated with malignancy. "
-                    "According to seven national surveys, 15-19% of Canadian adults experience "
-                    "chronic non-cancer pain.</p>"
-                ),
-                "recommendations": [],
-                "subSections": [],
-            }
-        ],
-    }
-    content = _render(guideline)
-
-    assert "persists for three months or longer" in content
-    assert "15-19% of Canadian adults" in content
-
-
-def test_build_magic_guideline_text_drops_a_block_repeated_elsewhere() -> None:
-    """Deduplication, not judgement: the words survive in the copy that is kept.
-
-    A block goes only when every one of its eight-word runs is found in a block that stays,
-    so nothing can be lost. 1,360 blocks across the corpus, 1,277,785 characters, and every
-    removed block was checked against the render that keeps it.
-    """
-    guideline = {
-        "name": "Sepsis",
-        "sections": [
-            {
-                "heading": "Chapter one",
-                "text": (
-                    "<p>The panel considered the biology and mode of transmission of the "
-                    "organism when developing this recommendation.</p>"
-                ),
-                "recommendations": [],
-                "subSections": [],
-            },
-            {
-                "heading": "Chapter two",
-                "text": (
-                    "<p>The panel considered the biology and mode of transmission of the "
-                    "organism when developing this recommendation.</p>"
-                ),
-                "recommendations": [],
-                "subSections": [],
-            },
-        ],
-    }
-    content = _render(guideline)
-
-    assert content.count("mode of transmission of the organism") == 1
-    assert "Chapter one" in content
-    assert "Chapter two" in content
-
-
-def test_build_magic_guideline_text_keeps_a_repeated_effect_estimate() -> None:
-    """A guideline states the same estimate under every recommendation resting on it.
-
-    The second copy is not redundant - it is that recommendation's evidence, and deleting it
-    leaves a reader who finds the recommendation with no numbers under it. 1,100 of the 5,948
-    repeated blocks carry one of these, 651,211 characters, and they stay.
-    """
-    guideline = {
-        "name": "Diabetes",
-        "sections": [
-            {
-                "heading": "Chapter one",
-                "text": (
-                    "<p>Diabetic ketoacidosis, no. of patients: RR 2.81 (95% CI 0.46 to "
-                    "17.05), 1097 participants, 13 studies</p>"
-                ),
-                "recommendations": [],
-                "subSections": [],
-            },
-            {
-                "heading": "Chapter two",
-                "text": (
-                    "<p>Diabetic ketoacidosis, no. of patients: RR 2.81 (95% CI 0.46 to "
-                    "17.05), 1097 participants, 13 studies</p>"
-                ),
-                "recommendations": [],
-                "subSections": [],
-            },
-        ],
-    }
-    content = _render(guideline)
-
-    assert content.count("RR 2.81 (95% CI 0.46 to 17.05)") == 2
-
-
 def test_build_magic_guideline_text_strips_a_question_number_from_a_heading() -> None:
     """The internal question number and the label in front of the topic both go.
 
@@ -4767,47 +2289,6 @@ def test_build_magic_guideline_text_keeps_a_heading_that_is_only_a_question_numb
 
     assert "PICO 4" in content
     assert "Intra-articular glucocorticoid treatment is suggested." in content
-
-
-def test_build_magic_guideline_text_applies_a_publisher_specific_heading_rule() -> None:
-    """A heading that is paperwork for one publisher and content for everyone else.
-
-    The Stroke Foundation opens all eight of its guidelines with an "Introduction" of about
-    12,100 characters, every one beginning "The Stroke Foundation is a national charity that
-    partners with the community to prevent, treat and beat stroke" - 96,945 characters of the
-    same blurb. Introduction is emphatically not on the general skip list: 86% of them across
-    the corpus carry something a verdict could rest on.
-    """
-    guideline = {
-        "name": "Stroke management",
-        "sections": [
-            {
-                "heading": "Introduction",
-                "text": (
-                    "<p>The Stroke Foundation is a national charity that partners with the "
-                    "community to prevent, treat and beat stroke.</p>"
-                ),
-                "recommendations": [],
-                "subSections": [],
-            },
-            {
-                "heading": "Acute management",
-                "text": "<p>Give alteplase within 4.5 hours of onset.</p>",
-                "recommendations": [],
-                "subSections": [],
-            },
-        ],
-    }
-    stroke_catalogue = [{**CATALOGUE[0], "institutionName": "Stroke Foundation"}]
-    with _client(catalogue=stroke_catalogue, guideline=guideline) as client:
-        stroke = scrape_magic_guideline(client, list_published_guidelines(client).refs[0])
-    with _client(guideline=guideline) as client:
-        other = scrape_magic_guideline(client, list_published_guidelines(client).refs[0])
-
-    assert "national charity" not in stroke.content
-    assert "Give alteplase within 4.5 hours of onset." in stroke.content
-    # The same document from any other publisher keeps its introduction.
-    assert "national charity" in other.content
 
 
 def test_markdown_drops_an_appendix_written_as_a_bold_line_in_a_body() -> None:
@@ -4883,6 +2364,1445 @@ def test_markdown_keeps_a_numbered_list_of_findings() -> None:
     assert "2.5% increased risk" in rendered
 
 
+def test_markdown_drops_a_publication_announcement_and_its_citation() -> None:
+    """The "how to cite" block under wording no label list can match.
+
+    nyO1Yj writes it as a bolded sentence ending in a colon, then the reference. Reaching it
+    through the inline-label rule was tried and rejected because it needed three separate
+    loosenings of a rule that deletes text; this keys on the pair instead.
+    """
+    body = (
+        "<p><strong>This guideline manuscript was published in </strong>"
+        "<em><strong>Alzheimer's and Dementia: The Journal of the Alzheimer's Association</strong></em>"
+        "<strong> on July 29th, 2025:</strong></p>"
+        "<p>Palmqvist S, Whitson HE, et al. Alzheimer's Association Clinical Practice Guideline on "
+        "the use of blood-based biomarkers. Alzheimer's Dement. 2025;e70535. "
+        "https://doi.org/10.1002/alz.70535</p>"
+        "<p>Blood-based biomarkers should be used only in specialized care settings.</p>"
+    )
+    rendered = _render_body(body)
+
+    assert "was published in" not in rendered
+    assert "Palmqvist" not in rendered
+    assert "alz.70535" not in rendered
+    assert "Blood-based biomarkers should be used only in specialized care settings." in rendered
+
+
+def test_markdown_keeps_a_sentence_about_publication_with_no_citation_under_it() -> None:
+    """The citation is what makes the rule safe, so without one nothing is removed."""
+    body = (
+        "<p><strong>This Guideline should be used in tandem with other published resources:</strong></p>"
+        "<p>- National Strategic Framework for Aboriginal and Torres Strait Islander Mental Health</p>"
+    )
+    rendered = _render_body(body)
+
+    assert "published resources" in rendered
+    assert "National Strategic Framework" in rendered
+
+
+def test_markdown_drops_a_paragraph_that_is_only_a_date() -> None:
+    """The line a publisher signs a foreword off with, left stranded by the scrape."""
+    rendered = _render_body(
+        "<p>Nigeria still struggles to reduce health inequalities.</p>"
+        "<p>13<sup>th</sup> June, 2025</p>"
+        "<p>Give kangaroo mother care immediately after birth.</p>"
+    )
+
+    assert "June, 2025" not in rendered
+    assert "Nigeria still struggles to reduce health inequalities." in rendered
+    assert "Give kangaroo mother care immediately after birth." in rendered
+
+
+def test_markdown_keeps_a_date_inside_a_sentence() -> None:
+    """Only a block that is nothing but a date goes, so a date in prose is untouched."""
+    rendered = _render_body("<p>The last evidence search was run in June 2025 and found 14 new trials.</p>")
+
+    assert "run in June 2025 and found 14 new trials" in rendered
+
+
+def test_markdown_drops_a_list_of_document_links_and_its_label() -> None:
+    """Links to reports the scraper never fetched, under the label that introduces them."""
+    rendered = _render_body(
+        "<p><strong>SUPPORTING DOCUMENTS</strong></p>"
+        '<p>Evidence summary: <a href="https://www.cancer.org.au/a.pdf">SR-Evidence Summary</a><br />'
+        'Systematic review report: <a href="https://www.cancer.org.au/b.pdf">SR report</a></p>'
+        "<p>Repeat testing at 12 months is recommended for this group.</p>"
+    )
+
+    assert "SUPPORTING DOCUMENTS" not in rendered
+    assert "SR-Evidence Summary" not in rendered
+    assert "Repeat testing at 12 months is recommended for this group." in rendered
+
+
+def test_markdown_keeps_a_paragraph_that_merely_contains_a_link() -> None:
+    """The whole block has to be links, so prose carrying one is untouched."""
+    rendered = _render_body(
+        '<p>Screening is offered every 5 years, as set out in the <a href="https://x.org/p">'
+        "National Cervical Screening Policy</a>.</p>"
+    )
+
+    assert "Screening is offered every 5 years" in rendered
+
+
+def test_markdown_drops_a_sentence_pointing_at_a_flowchart() -> None:
+    """A flowchart is a document, and the picture did not survive the scrape either.
+
+    Kj2WZL closes seven paragraphs with "See the flowchart for the literature search under
+    reference" and points at its dystocia flowcharts four more times.
+    """
+    rendered = _render_body(
+        "<p>Amniotomy may be considered when progress is slow. "
+        "See the flowchart for dystocia in the second stage of labour under reference.</p>"
+    )
+
+    assert "Amniotomy may be considered when progress is slow." in rendered
+    assert "flowchart" not in rendered
+
+
+def test_markdown_keeps_a_sentence_describing_what_a_flowchart_shows() -> None:
+    """Only "see the flowchart" goes. A sentence that states what one contains is content."""
+    rendered = _render_body("<p>The flowchart for dystocia sets a two-hour limit before reassessment.</p>")
+
+    assert "two-hour limit before reassessment" in rendered
+
+
+# ---------------------------------------------------------------------------
+# Section keep/drop policy
+# ---------------------------------------------------------------------------
+
+
+def test_build_magic_guideline_text_skips_platform_boilerplate() -> None:
+    """MAGICapp's repeated 'how to use' section is dropped, not indexed."""
+    with _client() as client:
+        ref = list_published_guidelines(client).refs[0]
+        content, _, _, _ = build_magic_guideline_text(client, ref)
+
+    assert "How To Use This Guideline" not in content
+    assert "open the evidence behind it" not in content
+    assert "Disease modifying therapy" in content
+
+
+BOILERPLATE_WITH_GUIDANCE = {
+    "name": "Patient blood management",
+    "sections": [
+        {
+            "heading": "Glossary",
+            "text": "<p>Confidence interval: a range of values.</p>",
+            "recommendations": [],
+            "subSections": [],
+        },
+        {
+            "heading": "Introduction",
+            "text": "<p>Context for the guideline.</p>",
+            "recommendations": [
+                {
+                    "text": "<p>Pregnancies at risk of fetal anaemia should be assessed by Doppler ultrasound.</p>",
+                    "strength": "NOTSET",
+                }
+            ],
+            "subSections": [],
+        },
+    ],
+}
+
+
+def test_build_magic_guideline_text_skips_front_matter_without_recommendations() -> None:
+    """A glossary carrying no guidance is dropped as boilerplate."""
+    content = _render(BOILERPLATE_WITH_GUIDANCE)
+
+    assert "Glossary" not in content
+    assert "Confidence interval" not in content
+
+
+DECORATED_HEADINGS = {
+    "name": "Cervical screening",
+    "sections": [
+        {
+            "heading": "<p><strong>How to use these guidelines</strong></p>",
+            "text": "<p>Read the recommendations first.</p>",
+            "recommendations": [],
+            "subSections": [],
+        },
+        {
+            "heading": "7.2 Conflicts of interest",
+            "text": "<p>Panel members declared the following.</p>",
+            "recommendations": [],
+            "subSections": [],
+        },
+        {
+            "heading": "Appendices",
+            "text": "",
+            "recommendations": [],
+            "subSections": [
+                {
+                    "heading": "Appendix A. Guideline development process",
+                    "text": "<p>Each recommendation was tabled as an agenda item.</p>",
+                    "recommendations": [],
+                    "subSections": [],
+                },
+                {
+                    "heading": "App E - Working Party members and project team contributions",
+                    "text": "<p>Ms Chloe Jennett, Program Coordinator.</p>",
+                    "recommendations": [],
+                    "subSections": [],
+                },
+                {
+                    "heading": "Appendix F. Safety Monitoring",
+                    "text": "<p>Report adverse events within 24 hours.</p>",
+                    "recommendations": [],
+                    "subSections": [],
+                },
+            ],
+        },
+    ],
+}
+
+
+def test_build_magic_guideline_text_skips_decorated_front_matter_headings() -> None:
+    """Emphasis, section numbers and appendix labels no longer defeat the skip list.
+
+    The lookup is an exact string match, so a publisher that bolds its headings -
+    Cancer Council Australia bolds all of them - used to bypass the skip list
+    entirely. Numbering and "Appendix A." labels defeated it the same way.
+    """
+    content = _render(DECORATED_HEADINGS)
+
+    assert "How to use these guidelines" not in content
+    assert "Read the recommendations first" not in content
+    assert "Conflicts of interest" not in content
+    assert "Panel members declared" not in content
+
+
+def test_build_magic_guideline_text_skips_admin_sections_inside_an_appendix() -> None:
+    """Administrative topics inside an appendix go; the appendix itself stays.
+
+    "Appendices" is a container word - it says where a section sits, not what it
+    holds - so matching it would drop a whole back-of-document container on no
+    evidence. The topics one level down are what name methodology.
+
+    "Appendix A. Guideline development process" is deliberately *not* asserted here
+    any more: reading all 59 sections with that wording found 20 of 58 carry a real
+    clinical statement, so only the "Guideline Development Group" wording is matched
+    now. The rest of this fixture still goes.
+    """
+    content = _render(DECORATED_HEADINGS)
+
+    assert "Working Party members" not in content
+    assert "Chloe Jennett" not in content
+
+
+INTEREST_DISCLOSURES = {
+    "name": "Atrial fibrillation",
+    "sections": [
+        {
+            "heading": "Anticoagulation",
+            "text": "<p>Offer anticoagulation to patients at elevated stroke risk.</p>",
+            "recommendations": [],
+            "subSections": [],
+        },
+        {
+            "heading": "Acronyms and abbreviations",
+            "text": "<p>NOAC: non-vitamin K oral anticoagulant.</p>",
+            "recommendations": [],
+            "subSections": [],
+        },
+        {
+            "heading": "Declaration of conflicting interests",
+            "text": "<p>Dr X: national co-ordinator for Boehringer Ingelheim on dabigatran.</p>",
+            "recommendations": [],
+            "subSections": [],
+        },
+        {
+            "heading": "Annex 3. Summary and management of declared interests from GDG members",
+            "text": "<p>Member honoraria are tabled below.</p>",
+            "recommendations": [],
+            "subSections": [],
+        },
+    ],
+}
+
+
+ACKNOWLEDGMENT_WORDINGS = {
+    "name": "Dementia care",
+    "sections": [
+        {
+            "heading": "Risk reduction",
+            "text": "<p>Encourage regular physical activity.</p>",
+            "recommendations": [],
+            "subSections": [],
+        },
+        {
+            "heading": "Publication and acknowledgments",
+            "text": "<p>Funded by the Department of Health. Co-Chairs: Professor V. Srikanth.</p>",
+            "recommendations": [],
+            "subSections": [],
+        },
+        {
+            "heading": "Acknowledgement",
+            "text": "<p>We thank the working group members.</p>",
+            "recommendations": [],
+            "subSections": [],
+        },
+    ],
+}
+
+
+def test_build_magic_guideline_text_skips_acknowledgment_wordings() -> None:
+    """Publishers word acknowledgment sections a dozen ways; one stem catches them all.
+
+    "Publication and acknowledgments" (j97pAn) is 22,242 characters of funders and
+    contributors that no exact name on the skip list covered, and the singular
+    "Acknowledgement" missed the plural-only exact names.
+    """
+    content = _render(ACKNOWLEDGMENT_WORDINGS)
+
+    assert "physical activity" in content
+    assert "Funded by the Department" not in content
+    assert "thank the working group" not in content
+
+
+GUIDELINE_PAPERWORK = {
+    "name": "Inflammatory arthritis",
+    "sections": [
+        {
+            "heading": "Executive Summary",
+            "text": "<p>The panel does not recommend routine use of MDMA-assisted psychotherapy.</p>",
+            "recommendations": [],
+            "subSections": [],
+        },
+        {
+            "heading": "Initial DMARD therapy",
+            "text": "<p>Methotrexate is usually first line.</p>",
+            "recommendations": [{"text": "<p>Consider methotrexate in combination.</p>", "strength": "WEAK"}],
+            "subSections": [],
+        },
+        {
+            "heading": "Methods and Processes - Evidence Review",
+            "text": "<p>Questions were validated by stakeholder consultation.</p>",
+            "recommendations": [],
+            "subSections": [],
+        },
+        {
+            "heading": "Guideline Expert Advisory Panel and Technical Team",
+            "text": "<p>Prof R. Buchbinder, Monash University, Rheumatology.</p>",
+            "recommendations": [],
+            "subSections": [],
+        },
+        {
+            "heading": "Guideline Meeting Attendance Record and Recommendation Authorship",
+            "text": "<p>Click here to view attendance at each meeting.</p>",
+            "recommendations": [],
+            "subSections": [],
+        },
+        {
+            "heading": "Appendices - Living evidence updates, forest plots and other supplementary information",
+            "text": "<p>Update 1 (July 2024) - no new evidence.</p>",
+            "recommendations": [],
+            "subSections": [],
+        },
+    ],
+}
+
+
+def test_build_magic_guideline_text_skips_guideline_paperwork_sections() -> None:
+    """How the guideline was made, who wrote it, and links to evidence files are dropped."""
+    content = _render(GUIDELINE_PAPERWORK)
+
+    assert "Consider methotrexate in combination." in content
+    assert "Methotrexate is usually first line." in content
+    assert "stakeholder consultation" not in content
+    assert "Buchbinder" not in content
+    assert "attendance at each meeting" not in content
+    assert "no new evidence" not in content
+
+
+def test_build_magic_guideline_text_keeps_executive_summaries_by_name() -> None:
+    """An "Executive summary" names a container, not a kind of content, so it is not a rule.
+
+    It was one, corpus-wide, and that was wrong. 61 of the 212 guidelines have such a
+    section and 36 of them put their whole recommendation set in it: the WHO postpartum
+    haemorrhage guideline states 18 of its 46 recommendations there and nowhere else,
+    including the dose "30mg to 60mg of elemental iron and 400ug (0.4mg) of folic acid".
+    Removing the section removed the recommendation from the corpus entirely.
+
+    A rule may only name a heading whose content is paperwork whatever the publisher put
+    under it. This one fails that test in both directions, so the guidelines whose summary
+    really is front matter say so themselves, in _GUIDELINE_SKIP_HEADINGS, each one checked
+    against the rendered text first.
+    """
+    content = _render(GUIDELINE_PAPERWORK)
+
+    assert "does not recommend routine use of MDMA-assisted psychotherapy" in content
+
+
+def test_build_magic_guideline_text_keeps_an_executive_summary_that_states_scope() -> None:
+    """The content guards reach an executive summary like any other skipped section.
+
+    Nine of the 74 are held this way. Their scope statements are what a verifier needs in
+    order not to confirm an out-of-scope claim, and dropping the section by name would take
+    them with it.
+    """
+    guideline = {
+        "name": "WHO guidelines for malaria",
+        "sections": [
+            {
+                "heading": "Executive summary",
+                "text": (
+                    "<p>WHO malaria recommendations are intended to be short, actionable "
+                    "statements.</p>"
+                    "<p>These guidelines do not apply to people travelling from non-endemic "
+                    "settings.</p>"
+                ),
+                "recommendations": [],
+                "subSections": [],
+            }
+        ],
+    }
+    content = _render(guideline)
+
+    assert "do not apply to people travelling from non-endemic settings" in content
+
+
+def test_build_magic_guideline_text_skips_interest_disclosure_sections() -> None:
+    """Named individuals' payment disclosures leave the corpus; clinical text stays.
+
+    A claim about patient care cannot be verified against "Dr X received honoraria
+    from company Y", and these are real people's payment records headed for an open
+    corpus, so every observed disclosure-heading shape is skip-listed.
+    """
+    content = _render(INTEREST_DISCLOSURES)
+
+    assert "Offer anticoagulation" in content
+    assert "NOAC" not in content
+    assert "Boehringer Ingelheim" not in content
+    assert "honoraria" not in content
+
+
+def test_build_magic_guideline_text_measures_the_skip_ceiling_as_text_not_markup() -> None:
+    """The oversize guard reads what a reader would lose, not the markup around it.
+
+    One catalogue search-strategy section is 1,673,817 characters of HTML holding
+    2,664 of readable text; measuring HTML kept it on markup weight alone.
+    """
+    bloated = '<p data-pad="' + "x" * (2 * magic.MAX_SKIPPED_SECTION_CHARS) + '">Databases were searched.</p>'
+    guideline = {
+        "name": "Any guideline",
+        "sections": [
+            {"heading": "Treatment", "text": "<p>Treat early.</p>", "recommendations": [], "subSections": []},
+            {"heading": "Search strategy", "text": bloated, "recommendations": [], "subSections": []},
+        ],
+    }
+    content = _render(guideline)
+
+    assert "Treat early." in content
+    assert "Databases were searched." not in content
+
+
+def test_build_magic_guideline_text_keeps_a_skip_listed_section_too_big_to_drop_on_its_heading() -> None:
+    """A skip-listed heading over a huge readable body is not front matter, so it stays."""
+    prose = "<p>" + "Give oxytocin. " * (magic.MAX_SKIPPED_SECTION_CHARS // 10) + "</p>"
+    guideline = {
+        "name": "Any guideline",
+        "sections": [
+            {"heading": "Methods", "text": prose, "recommendations": [], "subSections": []},
+        ],
+    }
+    content = _render(guideline)
+
+    assert "Give oxytocin." in content
+
+
+def test_build_magic_guideline_text_keeps_a_generic_heading_that_carries_guidance() -> None:
+    """Publishers file real recommendations under generic headings, so those stay.
+
+    The National Blood Authority puts four recommendations under 'Introduction'; a
+    skip driven by the heading alone would delete them.
+    """
+    content = _render(BOILERPLATE_WITH_GUIDANCE)
+
+    assert "Introduction" in content
+    assert "Doppler ultrasound" in content
+
+
+def test_build_magic_guideline_text_skips_hidden_and_bare_outcomes() -> None:
+    """A hidden outcome is the publisher's call, and a bare name asserts nothing.
+
+    `LOW` also has to map to "low": the per-outcome certainty field spells the scale
+    differently from `keyInfo.evidenceStrength`, which uses WEAK for the same level, so
+    sharing one table would drop every LOW rating silently.
+    """
+    content = _render(EFFECT_ESTIMATE_PICO)
+
+    assert "An outcome the publisher hid" not in content
+    assert "A name and nothing else" not in content
+    assert "certainty low" in content
+
+
+CONTRIBUTOR_CHAPTER = {
+    "name": "WHO guidelines for malaria",
+    "sections": [
+        {
+            "heading": "Case management",
+            "text": "<p>Treat uncomplicated malaria with an artemisinin-based combination therapy.</p>",
+            "recommendations": [{"text": "<p>Give artesunate for at least 24 hours.</p>", "strength": "STRONG"}],
+            "subSections": [],
+        },
+        {
+            "heading": "Contributors and interests",
+            "text": "<p>The many contributors are acknowledged in the sub-sections below.</p>",
+            "recommendations": [],
+            "subSections": [
+                {
+                    "heading": "Recommendations for vector control",
+                    "text": (
+                        "<h4><strong>Members of the Guidelines Development Group (GDG) (2019)</strong></h4>"
+                        "<p>Dr Constance Bart-Plange, Independent Malaria Consultant, Accra, Ghana</p>"
+                    ),
+                    "recommendations": [],
+                    "subSections": [],
+                }
+            ],
+        },
+    ],
+}
+
+
+def test_build_magic_guideline_text_skips_contributor_chapters() -> None:
+    """A contributor chapter goes, even though its subsections are headed "Recommendations for...".
+
+    WHO files 117,757 characters of member rosters and interest declarations under
+    "Contributors and interests" (LwRMXj) and heads each block "Recommendations for
+    vector control", "Recommendations for treatment" and so on — they group the
+    contributors by which recommendations those people worked on. So nothing keyed on
+    the word "recommendation" can identify this block; the parent heading is the only
+    handle on it.
+    """
+    content = _render(CONTRIBUTOR_CHAPTER)
+
+    assert "Give artesunate for at least 24 hours." in content
+    assert "artemisinin-based combination therapy" in content
+    assert "Bart-Plange" not in content
+    assert "Contributors and interests" not in content
+
+
+def test_build_magic_guideline_text_skips_plural_guidelines_development_group() -> None:
+    """The plural defeats the singular "guideline development" topic word.
+
+    WHO writes "Guidelines Development Group", so the substring "guideline
+    development" does not occur and the section escaped the skip list.
+    """
+    guideline = {
+        "name": "WHO guidelines for malaria",
+        "sections": [
+            {
+                "heading": "Prevention",
+                "text": "<p>Deploy insecticide-treated nets for malaria prevention.</p>",
+                "recommendations": [],
+                "subSections": [],
+            },
+            {
+                "heading": "Guidelines development group",
+                "text": "<p>Dr John Gimnig (Chair), Centers for Disease Control and Prevention.</p>",
+                "recommendations": [],
+                "subSections": [],
+            },
+            {
+                "heading": "Guidelines Steering Group (2019)",
+                "text": "<p>Dr Rabindra Abeyasinghe, WHO Regional Office for the Western Pacific.</p>",
+                "recommendations": [],
+                "subSections": [],
+            },
+            {
+                "heading": "Members of the External Review Group (ERG)",
+                "text": "<p>Professor Ahmed Adeel, Independent Consultant.</p>",
+                "recommendations": [],
+                "subSections": [],
+            },
+        ],
+    }
+    content = _render(guideline)
+
+    assert "insecticide-treated nets" in content
+    assert "Gimnig" not in content
+    assert "Abeyasinghe" not in content
+    assert "Adeel" not in content
+
+
+PLATFORM_ADMINISTRATION = {
+    "name": "WHO guidelines for malaria",
+    "sections": [
+        {
+            "heading": "Executive summary",
+            "text": (
+                "<p>WHO malaria recommendations are intended to be short, actionable statements.</p>"
+                "<h4><strong>Scope</strong></h4>"
+                "<p>No guidance is given on the use of antimalarial agents to prevent malaria in "
+                "people travelling from non-endemic settings.</p>"
+                "<h4><strong>Link to WHO prequalification</strong></h4>"
+                "<p>The prequalification process consists of a transparent assessment.</p>"
+                "<h4><strong>Updating evidence-based guidance</strong></h4>"
+                "<p>The first edition was released in early 2021.</p>"
+                "<h4><strong>Dissemination</strong></h4>"
+                "<p>These Guidelines are available on the MAGICapp online platform.</p>"
+                "<h4><strong>Feedback</strong></h4>"
+                "<p>Write to gmpfeedback@who.int to identify recommendations needing update.</p>"
+            ),
+            "recommendations": [],
+            "subSections": [],
+        }
+    ],
+}
+
+
+def test_build_magic_guideline_text_drops_platform_administration_from_executive_summary() -> None:
+    """WHO opens its executive summary with several blocks of platform administration."""
+    content = _render(PLATFORM_ADMINISTRATION)
+
+    assert "short, actionable statements" in content
+    assert "prequalification process" not in content
+    assert "released in early 2021" not in content
+    assert "available on the MAGICapp online platform" not in content
+    assert "gmpfeedback@who.int" not in content
+
+
+def test_build_magic_guideline_text_keeps_the_scope_block_beside_the_dropped_ones() -> None:
+    """Scope sits in the same run of blocks and is kept deliberately.
+
+    A scope statement says what the guideline does *not* cover, which is what stops a
+    verifier confirming an out-of-scope claim against it.
+
+    Rendered under a short code no real guideline uses, because the default catalogue entry
+    borrows `nyxpZL`, and that guideline has a rule of its own dropping an inline "Scope"
+    heading. This test is about the general behaviour, not about that guideline.
+    """
+    catalogue = [{**CATALOGUE[0], "shortCode": "zzTEST"}]
+    with _client(catalogue=catalogue, guideline=PLATFORM_ADMINISTRATION) as client:
+        ref = list_published_guidelines(client).refs[0]
+        content, _sections, _title, _emitted = build_magic_guideline_text(client, ref)
+
+    assert "people travelling from non-endemic settings" in content
+
+
+def test_build_magic_guideline_text_drops_the_definition_of_whos_own_vocabulary() -> None:
+    """WHO explains what a guideline and a good practice statement are; that is a glossary.
+
+    Matched as a whole heading, never on the words inside it: 50 headings across the
+    catalogue read "Good practice statement 2", "Good practice statement 3" and so on,
+    and those are the recommendations themselves.
+    """
+    content = _render_body(
+        "<p>WHO malaria recommendations are intended to be short, actionable statements.</p>"
+        "<h4><strong>WHO guidelines, recommendations and good practice statements</strong></h4>"
+        "<p>A WHO guideline is any document developed by WHO containing recommendations.</p>"
+        "<p>The primary purpose of these Guidelines is to support policy-makers.</p>"
+    )
+
+    assert "short, actionable statements" in content
+    assert "any document developed by WHO" not in content
+    assert "support policy-makers" not in content
+
+
+def test_build_magic_guideline_text_skips_a_guideline_translations_section() -> None:
+    """Links to the same guideline in other languages are navigation, not evidence.
+
+    An exact name rather than a topic word: the only other section in the catalogue
+    whose heading contains "translation" is 19,291 characters of "Knowledge translation
+    for self-care interventions" (Lr21gL), which is real content.
+    """
+    guideline = {
+        "name": "WHO guidelines for malaria",
+        "sections": [
+            {
+                # Not an executive summary: that heading is on the skip list now, and the
+                # question here is only whether the translations child is dropped.
+                "heading": "Treating malaria",
+                "text": "<p>WHO recommendations are short, actionable statements.</p>",
+                "recommendations": [],
+                "subSections": [
+                    {
+                        "heading": "Guideline translations",
+                        "text": '<ul><li><a href="https://app.magicapp.org/x">Lignes directrices</a></li></ul>',
+                        "recommendations": [],
+                        "subSections": [],
+                    },
+                    {
+                        "heading": "Knowledge translation for self-care interventions",
+                        "text": "<p>Health workers need training to deliver self-care interventions.</p>",
+                        "recommendations": [],
+                        "subSections": [],
+                    },
+                ],
+            }
+        ],
+    }
+    content = _render(guideline)
+
+    assert "short, actionable statements" in content
+    assert "Lignes directrices" not in content
+    assert "Health workers need training" in content
+
+
+def test_build_magic_guideline_text_keeps_a_narrative_guideline_development_section() -> None:
+    """A "Guideline development process" write-up opens with background, and that is evidence.
+
+    Reading all 59 such sections in the catalogue found 20 of 58 carry a checkable
+    clinical statement — disease burden, a risk factor, a threshold, or a statement
+    that no studies were found. The same heading sits on clean roster sections too, so
+    only the narrow "group" wording is safe to match.
+    """
+    guideline = {
+        "name": "Head and neck cancer nutrition",
+        "sections": [
+            {
+                "heading": "Guideline development process",
+                "text": (
+                    "<p>Head and neck cancer is the fifth most common cancer worldwide. Tobacco and "
+                    "alcohol account for up to 80% of all cases, and malnutrition rates are reported "
+                    "between 30-50%.</p><p>The Working Group applied the GRADE methodology.</p>"
+                ),
+                "recommendations": [],
+                "subSections": [],
+            },
+            {
+                "heading": "Guideline Development Group",
+                "text": "<p>Professor A. Smith, Monash University, Dietetics.</p>",
+                "recommendations": [],
+                "subSections": [],
+            },
+        ],
+    }
+    content = _render(guideline)
+
+    assert "malnutrition rates are reported between 30-50%" in content
+    assert "fifth most common cancer worldwide" in content
+    assert "Professor A. Smith" not in content
+
+
+def test_build_magic_guideline_text_keeps_a_section_that_points_and_then_recommends() -> None:
+    """A pointer above an actual recommendation is not a pointer-only section."""
+    guideline = {
+        "name": "Malaria",
+        "sections": [
+            {
+                "heading": "Pre-referral treatment options",
+                "text": "<p>See recommendation.</p>",
+                "recommendations": [{"text": "<p>Give rectal artesunate before referral.</p>", "strength": "STRONG"}],
+                "subSections": [],
+            }
+        ],
+    }
+    content = _render(guideline)
+
+    assert "Pre-referral treatment options" in content
+    assert "Give rectal artesunate before referral." in content
+
+
+def test_build_magic_guideline_text_keeps_a_discussion_section() -> None:
+    """A Discussion section is where a panel states what the evidence showed.
+
+    Reading all 73 in the catalogue found 30 of the 32 checked carry a statement a
+    verdict could rest on. It had been dropped by name because no such section holds a
+    recommendation *object* — true, and useless, the same way it was for executive
+    summaries.
+    """
+    guideline = {
+        "name": "Transient ischaemic attack",
+        "sections": [
+            {
+                "heading": "Discussion",
+                "text": (
+                    "<p>Early initiation of dual antiplatelet therapy with aspirin and clopidogrel in "
+                    "high risk non-cardioembolic TIA patients for up to 21 days reduces the risk of "
+                    "stroke recurrence over single antiplatelet treatment. For every 50 at-risk "
+                    "patients treated in this way, one patient will avoid having a recurrent stroke.</p>"
+                ),
+                "recommendations": [],
+                "subSections": [],
+            }
+        ],
+    }
+    content = _render(guideline)
+
+    assert "For every 50 at-risk patients treated in this way" in content
+    assert "reduces the risk of stroke recurrence" in content
+
+
+def test_build_magic_guideline_text_skips_a_directory_of_other_organisations_guidelines() -> None:
+    """A resources section is a table of links to other bodies’ guidelines.
+
+    "companion resources" was already an exact name; "additional resources" and "other
+    resources" are the near-miss variants, and one is a 7,221-character directory. Worse
+    than useless: a chunk full of guideline names retrieves on a clinical query and
+    delivers only links.
+    """
+    guideline = {
+        "name": "Colorectal cancer",
+        "sections": [
+            {
+                "heading": "Follow-up after curative resection",
+                "text": "<p>Offer colonoscopy at one year after resection.</p>",
+                "recommendations": [],
+                "subSections": [],
+            },
+            {
+                "heading": "Additional resources",
+                "text": (
+                    "<p>There are many evidence-based resources on colorectal cancer available.</p>"
+                    '<table><tr><td>NICE</td><td><a href="https://www.nice.org.uk/guidance/cg131">'
+                    "Colorectal cancer: diagnosis and management</a></td></tr></table>"
+                ),
+                "recommendations": [],
+                "subSections": [],
+            },
+        ],
+    }
+    content = _render(guideline)
+
+    assert "Offer colonoscopy at one year after resection." in content
+    assert "Additional resources" not in content
+    assert "nice.org.uk" not in content
+
+
+PICO_FRAME_UNDER_SKIPPED_PARENT = {
+    "name": "VTE prophylaxis after ischaemic stroke",
+    "sections": [
+        {
+            "heading": "About the Guidelines",
+            "text": "",
+            "recommendations": [],
+            "subSections": [
+                {
+                    "heading": "Population",
+                    "text": (
+                        "<p>These recommendations refer to patients who have suffered an ischaemic "
+                        "stroke. It specifically does not consider patients who have had "
+                        "intracerebral haemorrhage.</p>"
+                    ),
+                    "recommendations": [],
+                    "subSections": [],
+                },
+                {
+                    "heading": "3.2 Outcomes",
+                    "text": "<p>Death or dependency at follow up, measured with the Barthel Index.</p>",
+                    "recommendations": [],
+                    "subSections": [],
+                },
+                {
+                    "heading": "3.4 Values and preferences",
+                    "text": "<p>We had insufficient information to describe patient experiences.</p>",
+                    "recommendations": [],
+                    "subSections": [],
+                },
+                {
+                    "heading": "Literature search by SRT teams",
+                    "text": "<p>A search was run in Web of Science on 26 January 2024.</p>",
+                    "recommendations": [],
+                    "subSections": [],
+                },
+                {
+                    "heading": "Panel meetings",
+                    "text": "<p>We held five virtual panel meetings.</p>",
+                    "recommendations": [],
+                    "subSections": [],
+                },
+            ],
+        },
+    ],
+}
+
+
+METHODS_SECTION = {
+    "name": "Blood biomarkers",
+    "sections": [
+        {
+            "heading": "2 Methods",
+            "text": "<p>We followed the standard operating procedures in the WHO handbook.</p>",
+            "recommendations": [],
+            "subSections": [
+                {
+                    "heading": "2.5.2 EtD framework",
+                    "text": (
+                        "<p>'The panel recommends' indicates a strong recommendation, and 'the "
+                        "panel suggests' indicates a conditional recommendation.</p>"
+                    ),
+                    "recommendations": [],
+                    "subSections": [],
+                }
+            ],
+        }
+    ],
+}
+
+
+def test_build_magic_guideline_text_keeps_a_methods_section_holding_the_legend() -> None:
+    """A "Methods" section is kept when it explains what the guideline's labels mean.
+
+    "Methods" is on the skip list, and for most guidelines that is right: it is search
+    dates, database lists and panel rosters. `nyO1Yj` is the exception that made the
+    heading untrustworthy - it files its recommendation legend under "2 Methods", so
+    dropping the heading left the corpus carrying "the panel suggests" with nothing
+    anywhere saying whether that meant strong or conditional guidance.
+
+    The heading cannot tell those apart, so the body is asked instead: the legend keeps
+    the section, and the process prose under it rides along, which is the price of not
+    having a way to cut inside a section.
+    """
+    content = _render(METHODS_SECTION)
+
+    assert "indicates a conditional recommendation" in content
+    assert "standard operating procedures" in content
+    assert "## 2 Methods" in content
+
+
+def test_build_magic_guideline_text_drops_a_methods_section_that_is_only_process() -> None:
+    """The same heading goes when the body is nothing but how the work was done.
+
+    This is the case the skip list exists for, and the one that pays for keeping the
+    entry: 76 of the corpus's 89 Methods sections are this, 1.3 million characters of
+    search strategies and meeting counts.
+    """
+    content = _render(
+        {
+            "name": "Blood biomarkers",
+            "sections": [
+                {
+                    "heading": "Methods",
+                    "text": "<p>A search was run in Web of Science on 26 January 2024. We held five meetings.</p>",
+                    "recommendations": [],
+                    "subSections": [],
+                },
+                {
+                    "heading": "Treatment",
+                    "text": "<p>Start therapy within 24 hours.</p>",
+                    "recommendations": [],
+                    "subSections": [],
+                },
+            ],
+        }
+    )
+
+    assert "Web of Science" not in content
+    assert "five meetings" not in content
+    assert "Start therapy within 24 hours." in content
+
+
+def test_build_magic_guideline_text_keeps_a_skipped_section_stating_who_it_applies_to() -> None:
+    """A section says who the guideline covers, so it survives its own heading.
+
+    The North Star's non-negotiable: a fact can be true for adults and false for
+    children. `jz7xeL` says "These guidelines only refer to adults." in its Methods
+    section and nowhere else, and `jxxdwj` excludes children in as many words. Dropping
+    the heading takes the sentence that stops a paediatric claim being confirmed against
+    an adult guideline.
+    """
+    content = _render(
+        {
+            "name": "Transient ischaemic attack",
+            "sections": [
+                {
+                    "heading": "Methods",
+                    "text": ("<p>These guidelines only refer to adults. A search was run in Embase.</p>"),
+                    "recommendations": [],
+                    "subSections": [],
+                },
+            ],
+        }
+    )
+
+    assert "These guidelines only refer to adults." in content
+
+
+def test_build_magic_guideline_text_keeps_the_pico_frame_under_a_skipped_heading() -> None:
+    """A skipped parent keeps the PICO frame filed under it and drops the process prose.
+
+    Skipping a section normally takes its whole subtree, which is right for who sat on
+    the panel and which databases were searched. Publishers file the PICO frame under
+    those headings too, and it is the only place the corpus says who a recommendation
+    applies to. Three guidelines rely on this today - the two Australian Pregnancy and
+    Postnatal Care guidelines and the Malawi malaria guideline all hang their scope
+    statement under "About the Guidelines". ("Methods" was the fourth and largest case
+    until 2026-08-05, when it left the skip list entirely and its subtree stopped needing
+    a rescue.)
+    """
+    content = _render(PICO_FRAME_UNDER_SKIPPED_PARENT)
+
+    assert "does not consider patients who have had intracerebral haemorrhage" in content
+    assert "Barthel Index" in content
+    # An evidence-gap statement in a GRADE Evidence-to-Decision domain, which eight
+    # recommendations in the ASH thrombocytopenia guideline cite as "(see section 3.4)".
+    assert "insufficient information to describe patient experiences" in content
+    assert "Web of Science" not in content
+    assert "five virtual panel meetings" not in content
+    # The parent's own heading still goes, and the children take its level so no
+    # heading level is skipped where it stood.
+    assert "# Methods" not in content
+    assert "## Population" in content
+    # The number stays in the rendered heading - only the skip-list lookup strips it.
+    assert "## 3.2 Outcomes" in content
+
+
+WHO_ROSTER_ANNEX = {
+    "name": "Prophylactic antibiotics for caesarean section",
+    "sections": [
+        {
+            "heading": "Annex 1. External experts and WHO staff involved in the preparation of the recommendation",
+            "text": "<p><strong>Edgardo ABALOS</strong></p><p>Vice Director</p><p>Rosario, Argentina</p>",
+            "recommendations": [],
+            "subSections": [],
+        },
+        {
+            "heading": "Annex 2. Priority outcomes used in decisionmaking",
+            "text": "<p>Maternal sepsis, wound infection and endometritis were rated critical.</p>",
+            "recommendations": [],
+            "subSections": [],
+        },
+    ],
+}
+
+
+def test_build_magic_guideline_text_skips_the_who_contributor_annex() -> None:
+    """WHO's roster annex goes; the annex beside it, which carries outcomes, stays.
+
+    Every WHO guideline carries "Annex 1. External experts and WHO staff involved in the
+    preparation of ..." - name, job title, department, city, thirty times over. 32 of them
+    hold 193,791 characters between them and not one clinical sentence. The heading never
+    says "panel" or "membership", which is the only reason the existing list missed it.
+    """
+    content = _render(WHO_ROSTER_ANNEX)
+
+    assert "Edgardo ABALOS" not in content
+    assert "External experts and WHO staff" not in content
+    assert "Maternal sepsis, wound infection and endometritis were rated critical" in content
+
+
+ABSTRACT_WITH_EVIDENCE = {
+    "name": "Transient ischaemic attack",
+    "sections": [
+        {
+            "heading": "Abstract",
+            "text": (
+                "<p>These guidelines only refer to adults. High risk TIA was defined as an "
+                "ABCD2 score of 4 or greater. There are no data from randomised controlled "
+                "trials on prediction tool use.</p>"
+            ),
+            "recommendations": [],
+            "subSections": [],
+        },
+        {
+            "heading": "Acknowledgements",
+            "text": "<p>We thank the reviewers for their comments.</p>",
+            "recommendations": [],
+            "subSections": [],
+        },
+    ],
+}
+
+
+def test_build_magic_guideline_text_keeps_the_abstract() -> None:
+    """An abstract states the question, the population and what the evidence showed.
+
+    It reads like front matter and is not. Across all 26 in the English catalogue only
+    3.3% of their sentences appear anywhere else in their own document, and all 26 repeat
+    less than half of themselves - the redundancy argument that had it on the skip list
+    fails outright. The European Stroke Organisation TIA guideline's abstract holds the
+    only statement in the document that its recommendations apply to adults.
+    """
+    content = _render(ABSTRACT_WITH_EVIDENCE)
+
+    assert "These guidelines only refer to adults" in content
+    assert "no data from randomised controlled trials" in content
+    # The genuine front matter beside it still goes.
+    assert "We thank the reviewers" not in content
+
+
+JOURNAL_SUBMISSION_FIELDS = {
+    "name": "Transient ischaemic attack",
+    "sections": [
+        {
+            "heading": "Authors",
+            "text": "<p>Guillaume Turc 1, Georgios Tsivgoulis 2,3, Heinrich J. Audebert 4</p>",
+            "recommendations": [],
+            "subSections": [],
+        },
+        {
+            "heading": "Guarantor",
+            "text": "<p>A specific guarantor does not exist. The working group developed the manuscript.</p>",
+            "recommendations": [],
+            "subSections": [],
+        },
+        {
+            "heading": "Authors' conclusions",
+            "text": "<p>Aspirin reduced recurrent stroke in the pooled analysis.</p>",
+            "recommendations": [],
+            "subSections": [],
+        },
+    ],
+}
+
+
+def test_build_magic_guideline_text_skips_journal_submission_fields() -> None:
+    """The byline and the guarantor go; a heading that merely starts with "Authors" stays.
+
+    21 "Authors" sections hold 32,901 characters of names with affiliation numbers, and 14
+    "Guarantor" sections average 45 characters of "a specific guarantor does not exist".
+    Both are matched as exact headings: the substring "author" would take "Authors'
+    conclusions", which is where a systematic review states what it found.
+    """
+    content = _render(JOURNAL_SUBMISSION_FIELDS)
+
+    assert "Guillaume Turc" not in content
+    assert "specific guarantor does not exist" not in content
+    assert "Aspirin reduced recurrent stroke" in content
+
+
+GRADE_TABLE_UNDER_A_ROSTER_HEADING = {
+    "name": "Antenatal nutrition",
+    "sections": [
+        {
+            "heading": "Annex 7: Guideline Development Group (GDG) judgements",
+            "text": (
+                "<table><tr><td>Recommendation</td><td>A.1.1</td></tr>"
+                "<tr><td>Certainty of the evidence</td><td>Moderate (macrosomia)</td></tr>"
+                "<tr><td>Effects</td><td>Favours this option</td></tr>"
+                "<tr><td>Certainty of the evidence</td><td>Low (LBW)</td></tr>"
+                "<tr><td>Effects</td><td>Favours other options</td></tr></table>"
+            ),
+            "recommendations": [],
+            "subSections": [],
+        },
+        {
+            "heading": "Annex 8: Guideline Development Group members",
+            "text": "<p>Dr Ariful Alam, Nutrition. None declared.</p>",
+            "recommendations": [],
+            "subSections": [],
+        },
+    ],
+}
+
+
+def test_build_magic_guideline_text_keeps_a_grade_table_under_a_skipped_heading() -> None:
+    """One heading, two kinds of content: the judgements table stays, the roster goes.
+
+    "Guideline Development Group" names a roster in 19 of the 20 sections carrying it, and
+    in the twentieth it names 27,750 characters of certainty ratings and effect directions,
+    one row per recommendation. No wording in the heading separates them, so the body is
+    asked instead - both GRADE signals, more than once, so a roster that mentions GRADE in
+    passing is not rescued.
+    """
+    content = _render(GRADE_TABLE_UNDER_A_ROSTER_HEADING)
+
+    assert "Certainty of the evidence" in content
+    assert "Favours this option" in content
+    assert "Dr Ariful Alam" not in content
+
+
+def test_build_magic_guideline_text_keeps_a_working_group_that_reports_findings() -> None:
+    """A roster heading over a review's own results is kept; the rosters still go.
+
+    Nine of the ten sections named for a working group are lists of names. The tenth, in
+    WHO's mpox guideline, is where the review reports what it found - including that it
+    found nothing, which the corpus keeps deliberately, because a verifier that cannot see
+    "no evidence" has to guess instead.
+    """
+    content = _render(
+        {
+            "name": "Mpox",
+            "sections": [
+                {
+                    "heading": "GDG topic-specific working groups",
+                    "text": (
+                        "<p>The first stage appraised available evidence from comparative interventional "
+                        "trials, which yielded no evidence. Only one small cohort study addressed the timing "
+                        "of ART initiation; this study did not show a difference in outcomes.</p>"
+                    ),
+                    "recommendations": [],
+                    "subSections": [],
+                },
+                {
+                    "heading": "Working group members",
+                    "text": "<p>Dr A. Mwale, Ministry of Health, Lilongwe. Dr B. Banda, WHO, Geneva.</p>",
+                    "recommendations": [],
+                    "subSections": [],
+                },
+            ],
+        }
+    )
+
+    assert "yielded no evidence" in content
+    assert "did not show a difference in outcomes" in content
+    assert "Dr A. Mwale" not in content
+
+
+def test_build_magic_guideline_text_keeps_conclusions_and_target_audience() -> None:
+    """Two headings left the skip list because they carry findings and scope.
+
+    Of the 19 Conclusion sections the list used to delete, 7 held a sentence a verdict
+    could rest on. Of the 9 Target audience sections, 7 stated what the guideline covers or
+    where it applies - the category that already took `scope and audience` off the list.
+    """
+    content = _render(
+        {
+            "name": "Melanoma",
+            "sections": [
+                {
+                    "heading": "Conclusion",
+                    "text": (
+                        "<p>Active surveillance will offer equivalent survival rates to immediate completion "
+                        "lymph node dissection.</p>"
+                    ),
+                    "recommendations": [],
+                    "subSections": [],
+                },
+                {
+                    "heading": "Target audience",
+                    "text": (
+                        "<p>This guideline is relevant for all settings and should be considered as global "
+                        "guidance. It does not cover children under 18.</p>"
+                    ),
+                    "recommendations": [],
+                    "subSections": [],
+                },
+            ],
+        }
+    )
+
+    assert "equivalent survival rates" in content
+    assert "It does not cover children under 18." in content
+
+
+def test_build_magic_guideline_text_drops_the_front_matter_block_whole() -> None:
+    """A skipped container now takes its summaries and its scope block with it.
+
+    Both were rescued from under a skipped parent earlier and are not any more - Evan's
+    call on 2026-08-06, wanting everything above the first clinical chapter gone. The
+    scope statement is the deletion that matters, and it is deliberate: `jW0ZbL` loses
+    "The Guidelines do not include ... preterm or low birthweight babies."
+
+    What still holds is `_states_guideline_scope`, which keeps a section stating scope in
+    its own body text whatever it is called - so a Methods section saying "These guidelines
+    only refer to adults" survives. It is the dedicated front-matter block that goes.
+    """
+    content = _render(
+        {
+            "name": "Postnatal care",
+            "sections": [
+                {
+                    "heading": "About the Guidelines",
+                    "text": "<p>Developed by the National Health and Medical Research Council.</p>",
+                    "recommendations": [],
+                    "subSections": [
+                        {
+                            "heading": "Summaries",
+                            "text": "<p>Routine iron supplementation is not recommended.</p>",
+                            "recommendations": [],
+                            "subSections": [],
+                        },
+                        {
+                            "heading": "Scope and audience",
+                            "text": "<p>The Guidelines do not include care for preterm babies.</p>",
+                            "recommendations": [],
+                            "subSections": [],
+                        },
+                    ],
+                },
+                {
+                    "heading": "Postnatal assessment",
+                    "text": "<p>Check blood pressure before discharge.</p>",
+                    "recommendations": [],
+                    "subSections": [],
+                },
+            ],
+        }
+    )
+
+    assert "Routine iron supplementation is not recommended." not in content
+    assert "The Guidelines do not include care for preterm babies." not in content
+    assert "Check blood pressure before discharge." in content
+
+
+def test_build_magic_guideline_text_still_keeps_scope_stated_in_a_section_body() -> None:
+    """Dropping the scope block does not drop every scope sentence in the corpus.
+
+    `_states_guideline_scope` reads a section's own text, so `jz7xeL`'s "These guidelines
+    only refer to adults." in its Methods section is untouched by the change above.
+    """
+    content = _render(
+        {
+            "name": "Transient ischaemic attack",
+            "sections": [
+                {
+                    "heading": "Methods",
+                    "text": "<p>These guidelines only refer to adults. A search was run in Embase.</p>",
+                    "recommendations": [],
+                    "subSections": [],
+                },
+            ],
+        }
+    )
+
+    assert "These guidelines only refer to adults." in content
+
+
+def test_build_magic_guideline_text_keeps_a_heading_that_never_carried_a_body() -> None:
+    """An outline level with no text of its own is not an emptied section."""
+    guideline = {
+        "name": "Stroke",
+        "sections": [
+            {
+                "heading": "Acute management",
+                "text": "",
+                "recommendations": [],
+                "subSections": [
+                    {
+                        "heading": "Thrombolysis",
+                        "text": "<p>Give alteplase within 4.5 hours.</p>",
+                        "recommendations": [],
+                        "subSections": [],
+                    }
+                ],
+            }
+        ],
+    }
+    content = _render(guideline)
+
+    assert "Acute management" in content
+    assert "Give alteplase within 4.5 hours." in content
+
+
+def test_build_magic_guideline_text_keeps_a_strength_key_written_as_a_table() -> None:
+    """A guideline that draws its key as a grid is still defining its own labels.
+
+    The CARI guidelines have no sentence reading "indicates a strong recommendation" - they
+    write a row headed Level 1 "We recommend" and a row headed Level 2 "We suggest", with
+    columns for patients, clinicians and policy. Adding "guideline development methodology"
+    to the skip list deleted that key from three guidelines until the guard learned this
+    shape. Without it a reader cannot tell what Level 1 means.
+    """
+    guideline = {
+        "name": "ADPKD",
+        "sections": [
+            {
+                "heading": "Guideline development methodology",
+                "text": (
+                    "<p>The guideline was developed by a working group over 18 months.</p>"
+                    "<table><tr><td>Level 1 &ldquo;We recommend&rdquo;</td>"
+                    "<td>Most people in your situation would want the recommended course of "
+                    "action and only a small proportion would not.</td></tr>"
+                    "<tr><td>Level 2 &ldquo;We suggest&rdquo;</td>"
+                    "<td>The majority of people would want the recommended course of action, "
+                    "but many would not.</td></tr></table>"
+                ),
+                "recommendations": [],
+                "subSections": [],
+            }
+        ],
+    }
+    content = _render(guideline)
+
+    assert "Level 1" in content
+    assert "Most people in your situation would want the recommended course of action" in content
+
+
+def test_build_magic_guideline_text_drops_a_publishing_programme_write_up() -> None:
+    """A programme heading explains the publisher, not the care given to a patient.
+
+    Keyed on the programme name rather than on "background and methods", because the two
+    sections carrying that wording without a programme name are disease background: 8nyb0E
+    opens "Chronic non-cancer pain comprises any painful condition that persists for three
+    months or longer... 15-19% of Canadian adults experience chronic non-cancer pain".
+    """
+    guideline = {
+        "name": "Uncomplicated skin abscesses",
+        "sections": [
+            {
+                "heading": "Adults and children with uncomplicated skin abscesses",
+                "text": "<p>Incision and drainage is the mainstay of treatment.</p>",
+                "recommendations": [],
+                "subSections": [],
+            },
+            {
+                "heading": "BMJ Rapid Recommendations: Background and Methods",
+                "text": (
+                    "<p>Translating research to clinical practice is challenging. BMJ Rapid "
+                    "Recommendations aims to create trustworthy clinical practice "
+                    "recommendations in record time.</p>"
+                ),
+                "recommendations": [],
+                "subSections": [],
+            },
+        ],
+    }
+    content = _render(guideline)
+
+    assert "Incision and drainage is the mainstay of treatment." in content
+    assert "BMJ Rapid Recommendations" not in content
+
+
+def test_build_magic_guideline_text_keeps_a_bare_background_and_methods_section() -> None:
+    """Without a programme name the same heading sits on disease background."""
+    guideline = {
+        "name": "Chronic non-cancer pain",
+        "sections": [
+            {
+                "heading": "Background and methods",
+                "text": (
+                    "<p>Chronic non-cancer pain comprises any painful condition that persists "
+                    "for three months or longer and is not associated with malignancy. "
+                    "According to seven national surveys, 15-19% of Canadian adults experience "
+                    "chronic non-cancer pain.</p>"
+                ),
+                "recommendations": [],
+                "subSections": [],
+            }
+        ],
+    }
+    content = _render(guideline)
+
+    assert "persists for three months or longer" in content
+    assert "15-19% of Canadian adults" in content
+
+
+def test_build_magic_guideline_text_applies_a_publisher_specific_heading_rule() -> None:
+    """A heading that is paperwork for one publisher and content for everyone else.
+
+    The Stroke Foundation opens all eight of its guidelines with an "Introduction" of about
+    12,100 characters, every one beginning "The Stroke Foundation is a national charity that
+    partners with the community to prevent, treat and beat stroke" - 96,945 characters of the
+    same blurb. Introduction is emphatically not on the general skip list: 86% of them across
+    the corpus carry something a verdict could rest on.
+    """
+    guideline = {
+        "name": "Stroke management",
+        "sections": [
+            {
+                "heading": "Introduction",
+                "text": (
+                    "<p>The Stroke Foundation is a national charity that partners with the "
+                    "community to prevent, treat and beat stroke.</p>"
+                ),
+                "recommendations": [],
+                "subSections": [],
+            },
+            {
+                "heading": "Acute management",
+                "text": "<p>Give alteplase within 4.5 hours of onset.</p>",
+                "recommendations": [],
+                "subSections": [],
+            },
+        ],
+    }
+    stroke_catalogue = [{**CATALOGUE[0], "institutionName": "Stroke Foundation"}]
+    with _client(catalogue=stroke_catalogue, guideline=guideline) as client:
+        stroke = scrape_magic_guideline(client, list_published_guidelines(client).refs[0])
+    with _client(guideline=guideline) as client:
+        other = scrape_magic_guideline(client, list_published_guidelines(client).refs[0])
+
+    assert "national charity" not in stroke.content
+    assert "Give alteplase within 4.5 hours of onset." in stroke.content
+    # The same document from any other publisher keeps its introduction.
+    assert "national charity" in other.content
+
+
 def test_institution_skip_headings_are_keyed_the_way_refs_are_spelled() -> None:
     """A publisher key must match `ref.institution`, not the raw catalogue field.
 
@@ -4927,50 +3847,6 @@ def test_institution_skip_headings_are_keyed_the_way_refs_are_spelled() -> None:
     # several named clinical blocks - "perfusion mismatch thresholds", "eligibility criteria"
     # - which would have fired if the pass were ever extended.
     assert all(_GUIDELINE_INLINE_SKIP_HEADINGS.values()), "an empty rule set does nothing"
-
-
-def test_markdown_drops_an_inline_heading_named_for_one_guideline() -> None:
-    """A heading inside a body, which no rule about sections can reach.
-
-    Publishers file "Target audience" or "Evidence synthesis" as an <h3> in the middle of a
-    section they also use for guidance. Removal runs to the next heading of the same or a
-    shallower level, so a mistake costs one block.
-    """
-    body = (
-        "<h3>Target audience</h3>"
-        "<p>This guideline is intended for paediatric rheumatologists and general practitioners.</p>"
-        "<h4>Who else may use it</h4>"
-        "<p>Pharmacists and consumers may also find it relevant.</p>"
-        "<h3>Treatment</h3>"
-        "<p>Start methotrexate at 10 mg per square metre once weekly.</p>"
-    )
-    guideline = {
-        "name": "Juvenile idiopathic arthritis",
-        "sections": [{"heading": "Overview", "text": body, "recommendations": [], "subSections": []}],
-    }
-    with _client(guideline=guideline) as client:
-        rendered = scrape_magic_guideline(client, list_published_guidelines(client).refs[0]).content
-
-    # nyxpZL is the short code the default catalogue entry carries, and the real guideline
-    # has an inline rule for "target population and audience" - not this heading.
-    assert "Target audience" in rendered
-
-    from amfv_datasets.scraping.magic import _GUIDELINE_INLINE_SKIP_HEADINGS
-
-    real = _GUIDELINE_INLINE_SKIP_HEADINGS.get("nyxpZL", frozenset())
-    _GUIDELINE_INLINE_SKIP_HEADINGS["nyxpZL"] = frozenset({"target audience"})
-    try:
-        with _client(guideline=guideline) as client:
-            rendered = scrape_magic_guideline(client, list_published_guidelines(client).refs[0]).content
-    finally:
-        _GUIDELINE_INLINE_SKIP_HEADINGS["nyxpZL"] = real
-
-    assert "Target audience" not in rendered
-    # The deeper heading is inside the block and goes with it.
-    assert "Pharmacists and consumers" not in rendered
-    # The next heading of the same level ends the removal.
-    assert "Start methotrexate at 10 mg per square metre once weekly." in rendered
-    assert "## Treatment" in rendered or "### Treatment" in rendered
 
 
 def test_a_guideline_exemption_beats_the_corpus_wide_skip_list() -> None:
@@ -5023,40 +3899,1113 @@ def test_a_guideline_exemption_beats_the_corpus_wide_skip_list() -> None:
     assert "Monitor the fetal heart rate every 30 minutes." in kept
 
 
-def test_markdown_drops_a_publication_announcement_and_its_citation() -> None:
-    """The "how to cite" block under wording no label list can match.
+# ---------------------------------------------------------------------------
+# Recommendation and PICO rendering
+# ---------------------------------------------------------------------------
 
-    nyO1Yj writes it as a bolded sentence ending in a colon, then the reference. Reaching it
-    through the inline-label rule was tried and rejected because it needed three separate
-    loosenings of a rule that deletes text; this keys on the pair instead.
+
+def test_build_magic_guideline_text_renders_sections_and_recommendations() -> None:
+    """Nested sections become headings and recommendations are inlined beneath them."""
+    with _client() as client:
+        ref = list_published_guidelines(client).refs[0]
+        content, section_count, title, _ = build_magic_guideline_text(client, ref)
+        stripped, _, _, _ = build_magic_guideline_text(client, ref, link_mode=LinkMode.STRIP)
+
+    assert title == "Management of juvenile idiopathic arthritis"
+    assert section_count == 1
+    assert content == (
+        "## Disease modifying therapy\n"
+        "\n"
+        "Therapy is chosen by disease severity.\n"
+        "\n"
+        "### Methotrexate\n"
+        "\n"
+        "See the [dosing table](https://example.org/dose).\n"
+        "\n"
+        "#### Recommendation 1 (WEAK)\n"
+        "\n"
+        "Consider methotrexate at 15mg/m2 once a week.\n"
+        "\n"
+        "*Remarks:*\n"
+        "\n"
+        "Preferred over leflunomide.\n"
+        "\n"
+        "#### Recommendation\n"
+        "\n"
+        "Review response after three months.\n"
+        "\n"
+        "Box 1.1 Sustainable Development Goals."
+    )
+    assert "[dosing table](https://example.org/dose)" not in stripped
+    assert "See the dosing table." in stripped
+
+
+def test_build_magic_guideline_text_does_not_label_info_boxes_as_recommendations() -> None:
+    """Strength INFO marks an editorial callout box, so it is emitted as plain content.
+
+    MAGICapp reuses the recommendation structure for boxes, and the catalogue's
+    publishedRecommendationCount excludes them. Labelling them would present
+    editorial material as clinical advice.
+    """
+    with _client() as client:
+        ref = list_published_guidelines(client).refs[0]
+        content, _, _, _ = build_magic_guideline_text(client, ref)
+
+    assert "Box 1.1 Sustainable Development Goals." in content
+    assert content.count("#### Recommendation") == 2
+
+
+def test_build_magic_guideline_text_uses_the_publishers_own_label() -> None:
+    """A body opening with its own label supplies the label, rather than repeating it.
+
+    The publisher's wording carries meaning a generic "Recommendation" would lose:
+    a practice point is explicitly what a panel wrote where the evidence review
+    found insufficient data.
+    """
+    with _client() as client:
+        ref = list_published_guidelines(client).refs[0]
+        content, _, _, _ = build_magic_guideline_text(client, ref)
+
+    assert "#### Recommendation 1 (WEAK)\n\nConsider methotrexate" in content
+    assert "#### Recommendation (WEAK)" not in content
+
+
+def test_build_magic_guideline_text_keeps_a_wholly_bolded_recommendation() -> None:
+    """A wholly bolded recommendation keeps its text and balanced markup.
+
+    WHO publishes these, e.g. "**RECOMMENDATION 3: A companion of choice is
+    recommended for all women throughout labour and childbirth.**". The span is
+    unwrapped before the label is cut at the colon; cutting inside it left the
+    closing half behind as a literal "**" at the end of the body.
+    """
+    guideline = {
+        "name": "Intrapartum care",
+        "sections": [
+            {
+                "heading": "Labour care",
+                "text": "",
+                "subSections": [],
+                "recommendations": [
+                    {
+                        "text": (
+                            "<p><strong>RECOMMENDATION 3: A companion of choice is recommended "
+                            "for all women throughout labour and childbirth.</strong></p>"
+                        ),
+                        "strength": "STRONG",
+                    }
+                ],
+            }
+        ],
+    }
+    with _client(guideline=guideline) as client:
+        ref = list_published_guidelines(client).refs[0]
+        content, _, _, _ = build_magic_guideline_text(client, ref)
+
+    assert "A companion of choice is recommended for all women throughout labour and childbirth." in content
+    assert "### RECOMMENDATION 3 (STRONG)" in content
+    assert content.count("**") % 2 == 0
+
+
+PICO_GUIDELINE = {
+    "name": "Chronic pain",
+    "sections": [
+        {
+            "heading": "Opioid therapy",
+            "text": "",
+            "recommendations": [],
+            "subSections": [],
+            "picos": [
+                {
+                    "population": "Patients with chronic non-cancer pain",
+                    "intervention": "Trial of opioids",
+                    "comparator": "Continue established therapy without opioids",
+                    "summary": "<p>Minimally important difference for pain on a 10-cm VAS is 1 cm.</p>",
+                    "outcomes": {
+                        "dichotomousOutcomes": [{"absoluteDifference": 0.23, "interventionTotalParticipants": 900}],
+                        "continuousOutcomes": [],
+                    },
+                }
+            ],
+        }
+    ],
+}
+
+
+EFFECT_ESTIMATE_PICO = {
+    "name": "Caesarean prophylaxis",
+    "sections": [
+        {
+            "heading": "Antibiotic choice",
+            "text": "",
+            "recommendations": [],
+            "subSections": [],
+            "picos": [
+                {
+                    "population": "Women receiving routine antibiotic prophylaxis for caesarean section",
+                    "intervention": "First-generation cephalosporins",
+                    "comparator": "Broad-spectrum penicillins",
+                    "summary": "<p>It is unclear whether cephalosporins reduce maternal sepsis.</p>",
+                    "outcomes": {
+                        "dichotomousOutcomes": [
+                            {
+                                "outcome": "Severe infectious morbidity: sepsis",
+                                "relativeEffectType": "RR",
+                                "relativeEffect": 2.37,
+                                "relativeEffectConfidenceLow": 0.1,
+                                "relativeEffectConfidenceHigh": 56.41,
+                                "interventionTotalParticipants": 75.0,
+                                "interventionStudies": "1",
+                                "qualityOfEvidenceLevel": "VERY_LOW",
+                            },
+                            {
+                                "outcome": "Puerperal infection: endometritis",
+                                "relativeEffectType": "RR",
+                                "relativeEffect": 1.1,
+                                "relativeEffectConfidenceLow": 0.76,
+                                "relativeEffectConfidenceHigh": 1.6,
+                                "interventionTotalParticipants": 1161.0,
+                                "interventionStudies": "7",
+                                "qualityOfEvidenceLevel": "LOW",
+                            },
+                            {
+                                "outcome": "An outcome the publisher hid",
+                                "relativeEffect": 9.9,
+                                "relativeEffectType": "RR",
+                                "isHidden": True,
+                                "qualityOfEvidenceLevel": "HIGH",
+                            },
+                            {"outcome": "A name and nothing else", "qualityOfEvidenceLevel": "NOTSET"},
+                        ]
+                    },
+                }
+            ],
+        }
+    ],
+}
+
+
+def test_build_magic_guideline_text_prints_the_effect_estimates_behind_a_pico() -> None:
+    """The numbers the panel weighed, which its prose often does not state.
+
+    WHO's caesarean-prophylaxis guideline says "it is unclear whether ... reduce maternal
+    sepsis" eleven times while the results table it carries records RR 2.37 from 75
+    participants in one study at very low certainty. The prose is right and the interval
+    does span no effect, but a verifier could only ever quote the word "unclear" and
+    never how thin the evidence behind it was. 22,187 outcomes across the corpus.
+    """
+    content = _render(EFFECT_ESTIMATE_PICO)
+
+    assert "*Effect estimates:*" in content
+    sepsis = "- Severe infectious morbidity: sepsis: RR 2.37 (95% CI 0.1 to 56.41), "
+    assert sepsis + "75 participants, 1 study, certainty very low" in content
+    assert (
+        "- Puerperal infection: endometritis: RR 1.1 (95% CI 0.76 to 1.6), 1161 participants, 7 studies, certainty low"
+        in content
+    )
+    # the written summary is still there, above the numbers
+    assert content.index("It is unclear whether") < content.index("*Effect estimates:*")
+
+
+NUMBERS_WITHOUT_PROSE = {
+    "name": "Pancreas transplant",
+    "sections": [
+        {
+            "heading": "Immunosuppression",
+            "text": "",
+            "recommendations": [],
+            "subSections": [],
+            "picos": [
+                {
+                    "population": "Adult pancreas transplant recipients with suspected COVID-19",
+                    "intervention": "Adjustment to maintenance immunosuppression therapy",
+                    "comparator": "Routine care",
+                    "summary": "",
+                    "outcomes": {
+                        "dichotomousOutcomes": [
+                            {
+                                "outcome": "Graft loss",
+                                "relativeEffectType": "RR",
+                                "relativeEffect": 1.4,
+                                "relativeEffectConfidenceLow": 0.9,
+                                "relativeEffectConfidenceHigh": 2.2,
+                                "interventionTotalParticipants": 210.0,
+                                "interventionStudies": "3",
+                                "qualityOfEvidenceLevel": "MODERATE",
+                            }
+                        ]
+                    },
+                },
+                {
+                    "population": "Patients with carotid stenosis",
+                    "intervention": "Trans-carotid artery revascularisation",
+                    "comparator": "Carotid endarterectomy",
+                    "summary": "",
+                },
+            ],
+        }
+    ],
+}
+
+
+def test_build_magic_guideline_text_prints_a_pico_whose_only_answer_is_numbers() -> None:
+    """The outcome table is an answer, so a question carrying one is not empty.
+
+    The gate used to require written prose, so an evidence question with a full results
+    table and no paragraph printed nothing at all - numbers included. That hid 7,119
+    outcomes across 118 of the 212 corpus documents. A question with neither prose nor
+    numbers still goes: 172 of those exist, all three parts filled in and nothing
+    reported, which is a perfect topical match that answers nothing.
+    """
+    content = _render(NUMBERS_WITHOUT_PROSE)
+
+    assert "- Population: Adult pancreas transplant recipients with suspected COVID-19" in content
+    assert "- Graft loss: RR 1.4 (95% CI 0.9 to 2.2), 210 participants, 3 studies, certainty moderate" in content
+    # no prose, so no summary label - the numbers stand on their own
+    assert "*Summary of findings:*" not in content
+    # and the question with neither prose nor numbers is still suppressed
+    assert "carotid stenosis" not in content
+
+
+def test_build_magic_guideline_text_keeps_the_readable_head_of_a_pico() -> None:
+    """The clinical question and its findings are kept; the effect estimates are not."""
+    content = _render(PICO_GUIDELINE)
+
+    assert "- Population: Patients with chronic non-cancer pain" in content
+    assert "- Intervention: Trial of opioids" in content
+    assert "*Summary of findings:*\n\nMinimally important difference for pain on a 10-cm VAS is 1 cm." in content
+    assert "absoluteDifference" not in content
+    assert "interventionTotalParticipants" not in content
+
+
+TABLE_SUMMARY_PICO = {
+    "name": "Dental diagnostics",
+    "sections": [
+        {
+            "heading": "Detection of caries",
+            "text": "",
+            "recommendations": [],
+            "subSections": [],
+            "picos": [
+                {
+                    "population": "Adults with primary caries",
+                    "intervention": "Visual examination",
+                    "comparator": "Radiographs",
+                    "summary": "<table><tr><td>Pooled sensitivity</td><td>0.96 (95% CI)</td></tr></table>",
+                }
+            ],
+        }
+    ],
+}
+
+
+def test_build_magic_guideline_text_starts_a_pico_summary_table_on_its_own_line() -> None:
+    """A summary that opens with a table still renders as one.
+
+    A markdown table must begin at the start of a line, so a first row glued
+    onto the label line turned the whole table into a paragraph of literal pipes.
+    """
+    content = _render(TABLE_SUMMARY_PICO)
+
+    assert "*Summary of findings:*\n\n|" in content
+    assert "Pooled sensitivity" in content
+
+
+def _diphtheria_pico(pico_id: int, intervention: str, summary: str) -> dict:
+    return {
+        "picoId": pico_id,
+        "population": "People with diphtheria",
+        "intervention": intervention,
+        "comparator": "No treatment",
+        "summary": f"<p>{summary}</p>",
+    }
+
+
+MISFILED_PICO_GUIDELINE = {
+    "name": "Diphtheria",
+    "sections": [
+        {
+            # The publisher lists every PICO here, including two answered two sections
+            # later - the Ea7gOL shape.
+            "heading": "5. Recommendation for antibiotics treatment",
+            "text": "",
+            "subSections": [],
+            "picos": [
+                _diphtheria_pico(129843, "Antibiotics", "Antibiotics shorten carriage."),
+                _diphtheria_pico(129844, "Sensitivity testing before antitoxin", "Testing rarely changes management."),
+                _diphtheria_pico(129850, "Antitoxin timing", "Earlier administration lowers mortality."),
+            ],
+            "recommendations": [{"text": "<p>Offer antibiotics to all cases.</p>", "strength": "STRONG"}],
+        },
+        {
+            "heading": "6.3 Recommendation on DAT sensitivity testing",
+            "text": "",
+            "subSections": [],
+            "picos": [],
+            "recommendations": [
+                {
+                    "text": "<p>Do not delay antitoxin for sensitivity testing.</p>",
+                    "strength": "STRONG",
+                    "picos": [
+                        _diphtheria_pico(
+                            129844, "Sensitivity testing before antitoxin", "Testing rarely changes management."
+                        )
+                    ],
+                }
+            ],
+        },
+        {
+            "heading": "6.4 Recommendation on DAT dose",
+            "text": "",
+            "subSections": [],
+            "picos": [],
+            "recommendations": [
+                {
+                    "text": "<p>Give antitoxin within 48 hours.</p>",
+                    "strength": "STRONG",
+                    "picos": [_diphtheria_pico(129850, "Antitoxin timing", "Earlier administration lowers mortality.")],
+                },
+                {
+                    "text": "<p>Use the higher dose in severe disease.</p>",
+                    "strength": "WEAK",
+                    "picos": [_diphtheria_pico(129850, "Antitoxin timing", "Earlier administration lowers mortality.")],
+                },
+            ],
+        },
+    ],
+}
+
+
+def test_build_magic_guideline_text_files_a_pico_under_the_recommendation_owning_it() -> None:
+    """Evidence prints where its recommendation is, not where the publisher listed it.
+
+    A PICO appears twice in the source - on the section introducing the question and
+    on the recommendation answering it, same `picoId`, identical text. Rendering only
+    the section-level list files evidence about antitoxin under the antibiotics
+    heading, telling a reader the wrong drug was studied. The move is volume-neutral:
+    the block prints once either way.
+    """
+    content = _render(MISFILED_PICO_GUIDELINE)
+
+    assert content.count("Testing rarely changes management.") == 1
+    assert content.index("Do not delay antitoxin for sensitivity testing.") < content.index(
+        "Testing rarely changes management."
+    )
+    # Answered inside the section listing it, so it stays put.
+    assert content.count("Antibiotics shorten carriage.") == 1
+    assert content.index("Antibiotics shorten carriage.") < content.index(
+        "Do not delay antitoxin for sensitivity testing."
+    )
+
+
+def test_build_magic_guideline_text_leaves_a_pico_shared_by_several_recommendations() -> None:
+    """A PICO with more than one owner stays at its section: each extra copy is a duplicate.
+
+    662 PICOs across the catalogue are owned by several recommendations, and printing
+    them under each owner adds 1.16 million characters of repeated evidence to the
+    English corpus - the measured reason the first attempt at this was reverted.
+    """
+    content = _render(MISFILED_PICO_GUIDELINE)
+
+    assert content.count("Earlier administration lowers mortality.") == 1
+    assert content.index("Earlier administration lowers mortality.") < content.index("Give antitoxin within 48 hours.")
+
+
+ARMS_GUIDELINE = {
+    "name": "Diabetes technology",
+    "sections": [
+        {
+            "heading": "Glucose monitoring",
+            "text": "",
+            "subSections": [],
+            "recommendations": [
+                {
+                    "text": "<p>Offer continuous glucose monitoring.</p>",
+                    "strength": "WEAK",
+                    "keyInfo": {
+                        "interventions": [
+                            {"picoElement": "I", "intervention": "CGM with alerts + MDI"},
+                            {"picoElement": "C", "intervention": "SMBG + MDI"},
+                        ]
+                    },
+                }
+            ],
+        }
+    ],
+}
+
+
+def test_build_magic_guideline_text_names_the_compared_arms() -> None:
+    """keyInfo.interventions names what the recommendation weighed against what."""
+    content = _render(ARMS_GUIDELINE)
+
+    assert "*Compared:*\n\nCGM with alerts + MDI versus SMBG + MDI" in content
+
+
+CERTAINTY_GUIDELINE = {
+    "name": "Dementia care",
+    "sections": [
+        {
+            "heading": "Biomarkers",
+            "text": "",
+            "subSections": [],
+            "recommendations": [
+                {
+                    "text": "<p>Consider a blood-based biomarker test as a triaging test.</p>",
+                    "strength": "WEAK",
+                    "keyInfo": {"evidenceStrength": "WEAK"},
+                }
+            ],
+        }
+    ],
+}
+
+
+def test_build_magic_guideline_text_translates_certainty_to_grade_wording() -> None:
+    """`evidenceStrength: WEAK` is GRADE's Low certainty and is emitted as such.
+
+    MAGICapp never uses LOW in this field; WEAK occupies that slot. Emitting the raw
+    token puts WEAK in one label twice meaning two different things - the strength of
+    the recommendation (weak/conditional) and the certainty of its evidence (low).
+    """
+    with _client(guideline=CERTAINTY_GUIDELINE) as client:
+        ref = list_published_guidelines(client).refs[0]
+        content, _, _, _ = build_magic_guideline_text(client, ref)
+
+    assert "### Recommendation (WEAK) — certainty of evidence: Low" in content
+    assert "certainty of evidence: WEAK" not in content
+
+
+ROOT_RECOMMENDATIONS_GUIDELINE = {
+    "name": "Fluid and drug therapy in ARDS",
+    "sections": [{"heading": "Scope", "text": "<p>Adults with ARDS.</p>", "recommendations": [], "subSections": []}],
+    "recommendations": [
+        {
+            "text": "<p>We recommend not using corticosteroids in routine therapy of adults with ARDS.</p>",
+            "strength": "STRONG_AGAINST",
+        },
+        {
+            "text": "<p>We suggest use of a restrictive fluid therapy in adults with ARDS.</p>",
+            "strength": "WEAK",
+        },
+    ],
+}
+
+
+def test_build_magic_guideline_text_keeps_recommendations_on_the_document_root() -> None:
+    """Recommendations hanging off the document root are collected, not just section ones.
+
+    The Scandinavian Society of Anaesthesiology publishes a guideline whose nine
+    recommendations sit on the root with none in any section; the catalogue's
+    publishedRecommendationCount of 9 confirms they are the real content. Walking
+    only sections dropped all nine.
+    """
+    with _client(guideline=ROOT_RECOMMENDATIONS_GUIDELINE) as client:
+        ref = list_published_guidelines(client).refs[0]
+        content, _, _, _ = build_magic_guideline_text(client, ref)
+
+    assert "We recommend not using corticosteroids in routine therapy of adults with ARDS." in content
+    assert "We suggest use of a restrictive fluid therapy in adults with ARDS." in content
+    assert "## Recommendation (STRONG_AGAINST)" in content
+
+
+def test_build_magic_guideline_text_leaves_body_markers_alone_after_a_clean_label() -> None:
+    """A label line carrying no markers of its own never costs the body any.
+
+    The National Blood Authority follows a bolded "Expert opinion point" line with
+    a bolded "EOP1" code opening the body; repairing balance by stripping leading
+    asterisks unconditionally broke that pair.
+    """
+    guideline = {
+        "name": "Prophylaxis",
+        "sections": [
+            {
+                "heading": "Testing",
+                "text": "",
+                "subSections": [],
+                "recommendations": [
+                    {
+                        "text": (
+                            "<p><strong>Expert opinion point</strong></p>"
+                            "<p><strong>EOP1</strong>: All women should have an antibody screen.</p>"
+                        ),
+                        "strength": "NOTSET",
+                    }
+                ],
+            }
+        ],
+    }
+    content = _render(guideline)
+
+    assert "**EOP1**: All women should have an antibody screen." in content
+    assert "### Expert opinion point" in content
+    assert content.count("**") % 2 == 0
+
+
+NUMBERED_LABEL_GUIDELINE = {
+    "name": "HCC surveillance",
+    "sections": [
+        {
+            "heading": "Surveillance",
+            "text": "",
+            "subSections": [],
+            "recommendations": [
+                {
+                    "text": (
+                        "<p><strong>2.1 Adapted evidence-based recommendation&nbsp;</strong></p>"
+                        "<p>Do not routinely offer surveillance for people with limited life expectancy.</p>"
+                    ),
+                    "strength": "STRONG_AGAINST",
+                }
+            ],
+        }
+    ],
+}
+
+
+def test_build_magic_guideline_text_takes_a_number_prefixed_label() -> None:
+    """A publisher label opening with a section number is still the label.
+
+    Publishers write "2.1 Adapted evidence-based recommendation" (guideline E83abn);
+    an opener pattern anchored on words alone stamped a generic "Recommendation" on
+    top, stacking two headers.
+    """
+    content = _render(NUMBERED_LABEL_GUIDELINE)
+
+    assert "### 2.1 Adapted evidence-based recommendation (STRONG_AGAINST)" in content
+    assert "Do not routinely offer surveillance for people with limited life expectancy." in content
+    assert "### Recommendation (STRONG_AGAINST)" not in content
+
+
+def test_build_magic_guideline_text_keeps_a_research_recommendation_label() -> None:
+    """A body opening "RESEARCH RECOMMENDATION" keeps that label, not "Recommendation".
+
+    Phoenix Australia opens 41 recommendation bodies with it; stamping the generic
+    label above it presented a research agenda as clinical guidance.
+    """
+    guideline = {
+        "name": "PTSD",
+        "sections": [
+            {
+                "heading": "Children",
+                "text": "",
+                "subSections": [],
+                "recommendations": [
+                    {
+                        "text": (
+                            "<p><strong>RESEARCH RECOMMENDATION</strong></p>"
+                            "<p>For children and adolescents, further trials are needed.</p>"
+                        ),
+                        "strength": "NOTSET",
+                    }
+                ],
+            }
+        ],
+    }
+    content = _render(guideline)
+
+    assert "### RESEARCH RECOMMENDATION\n\nFor children and adolescents, further trials are needed." in content
+
+
+def test_build_magic_guideline_text_drops_possibly_outdated_recommendations() -> None:
+    """A recommendation the publisher marks POSSIBLY_OUTDATED stays out of the corpus.
+
+    UNDER_REVIEW and NEW_EVIDENCE still mark current guidance and are kept.
+    """
+    guideline = {
+        "name": "Anticoagulation",
+        "sections": [
+            {
+                "heading": "Therapy",
+                "text": "",
+                "subSections": [],
+                "recommendations": [
+                    {
+                        "text": "<p>Offer warfarin as first-line.</p>",
+                        "strength": "STRONG",
+                        "status": "POSSIBLY_OUTDATED",
+                    },
+                    {
+                        "text": "<p>Offer a DOAC as first-line.</p>",
+                        "strength": "STRONG",
+                        "status": "UNDER_REVIEW",
+                    },
+                ],
+            }
+        ],
+    }
+    content = _render(guideline)
+
+    assert "warfarin" not in content
+    assert "Offer a DOAC as first-line." in content
+
+
+def test_build_magic_guideline_text_keeps_a_good_practice_statement_recommendation() -> None:
+    """The label on a real recommendation must survive the rule that drops the definition."""
+    content = _render_body(
+        "<h4><strong>Good practice statement 3</strong></h4>"
+        "<p>Give a single low dose of primaquine to reduce transmissibility.</p>"
+    )
+
+    assert "single low dose of primaquine" in content
+    assert "Good practice statement 3" in content
+
+
+def test_build_magic_guideline_text_keeps_a_section_defining_its_recommendation_symbols() -> None:
+    """A legend drawn rather than written counts too.
+
+    `j1WBYn` keys its recommendations by colour, and "The GREEN symbol denotes a
+    non-GRADE-based strong recommendation" is the only place it says what its own symbols
+    mean - the same interpretation contract as a worded legend.
+    """
+    content = _render(
+        {
+            "name": "COVID-19 critical care",
+            "sections": [
+                {
+                    "heading": "Methods",
+                    "text": (
+                        "<p>The GREEN symbol denotes a non-GRADE-based strong recommendation "
+                        "of a best practice statement.</p>"
+                    ),
+                    "recommendations": [],
+                    "subSections": [],
+                },
+            ],
+        }
+    )
+
+    assert "GREEN symbol denotes" in content
+
+
+PICO_ARMS_WITHOUT_KEY_INFO = {
+    "name": "Critical bleeding in immune thrombocytopenia",
+    "sections": [
+        {
+            "heading": "Recommendations for children",
+            "text": "",
+            "subSections": [],
+            "recommendations": [
+                {
+                    "title": "<p>Corticosteroids for children with a critical bleed</p>",
+                    "strength": "STRONG",
+                    "text": "<p>The panel recommends corticosteroids.</p>",
+                    "keyInfo": {},
+                    "picos": [
+                        {
+                            "intervention": "<p>Corticosteroids</p>",
+                            "comparator": "<p>No corticosteroids</p>",
+                            "summary": "",
+                        },
+                        {
+                            "intervention": "<p>High-dose dexamethasone</p>",
+                            "comparator": "<p>Prednisone</p>",
+                            "summary": "<p>Dexamethasone raised platelet counts faster.</p>",
+                        },
+                    ],
+                }
+            ],
+        },
+    ],
+}
+
+
+def test_build_magic_guideline_text_names_the_arms_when_key_info_is_empty() -> None:
+    """A recommendation still says what it compared when only its PICOs know.
+
+    Publishers do not always fill in `keyInfo.interventions`. The comparison can still be
+    on the recommendation's PICOs, but a PICO carrying no findings is suppressed, so the
+    arms reached the corpus nowhere - every pediatric recommendation in the ASH
+    thrombocytopenia guideline named its arms in the source and not in the output, while
+    its adult half named them. Arms from a PICO that does render are not repeated.
+    """
+    content = _render(PICO_ARMS_WITHOUT_KEY_INFO)
+
+    assert "*Compared:*" in content
+    assert "Corticosteroids versus No corticosteroids" in content
+    # A PICO carrying findings is left alone: where those render, the same intervention
+    # and comparator are printed with them, and repeating the pair here would put the
+    # same words in the document twice.
+    assert "High-dose dexamethasone versus Prednisone" not in content
+
+
+MULTI_PICO_ARMS = {
+    "name": "Stroke rehabilitation",
+    "sections": [
+        {
+            "heading": "Rehabilitation",
+            "text": "",
+            "subSections": [],
+            "recommendations": [
+                {
+                    "title": "<p>Rehabilitation after stroke</p>",
+                    "strength": "WEAK",
+                    "text": "<p>Several programmes were assessed.</p>",
+                    "keyInfo": {
+                        "interventions": [
+                            {"intervention": "Sertraline", "picoElement": "I", "picoId": 1},
+                            {"intervention": "placebo", "picoElement": "C", "picoId": 1},
+                            {"intervention": "Pelvic floor muscle training", "picoElement": "I", "picoId": 2},
+                            {"intervention": "Usual rehabilitation care", "picoElement": "C", "picoId": 2},
+                        ]
+                    },
+                    "picos": [],
+                }
+            ],
+        },
+    ],
+}
+
+
+def test_build_magic_guideline_text_keeps_each_comparison_separate() -> None:
+    """Arms are paired by their own PICO, not merged into one combined comparison.
+
+    A recommendation answering several questions carries every arm in one flat list.
+    Merging them stated a comparison no trial performed - a stroke guideline came out as
+    "Sertraline, Pelvic floor muscle training versus placebo, Usual rehabilitation care",
+    from which a reader could take "Sertraline versus Usual rehabilitation care".
+    """
+    content = _render(MULTI_PICO_ARMS)
+
+    assert "- Sertraline versus placebo" in content
+    assert "- Pelvic floor muscle training versus Usual rehabilitation care" in content
+    assert "Sertraline, Pelvic floor muscle training" not in content
+
+
+def test_build_magic_guideline_text_keeps_a_section_mapping_its_own_words_to_a_strength() -> None:
+    """A guideline's key to its OWN wording is kept, whatever heading it is filed under.
+
+    nyO1Yj files "'The panel recommends' indicates a strong recommendation" under "2
+    Methods", and without it the corpus carries "the panel suggests" with nothing saying
+    whether that means strong or conditional guidance.
+
+    The generic GRADE definition does not count, and the second half of this test is the
+    point: "A strong recommendation is given when there is high-certainty evidence" is
+    textbook material any guideline could carry, and treating it as a legend held 14
+    front-matter sections in the corpus.
+    """
+    specific = _render_body(
+        "<p>'The panel recommends' indicates a strong recommendation, and 'the panel "
+        "suggests' indicates a conditional recommendation.</p>"
+    )
+    assert "indicates a conditional recommendation" in specific
+
+    generic = _render(
+        {
+            "name": "Postnatal care",
+            "sections": [
+                {
+                    "heading": "Reading guide",
+                    "text": (
+                        "<p>A strong recommendation is given when there is high-certainty evidence "
+                        "that the benefits clearly outweigh the harms.</p>"
+                    ),
+                    "recommendations": [],
+                    "subSections": [],
+                },
+                {
+                    "heading": "Infant feeding",
+                    "text": "<p>Advise exclusive breastfeeding to six months.</p>",
+                    "recommendations": [],
+                    "subSections": [],
+                },
+            ],
+        }
+    )
+    assert "A strong recommendation is given when" not in generic
+    assert "Advise exclusive breastfeeding to six months." in generic
+
+
+def test_build_magic_guideline_text_drops_a_recommendation_marked_a_draft() -> None:
+    """A recommendation the publisher heads "DRAFT" is not settled guidance.
+
+    Three publishers mark a draft in the text while `status` still says UPDATED or NEW, so
+    the field cannot catch it. It is the same case as POSSIBLY_OUTDATED - advice the panel
+    does not yet stand behind - and goes the same way, the statement with it.
+    """
+    content = _render(
+        {
+            "name": "Stroke",
+            "sections": [
+                {
+                    "heading": "Dysphagia",
+                    "text": "<p>Screen all patients for swallowing difficulty.</p>",
+                    "recommendations": [
+                        {
+                            "text": (
+                                "<p><strong><u>DRAFT RECOMMENDATION - AUGUST 2024</u></strong></p>"
+                                "<p>Acupuncture should not be used for dysphagia.</p>"
+                            ),
+                            "strength": "WEAK",
+                            "status": "UPDATED",
+                        },
+                        {
+                            "text": "<p>Offer texture-modified diets where indicated.</p>",
+                            "strength": "STRONG",
+                            "status": "NEW",
+                        },
+                    ],
+                    "subSections": [],
+                }
+            ],
+        }
+    )
+
+    assert "Acupuncture should not be used" not in content
+    assert "DRAFT RECOMMENDATION" not in content
+    assert "Offer texture-modified diets where indicated." in content
+
+
+def test_build_magic_guideline_text_keeps_a_recommendation_that_merely_mentions_a_draft() -> None:
+    """Only a recommendation that OPENS with the marker goes.
+
+    Four recommendations in the catalogue mention a draft in passing - a committee that
+    "will provide advice on draft recommendations" - and dropping those would delete real
+    guidance on a word.
+    """
+    content = _render(
+        {
+            "name": "Pregnancy care",
+            "sections": [
+                {
+                    "heading": "Governance",
+                    "text": "<p>Oversight arrangements.</p>",
+                    "recommendations": [
+                        {
+                            "text": (
+                                "<p>The Expert Advisory Committee will convene to provide advice on "
+                                "draft recommendations before publication.</p>"
+                            ),
+                            "strength": "PRACTICE",
+                            "status": "NOTSET",
+                        }
+                    ],
+                    "subSections": [],
+                }
+            ],
+        }
+    )
+
+    assert "will convene to provide advice on draft recommendations" in content
+
+
+def test_build_magic_guideline_text_drops_a_recommendation_marked_draft_in_its_remarks() -> None:
+    """Some publishers put the draft marker in the remarks, not at the head of the text.
+
+    "This is a draft recommendation that has not yet been approved by NHMRC" appears under 49
+    recommendations whose text reads like any other. The panel has not signed them off.
+    """
+    guideline = {
+        "name": "Postnatal care",
+        "sections": [
+            {
+                "heading": "Perineal care",
+                "text": "",
+                "recommendations": [
+                    {
+                        "strength": "STRONG",
+                        "text": "<p>Offer ice packs for perineal pain in the first 24 hours.</p>",
+                        "remarks": (
+                            "<p>Approved by LEAPP Steering Committee 14 May 2026. This is a draft "
+                            "recommendation that has not yet been approved by NHMRC.</p>"
+                        ),
+                    },
+                    {
+                        "strength": "STRONG",
+                        "text": "<p>Assess the perineum at every postnatal contact.</p>",
+                    },
+                ],
+                "subSections": [],
+            }
+        ],
+    }
+    content = _render(guideline)
+
+    assert "Offer ice packs for perineal pain" not in content
+    assert "Assess the perineum at every postnatal contact." in content
+
+
+# ---------------------------------------------------------------------------
+# Document assembly
+# ---------------------------------------------------------------------------
+
+
+def test_build_magic_guideline_text_rejects_a_guideline_without_sections() -> None:
+    """A document with no sections is an error rather than an empty record."""
+    with _client(guideline={"name": "Empty", "sections": []}) as client:
+        ref = list_published_guidelines(client).refs[0]
+        with pytest.raises(MagicFetchError, match="No sections found"):
+            build_magic_guideline_text(client, ref)
+
+
+def test_build_magic_guideline_text_collapses_a_heading_that_only_repeats_its_child() -> None:
+    """A wrapper section with no text whose only child repeats its name emits one heading.
+
+    13 of these across 6 guidelines. Emitting both puts a heading in the document that
+    names something with nothing under it.
+    """
+    guideline = {
+        "name": "Colorectal cancer",
+        "sections": [
+            {
+                "heading": "Adjuvant therapy for stage III colon cancer",
+                "text": "",
+                "recommendations": [],
+                "subSections": [
+                    {
+                        "heading": "Adjuvant therapy for stage III colon cancer",
+                        "text": "<p>Offer oxaliplatin-based chemotherapy after resection.</p>",
+                        "recommendations": [],
+                        "subSections": [],
+                    }
+                ],
+            }
+        ],
+    }
+    content = _render(guideline)
+
+    assert content.count("Adjuvant therapy for stage III colon cancer") == 1
+    assert "Offer oxaliplatin-based chemotherapy after resection." in content
+
+
+def test_build_magic_guideline_text_keeps_both_headings_when_the_wrapper_has_content() -> None:
+    """Only an empty wrapper collapses; a parent carrying its own text keeps its heading."""
+    guideline = {
+        "name": "Colorectal cancer",
+        "sections": [
+            {
+                "heading": "Adjuvant therapy",
+                "text": "<p>Adjuvant therapy is considered after resection.</p>",
+                "recommendations": [],
+                "subSections": [
+                    {
+                        "heading": "Adjuvant therapy",
+                        "text": "<p>Offer oxaliplatin-based chemotherapy.</p>",
+                        "recommendations": [],
+                        "subSections": [],
+                    }
+                ],
+            }
+        ],
+    }
+    content = _render(guideline)
+
+    assert content.count("Adjuvant therapy\n") == 2
+
+
+def test_build_magic_guideline_text_drops_a_block_repeated_elsewhere() -> None:
+    """Deduplication, not judgement: the words survive in the copy that is kept.
+
+    A block goes only when every one of its eight-word runs is found in a block that stays,
+    so nothing can be lost. 1,360 blocks across the corpus, 1,277,785 characters, and every
+    removed block was checked against the render that keeps it.
+    """
+    guideline = {
+        "name": "Sepsis",
+        "sections": [
+            {
+                "heading": "Chapter one",
+                "text": (
+                    "<p>The panel considered the biology and mode of transmission of the "
+                    "organism when developing this recommendation.</p>"
+                ),
+                "recommendations": [],
+                "subSections": [],
+            },
+            {
+                "heading": "Chapter two",
+                "text": (
+                    "<p>The panel considered the biology and mode of transmission of the "
+                    "organism when developing this recommendation.</p>"
+                ),
+                "recommendations": [],
+                "subSections": [],
+            },
+        ],
+    }
+    content = _render(guideline)
+
+    assert content.count("mode of transmission of the organism") == 1
+    assert "Chapter one" in content
+    assert "Chapter two" in content
+
+
+def test_build_magic_guideline_text_keeps_a_repeated_effect_estimate() -> None:
+    """A guideline states the same estimate under every recommendation resting on it.
+
+    The second copy is not redundant - it is that recommendation's evidence, and deleting it
+    leaves a reader who finds the recommendation with no numbers under it. 1,100 of the 5,948
+    repeated blocks carry one of these, 651,211 characters, and they stay.
+    """
+    guideline = {
+        "name": "Diabetes",
+        "sections": [
+            {
+                "heading": "Chapter one",
+                "text": (
+                    "<p>Diabetic ketoacidosis, no. of patients: RR 2.81 (95% CI 0.46 to "
+                    "17.05), 1097 participants, 13 studies</p>"
+                ),
+                "recommendations": [],
+                "subSections": [],
+            },
+            {
+                "heading": "Chapter two",
+                "text": (
+                    "<p>Diabetic ketoacidosis, no. of patients: RR 2.81 (95% CI 0.46 to "
+                    "17.05), 1097 participants, 13 studies</p>"
+                ),
+                "recommendations": [],
+                "subSections": [],
+            },
+        ],
+    }
+    content = _render(guideline)
+
+    assert content.count("RR 2.81 (95% CI 0.46 to 17.05)") == 2
+
+
+def test_markdown_drops_an_inline_heading_named_for_one_guideline() -> None:
+    """A heading inside a body, which no rule about sections can reach.
+
+    Publishers file "Target audience" or "Evidence synthesis" as an <h3> in the middle of a
+    section they also use for guidance. Removal runs to the next heading of the same or a
+    shallower level, so a mistake costs one block.
     """
     body = (
-        "<p><strong>This guideline manuscript was published in </strong>"
-        "<em><strong>Alzheimer's and Dementia: The Journal of the Alzheimer's Association</strong></em>"
-        "<strong> on July 29th, 2025:</strong></p>"
-        "<p>Palmqvist S, Whitson HE, et al. Alzheimer's Association Clinical Practice Guideline on "
-        "the use of blood-based biomarkers. Alzheimer's Dement. 2025;e70535. "
-        "https://doi.org/10.1002/alz.70535</p>"
-        "<p>Blood-based biomarkers should be used only in specialized care settings.</p>"
+        "<h3>Target audience</h3>"
+        "<p>This guideline is intended for paediatric rheumatologists and general practitioners.</p>"
+        "<h4>Who else may use it</h4>"
+        "<p>Pharmacists and consumers may also find it relevant.</p>"
+        "<h3>Treatment</h3>"
+        "<p>Start methotrexate at 10 mg per square metre once weekly.</p>"
     )
-    rendered = _render_body(body)
+    guideline = {
+        "name": "Juvenile idiopathic arthritis",
+        "sections": [{"heading": "Overview", "text": body, "recommendations": [], "subSections": []}],
+    }
+    with _client(guideline=guideline) as client:
+        rendered = scrape_magic_guideline(client, list_published_guidelines(client).refs[0]).content
 
-    assert "was published in" not in rendered
-    assert "Palmqvist" not in rendered
-    assert "alz.70535" not in rendered
-    assert "Blood-based biomarkers should be used only in specialized care settings." in rendered
+    # nyxpZL is the short code the default catalogue entry carries, and the real guideline
+    # has an inline rule for "target population and audience" - not this heading.
+    assert "Target audience" in rendered
 
+    from amfv_datasets.scraping.magic import _GUIDELINE_INLINE_SKIP_HEADINGS
 
-def test_markdown_keeps_a_sentence_about_publication_with_no_citation_under_it() -> None:
-    """The citation is what makes the rule safe, so without one nothing is removed."""
-    body = (
-        "<p><strong>This Guideline should be used in tandem with other published resources:</strong></p>"
-        "<p>- National Strategic Framework for Aboriginal and Torres Strait Islander Mental Health</p>"
-    )
-    rendered = _render_body(body)
+    real = _GUIDELINE_INLINE_SKIP_HEADINGS.get("nyxpZL", frozenset())
+    _GUIDELINE_INLINE_SKIP_HEADINGS["nyxpZL"] = frozenset({"target audience"})
+    try:
+        with _client(guideline=guideline) as client:
+            rendered = scrape_magic_guideline(client, list_published_guidelines(client).refs[0]).content
+    finally:
+        _GUIDELINE_INLINE_SKIP_HEADINGS["nyxpZL"] = real
 
-    assert "published resources" in rendered
-    assert "National Strategic Framework" in rendered
+    assert "Target audience" not in rendered
+    # The deeper heading is inside the block and goes with it.
+    assert "Pharmacists and consumers" not in rendered
+    # The next heading of the same level ends the removal.
+    assert "Start methotrexate at 10 mg per square metre once weekly." in rendered
+    assert "## Treatment" in rendered or "### Treatment" in rendered
 
 
 def test_build_magic_guideline_text_drops_a_block_named_for_one_guideline() -> None:
@@ -5180,67 +5129,167 @@ def test_build_magic_guideline_text_keeps_a_heading_emptied_by_deduplication() -
     assert "Chapter two" in content
 
 
-def test_markdown_drops_a_paragraph_that_is_only_a_date() -> None:
-    """The line a publisher signs a foreword off with, left stranded by the scrape."""
-    rendered = _render_body(
-        "<p>Nigeria still struggles to reduce health inequalities.</p>"
-        "<p>13<sup>th</sup> June, 2025</p>"
-        "<p>Give kangaroo mother care immediately after birth.</p>"
+# ---------------------------------------------------------------------------
+# Scrape API
+# ---------------------------------------------------------------------------
+
+PLACEHOLDER_JSON_PATH = "https://s3.amazonaws.com/files.magicapp.org/guideline/ghi/guideline_3-1_0.json"
+
+
+STUB_JSON_PATH = "https://s3.amazonaws.com/files.magicapp.org/guideline/jkl/guideline_4-1_0.json"
+
+
+# A published catalogue entry whose body renders to nothing. MAGICapp really does
+# publish these, for example 'Test guideline 3'.
+PLACEHOLDER_GUIDELINE = {"name": "Beta-blockers for hypertension", "sections": [{"heading": "", "text": ""}]}
+
+
+# Renders to one short line. Published, not empty, and useless: it would enter the
+# corpus as a document about beta-blockers that says nothing about them.
+STUB_GUIDELINE = {
+    "name": "Beta-blockers for hypertension",
+    "sections": [
+        {
+            "heading": "Beta-blockers for hypertension",
+            "text": "<p>Evidence profiles for beta-blockers for hypertension, not yet publicly available.</p>",
+        }
+    ],
+}
+
+
+def test_scrape_magic_skips_unreadable_guidelines_instead_of_aborting(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An empty guideline is logged and skipped, leaving the rest of the run intact."""
+    monkeypatch.setattr(magic, "MIN_CONTENT_CHARS", 1)
+    scraped = _run_catalogue(
+        monkeypatch,
+        [
+            _catalogue_entry("aaaaaa", "Beta-blockers for hypertension", PLACEHOLDER_JSON_PATH),
+            _catalogue_entry("nyxpZL", "Management of juvenile idiopathic arthritis", JSON_PATH),
+        ],
+        {PLACEHOLDER_JSON_PATH: PLACEHOLDER_GUIDELINE, JSON_PATH: GUIDELINE},
     )
 
-    assert "June, 2025" not in rendered
-    assert "Nigeria still struggles to reduce health inequalities." in rendered
-    assert "Give kangaroo mother care immediately after birth." in rendered
+    assert [document.external_id for document in scraped] == ["magic-nyxpZL"]
+    assert "methotrexate" in scraped[0].content.lower()
 
 
-def test_markdown_keeps_a_date_inside_a_sentence() -> None:
-    """Only a block that is nothing but a date goes, so a date in prose is untouched."""
-    rendered = _render_body("<p>The last evidence search was run in June 2025 and found 14 new trials.</p>")
-
-    assert "run in June 2025 and found 14 new trials" in rendered
-
-
-def test_markdown_drops_a_list_of_document_links_and_its_label() -> None:
-    """Links to reports the scraper never fetched, under the label that introduces them."""
-    rendered = _render_body(
-        "<p><strong>SUPPORTING DOCUMENTS</strong></p>"
-        '<p>Evidence summary: <a href="https://www.cancer.org.au/a.pdf">SR-Evidence Summary</a><br />'
-        'Systematic review report: <a href="https://www.cancer.org.au/b.pdf">SR report</a></p>'
-        "<p>Repeat testing at 12 months is recommended for this group.</p>"
+def test_scrape_magic_drops_placeholder_guidelines_below_the_content_minimum(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A published stub too short to say anything does not become a document."""
+    scraped = _run_catalogue(
+        monkeypatch,
+        [_catalogue_entry("aaaaaa", "Beta-blockers for hypertension", STUB_JSON_PATH)],
+        {STUB_JSON_PATH: STUB_GUIDELINE},
     )
 
-    assert "SUPPORTING DOCUMENTS" not in rendered
-    assert "SR-Evidence Summary" not in rendered
-    assert "Repeat testing at 12 months is recommended for this group." in rendered
+    assert scraped == []
 
 
-def test_markdown_keeps_a_paragraph_that_merely_contains_a_link() -> None:
-    """The whole block has to be links, so prose carrying one is untouched."""
-    rendered = _render_body(
-        '<p>Screening is offered every 5 years, as set out in the <a href="https://x.org/p">'
-        "National Cervical Screening Policy</a>.</p>"
+def test_scrape_magic_skips_tutorial_and_workshop_organisations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Training material is dropped, and a real guideline is not."""
+    monkeypatch.setattr(magic, "MIN_CONTENT_CHARS", 1)
+    scraped = _run_catalogue(
+        monkeypatch,
+        [
+            _catalogue_entry("tutor1", "TUTORIAL - BMJ RapidRecs", PLACEHOLDER_JSON_PATH, "MAGICapp Tutorials"),
+            _catalogue_entry("nyxpZL", "Management of juvenile idiopathic arthritis", JSON_PATH),
+        ],
+        {PLACEHOLDER_JSON_PATH: GUIDELINE, JSON_PATH: GUIDELINE},
     )
 
-    assert "Screening is offered every 5 years" in rendered
+    assert [document.external_id for document in scraped] == ["magic-nyxpZL"]
 
 
-def test_markdown_drops_a_sentence_pointing_at_a_flowchart() -> None:
-    """A flowchart is a document, and the picture did not survive the scrape either.
+def test_scrape_magic_drops_publisher_marked_drafts(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A title the publisher marks a draft is dropped; a clean title with status DEV is kept.
 
-    Kj2WZL closes seven paragraphs with "See the flowchart for the literature search under
-    reference" and points at its dystocia flowcharts four more times.
+    Monash publishes j97pAn as "DRAFT FOR PUBLIC CONSULTATION: ..." - guidance its own
+    panel is still consulting readers on. The catalogue status field is never the test:
+    DEV describes the authoring workspace, and jboXZL carries it on a finished,
+    published guideline.
     """
-    rendered = _render_body(
-        "<p>Amniotomy may be considered when progress is slow. "
-        "See the flowchart for dystocia in the second stage of labour under reference.</p>"
+    monkeypatch.setattr(magic, "MIN_CONTENT_CHARS", 1)
+    published_dev = _catalogue_entry("jboXZL", "Supervised exercise for intermittent claudication", JSON_PATH)
+    published_dev["status"] = "DEV"
+    scraped = _run_catalogue(
+        monkeypatch,
+        [
+            _catalogue_entry("j97pAn", "DRAFT FOR PUBLIC CONSULTATION: Dementia Guidelines", STUB_JSON_PATH),
+            published_dev,
+        ],
+        {STUB_JSON_PATH: GUIDELINE, JSON_PATH: GUIDELINE},
     )
 
-    assert "Amniotomy may be considered when progress is slow." in rendered
-    assert "flowchart" not in rendered
+    assert [document.external_id for document in scraped] == ["magic-jboXZL"]
 
 
-def test_markdown_keeps_a_sentence_describing_what_a_flowchart_shows() -> None:
-    """Only "see the flowchart" goes. A sentence that states what one contains is content."""
-    rendered = _render_body("<p>The flowchart for dystocia sets a two-hour limit before reassessment.</p>")
+def test_scrape_magic_keeps_drafts_when_asked(monkeypatch: pytest.MonkeyPatch) -> None:
+    """include_drafts keeps what a default catalogue run drops."""
+    monkeypatch.setattr(magic, "MIN_CONTENT_CHARS", 1)
+    scraped = _run_catalogue(
+        monkeypatch,
+        [_catalogue_entry("j97pAn", "DRAFT FOR PUBLIC CONSULTATION: Dementia Guidelines", JSON_PATH)],
+        {JSON_PATH: GUIDELINE},
+        include_drafts=True,
+    )
 
-    assert "two-hour limit before reassessment" in rendered
+    assert [document.external_id for document in scraped] == ["magic-j97pAn"]
+
+
+def test_scrape_magic_survives_a_guideline_the_server_refuses(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The catalogue lists guidelines whose JSON returns 403; the run continues.
+
+    MAGICapp really does publish catalogue entries pointing at files that are not
+    publicly readable, so a catalogue run meets this in the wild.
+    """
+    monkeypatch.setattr(magic, "MIN_CONTENT_CHARS", 1)
+    forbidden = "https://files.magicapp.org/guideline/forbidden/guideline_9-1_0.json"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "api.magicapp.org":
+            return httpx.Response(
+                200,
+                json=[
+                    _catalogue_entry("DjxqOL", "Demo guideline", forbidden),
+                    _catalogue_entry("nyxpZL", "Management of juvenile idiopathic arthritis", JSON_PATH),
+                ],
+            )
+        if str(request.url) == forbidden:
+            return httpx.Response(403, text="Forbidden")
+        return httpx.Response(200, json=GUIDELINE)
+
+    monkeypatch.setattr(magic, "default_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+    monkeypatch.setattr(base.time, "sleep", lambda _seconds: None)
+
+    assert [document.external_id for document in scrape_magic(documents=None)] == ["magic-nyxpZL"]
+
+
+def test_scrape_magic_guideline_records_how_many_recommendations_reached_content() -> None:
+    """Both counts travel with the document, so a silent loss is visible later.
+
+    Every field is read with `.get`, so a renamed or moved field would shorten a
+    document without raising. Carrying the publisher's count beside our own is
+    what makes that detectable after the fact.
+    """
+    guideline = {
+        "name": "Management of juvenile idiopathic arthritis",
+        "sections": [
+            {
+                "heading": "Therapy",
+                "text": "<p>Treat early.</p>",
+                "recommendations": [
+                    {"text": "<p>Offer methotrexate.</p>", "strength": "WEAK"},
+                    {"text": "<p>Box 1.1 Sustainable Development Goals.</p>", "strength": "INFO"},
+                ],
+                "subSections": [],
+            }
+        ],
+    }
+    with _client(guideline=guideline) as client:
+        document = scrape_magic_guideline(client, list_published_guidelines(client).refs[0])
+
+    # The catalogue entry claims ten; one recommendation reached content, and the
+    # INFO callout box is deliberately not counted as one.
+    assert document.metadata["recommendation_count"] == 10
+    assert document.metadata["recommendations_in_content"] == 1
