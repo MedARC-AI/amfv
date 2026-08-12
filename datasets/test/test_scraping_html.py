@@ -68,3 +68,53 @@ def test_html_to_markdown_can_strip_links() -> None:
     html_text = '<p>Offer <a href="https://example.org">treatment</a>.</p>'
 
     assert html_to_markdown(html_text, link_mode=LinkMode.STRIP) == "Offer treatment."
+
+
+def test_html_to_markdown_absolutizes_remote_image_references() -> None:
+    """Relative image references remain usable outside the source website."""
+    html_text = '<p><img src="/uploads/flowchart.png" alt="Treatment flowchart"></p>'
+
+    assert html_to_markdown(html_text, base_url="https://example.org") == (
+        "![Treatment flowchart](https://example.org/uploads/flowchart.png)"
+    )
+
+
+def test_html_to_markdown_keeps_same_document_fragments_relative() -> None:
+    """Same-document references do not repeat the full document URL."""
+    html_text = '<p>Recommendation<a href="#ref12">[12]</a>.</p>'
+
+    assert (
+        html_to_markdown(
+            html_text,
+            base_url="https://example.org/guideline",
+            drop_numeric_citations=False,
+        )
+        == "Recommendation[[12]](#ref12)."
+    )
+
+
+def test_html_to_markdown_preserves_medical_superscripts_and_citations() -> None:
+    """Medical notation and source citation styles remain available."""
+    html_text = """
+    <p>Count 10<sup>9</sup>/L.</p>
+    <p>Current<a class="reference" href="#ref1">[1]</a>.</p>
+    <p>Legacy<sup>[<a class="reference" href="#ref2">2</a>]</sup>.</p>
+    """
+
+    assert (
+        html_to_markdown(
+            html_text,
+            base_url="https://example.org/guideline",
+            drop_numeric_citations=False,
+        )
+        == "Count 10<sup>9</sup>/L.\n\nCurrent[[1]](#ref1).\n\nLegacy<sup>[[2](#ref2)]</sup>."
+    )
+    assert (
+        html_to_markdown(
+            html_text,
+            base_url="https://example.org/guideline",
+            link_mode=LinkMode.STRIP,
+            drop_numeric_citations=False,
+        )
+        == "Count 10<sup>9</sup>/L.\n\nCurrent[1].\n\nLegacy<sup>[2]</sup>."
+    )

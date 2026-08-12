@@ -9,6 +9,16 @@ from amfv_datasets.scraping.base import (
     scrape_listing_documents,
 )
 from amfv_datasets.scraping.cli import OutputFormat, ScraperSource
+from amfv_datasets.scraping.cps import (
+    CpsFetchError,
+    CpsStatementRef,
+    build_statement_text,
+    list_statements,
+    listing_page_url,
+    scrape_cps,
+    scrape_statement,
+    statement_ref_from_url,
+)
 from amfv_datasets.scraping.html import (
     LinkMode,
     absolute_unique_urls,
@@ -31,6 +41,8 @@ from amfv_datasets.scraping.nice import (
 __all__ = [
     "GuidanceRef",
     "GuidanceListingPage",
+    "CpsFetchError",
+    "CpsStatementRef",
     "LinkMode",
     "NiceFetchError",
     "OutputFormat",
@@ -41,6 +53,7 @@ __all__ = [
     "USER_AGENT",
     "absolute_unique_urls",
     "build_guideline_text",
+    "build_statement_text",
     "clean_text",
     "document_title",
     "default_client",
@@ -48,7 +61,12 @@ __all__ = [
     "guidance_ref_from_url",
     "html_to_markdown",
     "list_published_guidance",
+    "list_statements",
+    "listing_page_url",
     "scrape_guideline",
     "scrape_listing_documents",
     "scrape_nice",
+    "scrape_cps",
+    "scrape_statement",
+    "statement_ref_from_url",
 ]

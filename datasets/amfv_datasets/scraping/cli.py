@@ -25,6 +25,7 @@ from rich.progress import (
 )
 
 from amfv_datasets.scraping.base import ScrapedDocument, ScrapeRun
+from amfv_datasets.scraping.cps import scrape_cps
 from amfv_datasets.scraping.html import LinkMode
 from amfv_datasets.scraping.nice import scrape_nice
 
@@ -34,6 +35,7 @@ class ScraperSource(StrEnum):
 
     ALL = "all"
     NICE = "nice"
+    CPS = "cps"
 
 
 class OutputFormat(StrEnum):
@@ -68,13 +70,33 @@ def scrape_documents(
     if documents is not None and documents < 1:
         raise ValueError(f"documents must be at least 1; got {documents}")
 
-    for selected_source in _expand_source(source):
-        match selected_source:
-            case ScraperSource.NICE:
-                return scrape_nice(documents=documents, link_mode=link_mode, url=url)
-            case ScraperSource.ALL:
-                raise AssertionError("expanded source cannot be all")
-    raise AssertionError(f"unsupported source: {source}")
+    selected_sources = _expand_source(source)
+    if url is not None and len(selected_sources) != 1:
+        raise ValueError("--url requires one specific scraper source, not 'all'")
+    runs = tuple(
+        _scrape_source(selected_source, documents=documents, link_mode=link_mode, url=url)
+        for selected_source in selected_sources
+    )
+    if len(runs) == 1:
+        return runs[0]
+    total = sum(run.total for run in runs) if all(run.total is not None for run in runs) else None
+    return ScrapeRun(documents=(document for run in runs for document in run), total=total)
+
+
+def _scrape_source(
+    source: ScraperSource,
+    *,
+    documents: int | None,
+    link_mode: LinkMode,
+    url: str | None,
+) -> ScrapeRun:
+    match source:
+        case ScraperSource.NICE:
+            return scrape_nice(documents=documents, link_mode=link_mode, url=url)
+        case ScraperSource.CPS:
+            return scrape_cps(documents=documents, link_mode=link_mode, url=url)
+        case ScraperSource.ALL:
+            raise AssertionError("expanded source cannot be all")
 
 
 def write_jsonl(documents: Iterable[ScrapedDocument], output: TextIO) -> int:
@@ -125,7 +147,7 @@ def write_markdown_files(documents: Iterable[ScrapedDocument], output_path: Path
 
 def _expand_source(source: ScraperSource) -> tuple[ScraperSource, ...]:
     if source is ScraperSource.ALL:
-        return (ScraperSource.NICE,)
+        return (ScraperSource.NICE, ScraperSource.CPS)
     return (source,)
 
 

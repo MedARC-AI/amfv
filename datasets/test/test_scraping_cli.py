@@ -11,6 +11,7 @@ from amfv_datasets.scraping.base import ScrapedDocument, ScrapeRun
 from amfv_datasets.scraping.cli import (
     ScraperSource,
     app,
+    scrape_documents,
     write_huggingface_dataset,
     write_jsonl,
     write_markdown_files,
@@ -217,6 +218,50 @@ def test_cli_run_accepts_all_documents(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert result.exit_code == 0
     assert json.loads(result.stdout.splitlines()[0])["external_id"] == "nice-ng1"
+
+
+def test_scrape_documents_dispatches_cps(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The CPS source delegates to its source-specific scraper."""
+    calls = 0
+
+    def fake_scrape_cps(*, documents: int | None, link_mode: LinkMode, url: str | None) -> ScrapeRun:
+        nonlocal calls
+        calls += 1
+        assert documents == 2
+        assert link_mode is LinkMode.KEEP
+        assert url == "https://cps.ca/en/documents/position/example"
+        return ScrapeRun([_document()], total=1)
+
+    monkeypatch.setattr("amfv_datasets.scraping.cli.scrape_cps", fake_scrape_cps)
+
+    run = scrape_documents(
+        ScraperSource.CPS,
+        documents=2,
+        link_mode=LinkMode.KEEP,
+        url="https://cps.ca/en/documents/position/example",
+    )
+
+    assert calls == 1
+    assert run.total == 1
+
+
+def test_scrape_documents_combines_all_sources(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The all source streams NICE and CPS documents with a combined total."""
+    nice = _document()
+    cps = ScrapedDocument("cps", "cps-example", "CPS example", "https://cps.ca/example", "content")
+    monkeypatch.setattr(
+        "amfv_datasets.scraping.cli.scrape_nice",
+        lambda **_kwargs: ScrapeRun([nice], total=1),
+    )
+    monkeypatch.setattr(
+        "amfv_datasets.scraping.cli.scrape_cps",
+        lambda **_kwargs: ScrapeRun([cps], total=1),
+    )
+
+    run = scrape_documents(ScraperSource.ALL, documents=1, link_mode=LinkMode.KEEP)
+
+    assert run.total == 2
+    assert [document.source for document in run] == ["nice", "cps"]
 
 
 def _document() -> ScrapedDocument:
