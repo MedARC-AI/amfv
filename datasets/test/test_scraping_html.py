@@ -91,3 +91,30 @@ def test_html_to_markdown_keeps_same_document_fragments_relative() -> None:
         )
         == "Recommendation[[12]](#ref12)."
     )
+
+
+def test_html_to_markdown_preserves_medical_superscripts_and_citations() -> None:
+    """Medical notation and source citation styles remain available."""
+    html_text = """
+    <p>Count 10<sup>9</sup>/L.</p>
+    <p>Current<a class="reference" href="#ref1">[1]</a>.</p>
+    <p>Legacy<sup>[<a class="reference" href="#ref2">2</a>]</sup>.</p>
+    """
+
+    assert (
+        html_to_markdown(
+            html_text,
+            base_url="https://example.org/guideline",
+            drop_numeric_citations=False,
+        )
+        == "Count 10<sup>9</sup>/L.\n\nCurrent[[1]](#ref1).\n\nLegacy<sup>[[2](#ref2)]</sup>."
+    )
+    assert (
+        html_to_markdown(
+            html_text,
+            base_url="https://example.org/guideline",
+            link_mode=LinkMode.STRIP,
+            drop_numeric_citations=False,
+        )
+        == "Count 10<sup>9</sup>/L.\n\nCurrent[1].\n\nLegacy<sup>[2]</sup>."
+    )

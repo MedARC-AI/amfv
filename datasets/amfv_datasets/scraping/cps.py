@@ -14,7 +14,6 @@ from urllib.parse import unquote, urljoin, urlparse
 
 import httpx
 from lxml import html as lxml_html
-from markdownify import MarkdownConverter
 
 from amfv_datasets.scraping.base import (
     ScrapedDocument,
@@ -40,37 +39,6 @@ _DATE_PATTERNS = {
 _BLANK_LINES_RE = re.compile(r"\n{3,}")
 _EMPTY_MARKDOWN_LINK_RE = re.compile(r"(?<!!)\[\]\([^)]*\)")
 _DECORATIVE_IMAGE_FILENAMES = {"file-pdf.svg"}
-
-
-class _CpsMarkdownConverter(MarkdownConverter):
-    """Preserve CPS superscripts that carry clinical meaning or citations."""
-
-    def convert_a(self, element, text: str, parent_tags: set[str]) -> str:  # noqa: ANN001
-        classes = element.get("class") or ()
-        href = element.get("href")
-        if "reference" in classes and href and "#ref" in href:
-            marker = element.get_text(strip=True).strip("[]")
-            if "a" in (self.options.get("strip") or ()):
-                return f"[{marker}]"
-            return f"[{marker}]({href})"
-        return super().convert_a(element, text, parent_tags)
-
-    def convert_sup(self, element, text: str, parent_tags: set[str]) -> str:  # noqa: ANN001
-        if not text.strip():
-            return ""
-        citation = element.find("a", href=lambda href: href and "#ref" in href)
-        if citation:
-            marker = element.get_text(strip=True).strip("[]")
-            if "a" in (self.options.get("strip") or ()):
-                return f"[{marker}]"
-            return f"[{marker}]({citation.get('href')})"
-        return f"<sup>{text}</sup>"
-
-
-_CPS_MARKDOWN_CONVERTERS = {
-    LinkMode.KEEP: _CpsMarkdownConverter(bullets="-", heading_style="ATX"),
-    LinkMode.STRIP: _CpsMarkdownConverter(bullets="-", heading_style="ATX", strip=("a",)),
-}
 
 
 class CpsFetchError(ScrapeError):
@@ -199,7 +167,6 @@ def _content_to_markdown(
         source,
         link_mode=link_mode,
         base_url=base_url,
-        converter=_CPS_MARKDOWN_CONVERTERS[link_mode],
         drop_numeric_citations=False,
     )
     markdown = _EMPTY_MARKDOWN_LINK_RE.sub("", markdown)

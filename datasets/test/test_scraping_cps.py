@@ -130,8 +130,8 @@ def test_scrape_statement_preserves_clinical_structure_and_metadata() -> None:
     }
     assert "- Assess the infant:\n  - Check vital signs." in document.content
     assert "[risk calculator](https://cps.ca/en/tools/risk-calculator)" in document.content
-    assert "Current citation[1](#ref1)." in document.content
-    assert "Legacy citation[2](#ref2)." in document.content
+    assert "Current citation[[1]](#ref1)." in document.content
+    assert "Legacy citation<sup>[[2](#ref2)]</sup>." in document.content
     assert "38<sup>o</sup>C" in document.content
     assert "10<sup>9</sup>/L" in document.content
     assert "# Management of well-appearing" not in document.content
