@@ -61,8 +61,9 @@ export PLAYWRIGHT_HTML_OPEN="never"
 ensure_node
 
 cd "${ROOT_DIR}/backend"
+uv run python -m app.scripts.bootstrap wait-for-database
 uv run alembic upgrade head
-uv run python -m app.initial_data
+uv run python -m app.scripts.bootstrap seed-initial-data
 uv run python -m app.scripts.seed_e2e
 uv run python -m app.scripts.seed_e2e
 

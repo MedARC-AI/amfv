@@ -8,13 +8,15 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 
 type CopyDocumentMarkdownButtonProps = {
   chunks: ChunkSummary[]
   document?: DocumentDetail
   sourceUrl?: string | null
 }
+
+type CopiedValue = string | null
+type CopyFn = (text: string) => Promise<boolean>
 
 function formatDocumentMarkdown({
   chunks,
@@ -46,7 +48,24 @@ export function CopyDocumentMarkdownButton({
   document,
   sourceUrl,
 }: CopyDocumentMarkdownButtonProps) {
-  const [copiedText, copyToClipboard] = useCopyToClipboard()
+  const [copiedText, setCopiedText] = React.useState<CopiedValue>(null)
+  const copyToClipboard: CopyFn = React.useCallback(async (text) => {
+    if (!navigator?.clipboard) {
+      console.warn("Clipboard not supported")
+      return false
+    }
+
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedText(text)
+      setTimeout(() => setCopiedText(null), 2000)
+      return true
+    } catch (error) {
+      console.warn("Copy failed", error)
+      setCopiedText(null)
+      return false
+    }
+  }, [])
   const markdown = React.useMemo(
     () => formatDocumentMarkdown({ chunks, document, sourceUrl }),
     [chunks, document, sourceUrl],

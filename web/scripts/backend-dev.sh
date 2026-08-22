@@ -62,8 +62,9 @@ EOF
 fi
 
 cd "${ROOT_DIR}/backend"
+uv run python -m app.scripts.bootstrap wait-for-database
 uv run alembic upgrade head
-uv run python -m app.initial_data
+uv run python -m app.scripts.bootstrap seed-initial-data
 echo "Backend dev: http://${BACKEND_BIND_HOST}:${BACKEND_PORT}"
 echo "Login:       ${FIRST_SUPERUSER}"
 exec uv run fastapi dev app/main.py --host "${BACKEND_BIND_HOST}" --port "${BACKEND_PORT}"

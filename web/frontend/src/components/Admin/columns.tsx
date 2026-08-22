@@ -1,9 +1,18 @@
 import type { ColumnDef } from "@tanstack/react-table"
+import { EllipsisVertical } from "lucide-react"
+import { useState } from "react"
 
 import type { UserPublic } from "@/client"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import useAuth from "@/hooks/useAuth"
 import { cn } from "@/lib/utils"
-import { UserActionsMenu } from "./UserActionsMenu"
+import EditUser from "./EditUser"
 
 const roleLabels = {
   user: "User",
@@ -13,6 +22,28 @@ const roleLabels = {
 
 export type UserTableData = UserPublic & {
   isCurrentUser: boolean
+}
+
+function UserActionsCell({ user }: { user: UserPublic }) {
+  const [open, setOpen] = useState(false)
+  const { user: currentUser } = useAuth()
+
+  if (user.id === currentUser?.id) {
+    return null
+  }
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon">
+          <EllipsisVertical />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <EditUser user={user} onSuccess={() => setOpen(false)} />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
 }
 
 export const columns: ColumnDef<UserTableData>[] = [
@@ -78,7 +109,7 @@ export const columns: ColumnDef<UserTableData>[] = [
     header: () => <span className="sr-only">Actions</span>,
     cell: ({ row }) => (
       <div className="flex justify-end">
-        <UserActionsMenu user={row.original} />
+        <UserActionsCell user={row.original} />
       </div>
     ),
   },
