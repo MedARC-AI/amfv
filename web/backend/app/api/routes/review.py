@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import (
@@ -84,10 +85,11 @@ def read_retrieval_review(
         raise HTTPException(status_code=404, detail="Review item not found")
     dataset = _read_active_dataset(session, assignment.dataset_id, EvalType.RETRIEVAL)
     existing = session.exec(
-        select(RetrievalQAReview).where(RetrievalQAReview.assignment_id == assignment.id)
+        select(RetrievalQAReview).where(col(RetrievalQAReview.assignment_id) == assignment.id)
     ).first()
     chunks = _chunks_for_item(session, item)
     documents = _documents_for_chunks_and_item(session, item, chunks)
+    assert assignment.id is not None
     return RetrievalReviewPayload(
         dataset=_dataset_payload(dataset),
         item=_item_payload(item),
@@ -127,6 +129,8 @@ def submit_retrieval_review(
         "accept_as_gold": body.accept_as_gold,
         "notes": body.notes,
     }
+    assert assignment.id is not None
+    assert item.id is not None
     judgment = RetrievalQAReview(
         assignment_id=assignment.id,
         item_id=item.id,
@@ -140,6 +144,9 @@ def submit_retrieval_review(
     complete_assignment(session, assignment)
     session.commit()
     session.refresh(judgment)
+    assert assignment.id is not None
+    assert item.id is not None
+    assert judgment.id is not None
     return ReviewSubmissionResponse(
         id=judgment.id,
         assignment_id=assignment.id,
@@ -162,13 +169,14 @@ def read_fact_decomp_review(
         raise HTTPException(status_code=403, detail="Cannot review your own item")
     dataset = _read_active_dataset(session, task.dataset_id, EvalType.FACT_DECOMP)
     existing = session.exec(
-        select(FactDecompReview).where(FactDecompReview.task_id == task.id, FactDecompReview.user_id == current_user.id)
+        select(FactDecompReview).where(col(FactDecompReview.task_id) == task.id, col(FactDecompReview.user_id) == current_user.id)
     ).first()
     chunks = _chunks_for_item(session, item)
     documents = _documents_for_chunks_and_item(session, item, chunks)
     facts = session.exec(
-        select(EvalFact).where(EvalFact.item_id == item.id).order_by(EvalFact.position)
+        select(EvalFact).where(col(EvalFact.item_id) == item.id).order_by(col(EvalFact.position))
     ).all()
+    assert task.id is not None
     return FactDecompReviewPayload(
         dataset=_dataset_payload(dataset),
         item=_item_payload(item),
@@ -200,11 +208,11 @@ def submit_fact_decomp_review(
     if body.item_revision != item.revision:
         raise HTTPException(status_code=409, detail="Item revision is stale")
     if session.exec(
-        select(FactDecompReview).where(FactDecompReview.task_id == task.id, FactDecompReview.user_id == current_user.id)
+        select(FactDecompReview).where(col(FactDecompReview.task_id) == task.id, col(FactDecompReview.user_id) == current_user.id)
     ).first():
         raise HTTPException(status_code=409, detail="Review task already submitted")
     facts = session.exec(
-        select(EvalFact).where(EvalFact.item_id == item.id).order_by(EvalFact.position)
+        select(EvalFact).where(col(EvalFact.item_id) == item.id).order_by(col(EvalFact.position))
     ).all()
     try:
         ratings = validate_fact_decomp_ratings(
@@ -218,6 +226,7 @@ def submit_fact_decomp_review(
             status_code=400,
             detail=[{"level": "error", "message": str(exc)}],
         ) from exc
+    assert task.id is not None
     review = FactDecompReview(
         task_id=task.id,
         user_id=current_user.id,
@@ -234,6 +243,9 @@ def submit_fact_decomp_review(
     session.commit()
     session.refresh(review)
     session.refresh(task)
+    assert task.id is not None
+    assert item.id is not None
+    assert review.id is not None
     return FactDecompReviewSubmissionResponse(
         id=review.id,
         task_id=task.id,
@@ -271,9 +283,11 @@ def read_relevance_review(
         raise HTTPException(status_code=404, detail="Candidate document not found")
     existing = session.exec(
         select(RelevanceJudgment).where(
-            RelevanceJudgment.assignment_id == assignment.id
+            col(RelevanceJudgment.assignment_id) == assignment.id
         )
     ).first()
+    assert assignment.id is not None
+    assert candidate.id is not None
     return RelevanceReviewPayload(
         dataset=_dataset_payload(dataset),
         item=_item_payload(item),
@@ -317,9 +331,11 @@ def submit_relevance_review(
     ):
         raise HTTPException(status_code=404, detail="Candidate document not found")
     if session.exec(
-        select(RelevanceJudgment).where(RelevanceJudgment.assignment_id == assignment.id)
+        select(RelevanceJudgment).where(col(RelevanceJudgment.assignment_id) == assignment.id)
     ).first():
         raise HTTPException(status_code=409, detail="Review assignment already submitted")
+    assert assignment.id is not None
+    assert candidate.id is not None
     judgment = RelevanceJudgment(
         assignment_id=assignment.id,
         candidate_id=candidate.id,
@@ -331,6 +347,10 @@ def submit_relevance_review(
     complete_assignment(session, assignment)
     session.commit()
     session.refresh(judgment)
+    assert assignment.id is not None
+    assert candidate.id is not None
+    assert item.id is not None
+    assert judgment.id is not None
     return ReviewSubmissionResponse(
         id=judgment.id,
         assignment_id=assignment.id,
@@ -344,7 +364,7 @@ def _next_assignment_review(
     current_user: CurrentUser,
     *,
     mode: AssignmentMode,
-    kind: str,
+    kind: Literal["retrieval_audit", "fact_decomp", "relevance"],
 ) -> NextReviewRecommendation:
     existing = _valid_existing_incomplete_assignment(session, current_user, mode)
     assignment = existing or select_assignment(
@@ -354,6 +374,7 @@ def _next_assignment_review(
         raise HTTPException(status_code=404, detail="No review tasks are available")
     session.commit()
     session.refresh(assignment)
+    assert assignment.id is not None
     if mode == AssignmentMode.RELEVANCE:
         candidate = session.get(PooledCandidate, assignment.target_id)
         item_id = candidate.item_id if candidate else None
@@ -390,6 +411,9 @@ def _next_fact_decomp_review(
     item = session.get(EvalItem, task.item_a_id)
     if item is None:
         raise HTTPException(status_code=404, detail="Review item not found")
+    assert dataset.id is not None
+    assert task.id is not None
+    assert item.id is not None
     return NextReviewRecommendation(
         kind="fact_decomp",
         eval_type=EvalType.FACT_DECOMP,
@@ -408,15 +432,15 @@ def _existing_incomplete_assignment(
 ) -> Assignment | None:
     return session.exec(
         select(Assignment)
-        .join(Dataset, Assignment.dataset_id == Dataset.id)
+        .join(Dataset, col(Assignment.dataset_id) == col(Dataset.id))
         .where(
-            Assignment.user_id == current_user.id,
-            Assignment.mode == mode,
-            Assignment.completed_at.is_(None),
-            Dataset.is_active == True,  # noqa: E712
-            Dataset.eval_type == EvalType.RETRIEVAL,
+            col(Assignment.user_id) == current_user.id,
+            col(Assignment.mode) == mode,
+            col(Assignment.completed_at).is_(None),
+            col(Dataset.is_active) == True,  # noqa: E712
+            col(Dataset.eval_type) == EvalType.RETRIEVAL,
         )
-        .order_by(Assignment.assigned_at)
+        .order_by(col(Assignment.assigned_at))
     ).first()
 
 
@@ -437,16 +461,16 @@ def _select_fact_decomp_task(
 ) -> ReviewTask | None:
     tasks = session.exec(
         select(ReviewTask)
-        .join(EvalItem, ReviewTask.item_a_id == EvalItem.id)
+        .join(EvalItem, col(ReviewTask.item_a_id) == col(EvalItem.id))
         .where(
-            ReviewTask.dataset_id == dataset.id,
-            ReviewTask.is_active == True,  # noqa: E712
-            EvalItem.dataset_id == dataset.id,
-            EvalItem.eval_type == EvalType.FACT_DECOMP,
-            EvalItem.status == ItemStatus.ACTIVE,
-            EvalItem.is_active == True,  # noqa: E712
+            col(ReviewTask.dataset_id) == dataset.id,
+            col(ReviewTask.is_active) == True,  # noqa: E712
+            col(EvalItem.dataset_id) == dataset.id,
+            col(EvalItem.eval_type) == EvalType.FACT_DECOMP,
+            col(EvalItem.status) == ItemStatus.ACTIVE,
+            col(EvalItem.is_active) == True,  # noqa: E712
         )
-        .order_by(ReviewTask.labels_count, ReviewTask.priority_score.desc(), ReviewTask.id)
+        .order_by(col(ReviewTask.labels_count), col(ReviewTask.priority_score).desc(), col(ReviewTask.id))
     ).all()
     for task in tasks:
         item = session.get(EvalItem, task.item_a_id)
@@ -454,8 +478,8 @@ def _select_fact_decomp_task(
             continue
         existing = session.exec(
             select(FactDecompReview).where(
-                FactDecompReview.task_id == task.id,
-                FactDecompReview.user_id == current_user.id,
+                col(FactDecompReview.task_id) == task.id,
+                col(FactDecompReview.user_id) == current_user.id,
             )
         ).first()
         if existing is not None:
@@ -512,6 +536,7 @@ def _read_active_item(session: SessionDep, item_id: int, eval_type: EvalType) ->
 
 
 def _dataset_payload(dataset: Dataset) -> ReviewDataset:
+    assert dataset.id is not None
     return ReviewDataset(
         id=dataset.id,
         name=dataset.name,
@@ -521,6 +546,7 @@ def _dataset_payload(dataset: Dataset) -> ReviewDataset:
 
 
 def _item_payload(item: EvalItem) -> ReviewItem:
+    assert item.id is not None
     return ReviewItem(
         id=item.id,
         dataset_id=item.dataset_id,
@@ -546,8 +572,8 @@ def _chunks_for_item(session: SessionDep, item: EvalItem) -> list[Chunk]:
         return list(
             session.exec(
                 select(Chunk)
-                .where(Chunk.document_id == item.document_id)
-                .order_by(Chunk.position)
+                .where(col(Chunk.document_id) == item.document_id)
+                .order_by(col(Chunk.position))
             ).all()
         )
     if not chunk_ids:
@@ -555,8 +581,8 @@ def _chunks_for_item(session: SessionDep, item: EvalItem) -> list[Chunk]:
     return list(
         session.exec(
             select(Chunk)
-            .where(Chunk.id.in_(chunk_ids), Chunk.dataset_id == item.dataset_id)
-            .order_by(Chunk.document_id, Chunk.position)
+            .where(col(Chunk.id).in_(chunk_ids), col(Chunk.dataset_id) == item.dataset_id)
+            .order_by(col(Chunk.document_id), col(Chunk.position))
         ).all()
     )
 
@@ -572,19 +598,20 @@ def _documents_for_chunks_and_item(
     documents = session.exec(
         select(Document)
         .where(
-            Document.id.in_(document_ids),
-            Document.dataset_id == item.dataset_id,
-            Document.is_active == True,  # noqa: E712
+            col(Document.id).in_(document_ids),
+            col(Document.dataset_id) == item.dataset_id,
+            col(Document.is_active) == True,  # noqa: E712
         )
-        .order_by(Document.title)
+        .order_by(col(Document.title))
     ).all()
     return [_document_detail(session, document) for document in documents]
 
 
 def _document_detail(session: SessionDep, document: Document) -> DocumentDetail:
     chunks = session.exec(
-        select(Chunk).where(Chunk.document_id == document.id).order_by(Chunk.position)
+        select(Chunk).where(col(Chunk.document_id) == document.id).order_by(col(Chunk.position))
     ).all()
+    assert document.id is not None
     return DocumentDetail(
         id=document.id,
         dataset_id=document.dataset_id,

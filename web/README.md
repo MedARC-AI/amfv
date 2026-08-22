@@ -15,9 +15,9 @@ Setup
 -----
 
 1. Copy `.env.example` to `.env` and set real secrets.
-2. Install backend dependencies with `cd backend && uv sync`.
-3. Apply migrations with `cd backend && uv run alembic upgrade head`.
-4. Install frontend dependencies with `cd frontend && bun install`.
+2. From the monorepo root, install Python workspace dependencies with `uv sync --dev`.
+3. Apply migrations with `cd web/backend && uv run alembic upgrade head`.
+4. Install frontend dependencies with `cd web/frontend && bun install --frozen-lockfile`.
 
 Local run commands
 ------------------
@@ -82,21 +82,22 @@ changethis
 Manual run commands
 -------------------
 
-- Backend API: `cd backend && uv run fastapi dev app/main.py`
-- Frontend: `cd frontend && bun run dev`
+- Backend API from the monorepo root: `cd web/backend && uv run fastapi dev app/main.py`
+- Frontend from the monorepo root: `cd web/frontend && bun run dev`
 
 Useful checks
 -------------
 
-- `cd backend && uv run ruff check .`
-- `cd backend && uv run pytest`
-- `cd backend && uv run alembic upgrade head`
-- `bash ./scripts/generate-client.sh`
-- `cd frontend && bun run check-client`
-- `cd frontend && bunx tsc -p tsconfig.build.json`
-- `cd frontend && bunx biome check ./src ./tests`
-- `cd frontend && bun run build`
-- `bash ./scripts/run-frontend-e2e.sh`
+- `uv run ruff check web/backend`
+- `uv run ty check web/backend/app`
+- `uv run pytest web/backend/tests`
+- `cd web/backend && uv run alembic upgrade head`
+- `bash web/scripts/generate-client.sh`
+- `cd web/frontend && bun run check-client`
+- `cd web/frontend && bunx tsc -p tsconfig.build.json`
+- `cd web/frontend && bunx biome check ./src ./tests`
+- `cd web/frontend && bun run build`
+- `bash web/scripts/run-frontend-e2e.sh`
 
 Use targeted checks while developing a focused slice: run the checks for the
 layer you touched plus `frontend`'s generated-client smoke check when API/client

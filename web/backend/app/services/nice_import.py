@@ -8,11 +8,13 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import httpx
 from sqlalchemy import text
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import IntegrityError, OperationalError
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from app.models import (
     NiceDownload,
@@ -102,27 +104,32 @@ def create_import_job(
         session.rollback()
         raise NiceImportAlreadyRunningError("A NICE import is already running") from exc
     session.refresh(job)
+    assert job.id is not None
     return job
 
 
 def get_current_or_recent_job(session: Session) -> NiceImportJob | None:
     active = session.exec(
         select(NiceImportJob)
-        .where(NiceImportJob.active_slot == 1)
-        .order_by(NiceImportJob.created_at.desc())  # type: ignore[attr-defined]
+        .where(col(NiceImportJob.active_slot) == 1)
+        .order_by(col(NiceImportJob.created_at).desc())
     ).first()
     if active is not None:
+        assert active.id is not None
         return active
-    return session.exec(
-        select(NiceImportJob).order_by(NiceImportJob.created_at.desc())  # type: ignore[attr-defined]
+    recent = session.exec(
+        select(NiceImportJob).order_by(col(NiceImportJob.created_at).desc())
     ).first()
+    if recent is not None:
+        assert recent.id is not None
+    return recent
 
 
 def has_unfinished_jobs(session: Session) -> bool:
     return (
         session.exec(
-            select(NiceImportJob.id).where(
-                NiceImportJob.status.in_(
+            select(col(NiceImportJob.id)).where(
+                col(NiceImportJob.status).in_(
                     [NiceImportJobStatus.pending, NiceImportJobStatus.running]
                 )
             )
@@ -134,7 +141,7 @@ def has_unfinished_jobs(session: Session) -> bool:
 def claim_job(session: Session, *, worker_id: str, now: datetime | None = None) -> NiceImportJob | None:
     now = now or utcnow()
     lease_expires_at = now + timedelta(seconds=JOB_LEASE_SECONDS)
-    result = session.execute(
+    result: CursorResult[Any] = session.connection().execute(
         text(
             """
             UPDATE nice_import_job
@@ -164,19 +171,22 @@ def claim_job(session: Session, *, worker_id: str, now: datetime | None = None) 
     session.commit()
     if result.rowcount != 1:
         return None
-    return session.exec(
+    claimed = session.exec(
         select(NiceImportJob).where(
-            NiceImportJob.lease_owner == worker_id,
-            NiceImportJob.active_slot == 1,
+            col(NiceImportJob.lease_owner) == worker_id,
+            col(NiceImportJob.active_slot) == 1,
         )
     ).first()
+    if claimed is not None:
+        assert claimed.id is not None
+    return claimed
 
 
 def heartbeat_job(
     session: Session, *, job_id: int, worker_id: str, now: datetime | None = None
 ) -> bool:
     now = now or utcnow()
-    result = session.execute(
+    result: CursorResult[Any] = session.connection().execute(
         text(
             """
             UPDATE nice_import_job
@@ -205,6 +215,7 @@ def cancel_job(session: Session, *, job_id: int, now: datetime | None = None) ->
     job = session.get(NiceImportJob, job_id)
     if job is None:
         raise NiceImportNotFoundError("NICE import job not found")
+    assert job.id is not None
     if job.status in {
         NiceImportJobStatus.completed,
         NiceImportJobStatus.failed,
@@ -219,6 +230,7 @@ def cancel_job(session: Session, *, job_id: int, now: datetime | None = None) ->
     session.add(job)
     session.commit()
     session.refresh(job)
+    assert job.id is not None
     return job
 
 
@@ -229,6 +241,7 @@ def discover_import_items(
     client: httpx.Client,
     page_size: int = PAGE_SIZE,
 ) -> int:
+    assert job.id is not None
     first_page, total = list_published_guidance(client, page=1, page_size=page_size)
     pages = max(1, (total + page_size - 1) // page_size) if total else 1
     target = job.target_count
@@ -268,10 +281,10 @@ def _queue_refs(
     queued = 0
     if remaining is not None and remaining <= 0:
         return queued
-    downloaded = set(session.exec(select(NiceDownload.reference)).all())
+    downloaded = set(session.exec(select(col(NiceDownload.reference))).all())
     existing = set(
         session.exec(
-            select(NiceImportItem.reference).where(NiceImportItem.job_id == job_id)
+            select(col(NiceImportItem.reference)).where(col(NiceImportItem.job_id) == job_id)
         ).all()
     )
     for ref in refs:
@@ -280,7 +293,7 @@ def _queue_refs(
         if ref.ref in downloaded or ref.ref in existing:
             continue
         now = utcnow()
-        result = session.execute(
+        result: CursorResult[Any] = session.connection().execute(
             text(
                 """
                 INSERT OR IGNORE INTO nice_import_item
@@ -322,7 +335,7 @@ def claim_next_item(
 ) -> NiceImportItem | None:
     now = now or utcnow()
     lease_expires_at = now + timedelta(seconds=ITEM_LEASE_SECONDS)
-    result = session.execute(
+    result: CursorResult[Any] = session.connection().execute(
         text(
             """
             UPDATE nice_import_item
@@ -350,12 +363,15 @@ def claim_next_item(
     session.commit()
     if result.rowcount != 1:
         return None
-    return session.exec(
+    claimed = session.exec(
         select(NiceImportItem)
-        .where(NiceImportItem.job_id == job_id)
-        .where(NiceImportItem.status == NiceImportItemStatus.in_progress)
-        .order_by(NiceImportItem.last_attempt_at.desc(), NiceImportItem.id.desc())  # type: ignore[attr-defined]
+        .where(col(NiceImportItem.job_id) == job_id)
+        .where(col(NiceImportItem.status) == NiceImportItemStatus.in_progress)
+        .order_by(col(NiceImportItem.last_attempt_at).desc(), col(NiceImportItem.id).desc())
     ).first()
+    if claimed is not None:
+        assert claimed.id is not None
+    return claimed
 
 
 def process_claimed_item(
@@ -367,6 +383,7 @@ def process_claimed_item(
     client: httpx.Client,
     now: datetime | None = None,
 ) -> bool:
+    assert item.id is not None
     now = now or utcnow()
     try:
         content, section_count, title = build_guideline_text(
@@ -387,7 +404,8 @@ def process_claimed_item(
             requested_by=requested_by,
         )
         dataset = get_or_create_nice_dataset(session)
-        materialize_nice_document(session, dataset_id=dataset.id or 0, download=download)
+        assert dataset.id is not None
+        materialize_nice_document(session, dataset_id=dataset.id, download=download)
         if not _complete_item_if_claimed(
             session, item=item, worker_id=worker_id, now=utcnow()
         ):
@@ -405,7 +423,8 @@ def process_claimed_item(
 def _complete_item_if_claimed(
     session: Session, *, item: NiceImportItem, worker_id: str, now: datetime
 ) -> bool:
-    result = session.execute(
+    assert item.id is not None
+    result: CursorResult[Any] = session.connection().execute(
         text(
             """
             UPDATE nice_import_item
@@ -445,9 +464,10 @@ def _create_or_get_download(
     requested_by: User | None,
 ) -> NiceDownload:
     existing = session.exec(
-        select(NiceDownload).where(NiceDownload.reference == item.reference)
+        select(NiceDownload).where(col(NiceDownload.reference) == item.reference)
     ).first()
     if existing is not None:
+        assert existing.id is not None
         return existing
     download = NiceDownload(
         reference=item.reference,
@@ -463,18 +483,21 @@ def _create_or_get_download(
     session.add(download)
     try:
         session.flush()
+        assert download.id is not None
     except IntegrityError:
         session.rollback()
-        return session.exec(
-            select(NiceDownload).where(NiceDownload.reference == item.reference)
+        existing = session.exec(
+            select(NiceDownload).where(col(NiceDownload.reference) == item.reference)
         ).one()
+        assert existing.id is not None
+        return existing
     return download
 
 
 def _increment_job_counter(
     session: Session, job_id: int, *, completed: int, failed: int
 ) -> None:
-    session.execute(
+    session.connection().execute(
         text(
             """
             UPDATE nice_import_job
@@ -497,7 +520,7 @@ def _mark_item_failed_or_retry(
     session: Session, *, item: NiceImportItem, worker_id: str, error: str, now: datetime
 ) -> None:
     if item.attempt_count >= MAX_ITEM_ATTEMPTS:
-        result = session.execute(
+        result: CursorResult[Any] = session.connection().execute(
             text(
                 """
                 UPDATE nice_import_item
@@ -529,7 +552,7 @@ def _mark_item_failed_or_retry(
         if result.rowcount == 1:
             _increment_job_counter(session, item.job_id, completed=0, failed=1)
     else:
-        session.execute(
+        session.connection().execute(
             text(
                 """
                 UPDATE nice_import_item
@@ -570,11 +593,12 @@ def finish_job_if_done(
     job = session.get(NiceImportJob, job_id)
     if job is None or job.lease_owner != worker_id:
         return job
+    assert job.id is not None
     pending = session.exec(
-        select(NiceImportItem.id)
-        .where(NiceImportItem.job_id == job_id)
+        select(col(NiceImportItem.id))
+        .where(col(NiceImportItem.job_id) == job_id)
         .where(
-            NiceImportItem.status.in_(
+            col(NiceImportItem.status).in_(
                 [
                     NiceImportItemStatus.pending,
                     NiceImportItemStatus.in_progress,
@@ -593,6 +617,7 @@ def finish_job_if_done(
     session.add(job)
     session.commit()
     session.refresh(job)
+    assert job.id is not None
     return job
 
 
@@ -642,8 +667,9 @@ def _run_worker_step(
             return WorkerStep(should_continue=False, sleep_seconds=0)
         if stop_requested():
             return WorkerStep(should_continue=False, sleep_seconds=0)
+        assert job.id is not None
         if not session.exec(
-            select(NiceImportItem.id).where(NiceImportItem.job_id == job.id)
+            select(col(NiceImportItem.id)).where(col(NiceImportItem.job_id) == job.id)
         ).first():
             discover_import_items(session, job=job, client=client)
         heartbeat_job(session, job_id=job.id or 0, worker_id=worker_id)
@@ -656,6 +682,7 @@ def _run_worker_step(
         item = session.get(NiceImportItem, item.id)
         if item is None:
             return WorkerStep(should_continue=True, sleep_seconds=0.25)
+        assert item.id is not None
         heartbeat_job(session, job_id=item.job_id, worker_id=worker_id)
         process_claimed_item(session, item=item, worker_id=worker_id, client=client)
         heartbeat_job(session, job_id=item.job_id, worker_id=worker_id)
@@ -670,22 +697,25 @@ def _wait_for_unfinished_work(session: Session, *, job_id: int) -> WorkerStep:
         NiceImportJobStatus.running,
     }:
         return WorkerStep(should_continue=False, sleep_seconds=0)
+    assert job.id is not None
 
     now = utcnow()
     waits: list[float] = []
     for value in session.exec(
-        select(NiceImportItem.next_attempt_at)
-        .where(NiceImportItem.job_id == job_id)
-        .where(NiceImportItem.status == NiceImportItemStatus.retry_pending)
-        .where(NiceImportItem.next_attempt_at.is_not(None))  # type: ignore[union-attr]
+        select(col(NiceImportItem.next_attempt_at))
+        .where(col(NiceImportItem.job_id) == job_id)
+        .where(col(NiceImportItem.status) == NiceImportItemStatus.retry_pending)
+        .where(col(NiceImportItem.next_attempt_at).is_not(None))
     ).all():
+        assert value is not None
         waits.append(max(0.25, (_as_aware_utc(value) - now).total_seconds()))
     for value in session.exec(
-        select(NiceImportItem.lease_expires_at)
-        .where(NiceImportItem.job_id == job_id)
-        .where(NiceImportItem.status == NiceImportItemStatus.in_progress)
-        .where(NiceImportItem.lease_expires_at.is_not(None))  # type: ignore[union-attr]
+        select(col(NiceImportItem.lease_expires_at))
+        .where(col(NiceImportItem.job_id) == job_id)
+        .where(col(NiceImportItem.status) == NiceImportItemStatus.in_progress)
+        .where(col(NiceImportItem.lease_expires_at).is_not(None))
     ).all():
+        assert value is not None
         waits.append(max(0.25, (_as_aware_utc(value) - now).total_seconds()))
 
     if waits:

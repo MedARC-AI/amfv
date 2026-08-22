@@ -4,9 +4,16 @@
 # imports `settings`, since os.environ overrides the .env value.
 import os
 import tempfile
+from pathlib import Path
 
 _TEST_DB_PATH = os.path.join(tempfile.gettempdir(), "amfv_test_app.db")
+_BACKEND_ROOT = Path(__file__).resolve().parents[1]
 os.environ["SQLITE_DATABASE_URL"] = f"sqlite:///{_TEST_DB_PATH}"
+os.environ["PROJECT_NAME"] = "AMFV Web Tests"
+os.environ["SECRET_KEY"] = "test-only-secret-key-at-least-32-bytes"
+os.environ["FIRST_SUPERUSER"] = "admin@example.com"
+os.environ["FIRST_SUPERUSER_PASSWORD"] = "test-only-superuser-password"
+os.environ["ENVIRONMENT"] = "local"
 
 from collections.abc import Generator
 
@@ -29,7 +36,7 @@ def db() -> Generator[Session, None, None]:
     if os.path.exists(_TEST_DB_PATH):
         os.remove(_TEST_DB_PATH)
 
-    alembic_cfg = Config("alembic.ini")
+    alembic_cfg = Config(str(_BACKEND_ROOT / "alembic.ini"))
     command.upgrade(alembic_cfg, "head")
 
     with Session(engine) as session:

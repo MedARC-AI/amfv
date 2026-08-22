@@ -2,7 +2,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.api.deps import SessionDep, get_current_app_user
 from app.models import Dataset, EvalType, NiceDownload, User
@@ -61,7 +61,7 @@ def fetch_nice_recommendation_by_url(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     _ = current_user
     download = session.exec(
-        select(NiceDownload).where(NiceDownload.reference == ref.ref)
+        select(NiceDownload).where(col(NiceDownload.reference) == ref.ref)
     ).first()
     if download is None:
         raise HTTPException(
@@ -69,11 +69,13 @@ def fetch_nice_recommendation_by_url(
             detail="This NICE recommendation has not been imported yet",
         )
 
+    assert dataset.id is not None
     document = materialize_nice_document(
         session, dataset_id=dataset.id, download=download
     )
     session.commit()
     session.refresh(document)
+    assert document.id is not None
 
     return NiceDocumentResponse(
         document_id=document.id or 0,
@@ -91,7 +93,7 @@ def list_nice_downloads(session: SessionDep, current_user: AppUser) -> Any:
     """List previously downloaded NICE recommendations (metadata only)."""
     _ = current_user
     downloads = session.exec(
-        select(NiceDownload).order_by(NiceDownload.created_at.desc())  # type: ignore[attr-defined]
+        select(NiceDownload).order_by(col(NiceDownload.created_at).desc())
     ).all()
     return [
         NiceDownloadSummary(

@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test"
 import { firstSuperuser, firstSuperuserPassword } from "./config.ts"
-import { createUser } from "./utils/privateApi"
 import { randomEmail, randomPassword } from "./utils/random"
+import { createUser } from "./utils/testBootstrap"
 import { logInUser } from "./utils/user"
 
 const selectProfession = async (

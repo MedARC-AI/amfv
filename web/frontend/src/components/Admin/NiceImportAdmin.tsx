@@ -45,9 +45,13 @@ export default function NiceImportAdmin() {
 
   const startImport = useMutation({
     mutationFn: () =>
-      AdminService.startNiceImport({ requestBody: { limit: requestLimit(limit) } }),
+      AdminService.startNiceImport({
+        requestBody: { limit: requestLimit(limit) },
+      }),
     onSuccess: (job) => {
-      showSuccessToast(`Started NICE import (${formatLimit(job.requested_limit)})`)
+      showSuccessToast(
+        `Started NICE import (${formatLimit(job.requested_limit)})`,
+      )
       invalidateNiceQueries(queryClient)
     },
     onError: (error: Error) => showErrorToast(error.message),
@@ -81,7 +85,9 @@ export default function NiceImportAdmin() {
           disabled={currentQuery.isFetching}
         >
           <RotateCw
-            className={currentQuery.isFetching ? "size-4 animate-spin" : "size-4"}
+            className={
+              currentQuery.isFetching ? "size-4 animate-spin" : "size-4"
+            }
           />
           Refresh
         </Button>
@@ -113,10 +119,7 @@ export default function NiceImportAdmin() {
               </SelectContent>
             </Select>
           </div>
-          <Button
-            type="submit"
-            disabled={isActive || startImport.isPending}
-          >
+          <Button type="submit" disabled={isActive || startImport.isPending}>
             {startImport.isPending ? "Starting..." : "Start import"}
           </Button>
           {isActive && currentJob ? (
@@ -207,7 +210,9 @@ function formatDate(value: string | null | undefined) {
 }
 
 function invalidateNiceQueries(queryClient: ReturnType<typeof useQueryClient>) {
-  void queryClient.invalidateQueries({ queryKey: ["admin-nice-import-current"] })
+  void queryClient.invalidateQueries({
+    queryKey: ["admin-nice-import-current"],
+  })
   void queryClient.invalidateQueries({ queryKey: ["admin-documents"] })
   void queryClient.invalidateQueries({ queryKey: ["nice-downloads"] })
 }

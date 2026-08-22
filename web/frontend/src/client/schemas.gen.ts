@@ -2,10 +2,6 @@
 
 export const AdminAgreementMetricSchema = {
     properties: {
-        dimension: {
-            type: 'string',
-            title: 'Dimension'
-        },
         alpha: {
             anyOf: [
                 {
@@ -17,14 +13,18 @@ export const AdminAgreementMetricSchema = {
             ],
             title: 'Alpha'
         },
+        dimension: {
+            title: 'Dimension',
+            type: 'string'
+        },
         n: {
-            type: 'integer',
-            title: 'N'
+            title: 'N',
+            type: 'integer'
         }
     },
-    type: 'object',
     required: ['dimension', 'alpha', 'n'],
-    title: 'AdminAgreementMetric'
+    title: 'AdminAgreementMetric',
+    type: 'object'
 } as const;
 
 export const AdminExportSchema = {
@@ -45,27 +45,19 @@ export const AdminExportSchema = {
                 additionalProperties: true,
                 type: 'object'
             },
-            type: 'array',
-            title: 'Items'
+            title: 'Items',
+            type: 'array'
         }
     },
-    type: 'object',
-    title: 'AdminExport'
+    title: 'AdminExport',
+    type: 'object'
 } as const;
 
 export const AdminInterUserAgreementMetricSchema = {
     properties: {
         dimension: {
-            type: 'string',
-            title: 'Dimension'
-        },
-        left_user_id: {
-            type: 'string',
-            title: 'Left User Id'
-        },
-        right_user_id: {
-            type: 'string',
-            title: 'Right User Id'
+            title: 'Dimension',
+            type: 'string'
         },
         kappa: {
             anyOf: [
@@ -78,36 +70,26 @@ export const AdminInterUserAgreementMetricSchema = {
             ],
             title: 'Kappa'
         },
+        left_user_id: {
+            title: 'Left User Id',
+            type: 'string'
+        },
         overlap: {
-            type: 'integer',
-            title: 'Overlap'
+            title: 'Overlap',
+            type: 'integer'
+        },
+        right_user_id: {
+            title: 'Right User Id',
+            type: 'string'
         }
     },
-    type: 'object',
     required: ['dimension', 'left_user_id', 'right_user_id', 'kappa', 'overlap'],
-    title: 'AdminInterUserAgreementMetric'
+    title: 'AdminInterUserAgreementMetric',
+    type: 'object'
 } as const;
 
 export const AdminItemSummarySchema = {
     properties: {
-        id: {
-            type: 'integer',
-            title: 'Id'
-        },
-        dataset_id: {
-            type: 'integer',
-            title: 'Dataset Id'
-        },
-        eval_type: {
-            '$ref': '#/components/schemas/EvalType'
-        },
-        status: {
-            '$ref': '#/components/schemas/ItemStatus'
-        },
-        prompt_text: {
-            type: 'string',
-            title: 'Prompt Text'
-        },
         category: {
             anyOf: [
                 {
@@ -117,6 +99,10 @@ export const AdminItemSummarySchema = {
                     type: 'null'
                 }
             ]
+        },
+        dataset_id: {
+            title: 'Dataset Id',
+            type: 'integer'
         },
         document_id: {
             anyOf: [
@@ -129,38 +115,52 @@ export const AdminItemSummarySchema = {
             ],
             title: 'Document Id'
         },
+        eval_type: {
+            '$ref': '#/components/schemas/EvalType'
+        },
+        id: {
+            title: 'Id',
+            type: 'integer'
+        },
+        prompt_text: {
+            title: 'Prompt Text',
+            type: 'string'
+        },
         revision: {
-            type: 'integer',
-            title: 'Revision'
+            title: 'Revision',
+            type: 'integer'
+        },
+        status: {
+            '$ref': '#/components/schemas/ItemStatus'
         },
         validation_flags: {
             items: {
                 additionalProperties: true,
                 type: 'object'
             },
-            type: 'array',
-            title: 'Validation Flags'
+            title: 'Validation Flags',
+            type: 'array'
         }
     },
-    type: 'object',
     required: ['id', 'dataset_id', 'eval_type', 'status', 'prompt_text', 'revision'],
-    title: 'AdminItemSummary'
+    title: 'AdminItemSummary',
+    type: 'object'
 } as const;
 
 export const AdminModerationActionSchema = {
     properties: {
         action: {
-            type: 'string',
             enum: ['approve', 'reject', 'return_to_draft'],
-            title: 'Action'
+            title: 'Action',
+            type: 'string'
         },
         dataset_id: {
-            type: 'integer',
-            title: 'Dataset Id'
+            title: 'Dataset Id',
+            type: 'integer'
         },
         expected_item_revision: {
-            type: 'integer',
-            title: 'Expected Item Revision'
+            title: 'Expected Item Revision',
+            type: 'integer'
         },
         reason: {
             anyOf: [
@@ -174,64 +174,49 @@ export const AdminModerationActionSchema = {
             title: 'Reason'
         }
     },
-    type: 'object',
     required: ['action', 'dataset_id', 'expected_item_revision'],
-    title: 'AdminModerationAction'
+    title: 'AdminModerationAction',
+    type: 'object'
 } as const;
 
 export const AdminTaskGenerationResultSchema = {
     properties: {
-        dataset_id: {
-            type: 'integer',
-            title: 'Dataset Id'
-        },
         created: {
-            type: 'integer',
-            title: 'Created'
+            title: 'Created',
+            type: 'integer'
+        },
+        dataset_id: {
+            title: 'Dataset Id',
+            type: 'integer'
         },
         existing: {
-            type: 'integer',
-            title: 'Existing'
+            title: 'Existing',
+            type: 'integer'
         }
     },
-    type: 'object',
     required: ['dataset_id', 'created', 'existing'],
-    title: 'AdminTaskGenerationResult'
+    title: 'AdminTaskGenerationResult',
+    type: 'object'
 } as const;
 
 export const AdminUserMetricSchema = {
     properties: {
-        user_id: {
-            type: 'string',
-            title: 'User Id'
+        authored_items: {
+            title: 'Authored Items',
+            type: 'integer'
         },
         email: {
-            type: 'string',
-            title: 'Email'
-        },
-        role: {
-            type: 'string',
-            title: 'Role'
-        },
-        reviewer_kind: {
-            type: 'string',
-            title: 'Reviewer Kind'
-        },
-        authored_items: {
-            type: 'integer',
-            title: 'Authored Items'
+            title: 'Email',
+            type: 'string'
         },
         fact_decomp_reviews: {
-            type: 'integer',
-            title: 'Fact Decomp Reviews'
+            title: 'Fact Decomp Reviews',
+            type: 'integer'
         },
-        retrieval_qa_reviews: {
-            type: 'integer',
-            title: 'Retrieval Qa Reviews'
-        },
-        relevance_judgments: {
-            type: 'integer',
-            title: 'Relevance Judgments'
+        kappa_overlap: {
+            default: 0,
+            title: 'Kappa Overlap',
+            type: 'integer'
         },
         mean_kappa: {
             anyOf: [
@@ -244,57 +229,46 @@ export const AdminUserMetricSchema = {
             ],
             title: 'Mean Kappa'
         },
-        kappa_overlap: {
-            type: 'integer',
-            title: 'Kappa Overlap',
-            default: 0
+        relevance_judgments: {
+            title: 'Relevance Judgments',
+            type: 'integer'
+        },
+        retrieval_qa_reviews: {
+            title: 'Retrieval Qa Reviews',
+            type: 'integer'
+        },
+        reviewer_kind: {
+            title: 'Reviewer Kind',
+            type: 'string'
+        },
+        role: {
+            title: 'Role',
+            type: 'string'
+        },
+        user_id: {
+            title: 'User Id',
+            type: 'string'
         }
     },
-    type: 'object',
     required: ['user_id', 'email', 'role', 'reviewer_kind', 'authored_items', 'fact_decomp_reviews', 'retrieval_qa_reviews', 'relevance_judgments'],
-    title: 'AdminUserMetric'
+    title: 'AdminUserMetric',
+    type: 'object'
 } as const;
 
 export const AssignmentKindSchema = {
-    type: 'string',
     enum: ['REGULAR', 'DOUBLE', 'CALIBRATION', 'TRAP'],
-    title: 'AssignmentKind'
+    title: 'AssignmentKind',
+    type: 'string'
 } as const;
 
 export const AssignmentModeSchema = {
-    type: 'string',
     enum: ['ITEM_AUDIT', 'RELEVANCE'],
-    title: 'AssignmentMode'
+    title: 'AssignmentMode',
+    type: 'string'
 } as const;
 
 export const Body_login_login_access_tokenSchema = {
     properties: {
-        grant_type: {
-            anyOf: [
-                {
-                    type: 'string',
-                    pattern: '^password$'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Grant Type'
-        },
-        username: {
-            type: 'string',
-            title: 'Username'
-        },
-        password: {
-            type: 'string',
-            format: 'password',
-            title: 'Password'
-        },
-        scope: {
-            type: 'string',
-            title: 'Scope',
-            default: ''
-        },
         client_id: {
             anyOf: [
                 {
@@ -317,50 +291,76 @@ export const Body_login_login_access_tokenSchema = {
             ],
             format: 'password',
             title: 'Client Secret'
+        },
+        grant_type: {
+            anyOf: [
+                {
+                    pattern: '^password$',
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Grant Type'
+        },
+        password: {
+            format: 'password',
+            title: 'Password',
+            type: 'string'
+        },
+        scope: {
+            default: '',
+            title: 'Scope',
+            type: 'string'
+        },
+        username: {
+            title: 'Username',
+            type: 'string'
         }
     },
-    type: 'object',
     required: ['username', 'password'],
-    title: 'Body_login-login_access_token'
+    title: 'Body_login-login_access_token',
+    type: 'object'
 } as const;
 
 export const ChunkSummarySchema = {
     properties: {
-        id: {
-            type: 'integer',
-            title: 'Id'
-        },
         dataset_id: {
-            type: 'integer',
-            title: 'Dataset Id'
+            title: 'Dataset Id',
+            type: 'integer'
         },
         document_id: {
-            type: 'integer',
-            title: 'Document Id'
+            title: 'Document Id',
+            type: 'integer'
         },
         external_id: {
-            type: 'string',
-            title: 'External Id'
+            title: 'External Id',
+            type: 'string'
         },
-        text: {
-            type: 'string',
-            title: 'Text'
+        id: {
+            title: 'Id',
+            type: 'integer'
         },
         position: {
-            type: 'integer',
-            title: 'Position'
+            title: 'Position',
+            type: 'integer'
+        },
+        text: {
+            title: 'Text',
+            type: 'string'
         }
     },
-    type: 'object',
     required: ['id', 'dataset_id', 'document_id', 'external_id', 'text', 'position'],
-    title: 'ChunkSummary'
+    title: 'ChunkSummary',
+    type: 'object'
 } as const;
 
 export const CreateFactDecompDraftSubmitSchema = {
     properties: {
         dataset_id: {
-            type: 'integer',
-            title: 'Dataset Id'
+            title: 'Dataset Id',
+            type: 'integer'
         },
         document_id: {
             anyOf: [
@@ -373,48 +373,43 @@ export const CreateFactDecompDraftSubmitSchema = {
             ],
             title: 'Document Id'
         },
-        source_text: {
-            type: 'string',
-            minLength: 1,
-            title: 'Source Text'
-        },
         facts: {
             items: {
                 '$ref': '#/components/schemas/FactDraft'
             },
-            type: 'array',
-            title: 'Facts'
+            title: 'Facts',
+            type: 'array'
+        },
+        source_text: {
+            minLength: 1,
+            title: 'Source Text',
+            type: 'string'
         },
         status: {
             '$ref': '#/components/schemas/ItemStatus',
             default: 'DRAFT'
         }
     },
-    type: 'object',
     required: ['dataset_id', 'source_text', 'facts'],
-    title: 'CreateFactDecompDraftSubmit'
+    title: 'CreateFactDecompDraftSubmit',
+    type: 'object'
 } as const;
 
 export const CreateRetrievalDraftSubmitSchema = {
     properties: {
+        category: {
+            '$ref': '#/components/schemas/RetrievalCategory'
+        },
         dataset_id: {
-            type: 'integer',
-            title: 'Dataset Id'
+            title: 'Dataset Id',
+            type: 'integer'
         },
         document_ids: {
             items: {
                 type: 'integer'
             },
-            type: 'array',
-            title: 'Document Ids'
-        },
-        category: {
-            '$ref': '#/components/schemas/RetrievalCategory'
-        },
-        question: {
-            type: 'string',
-            minLength: 1,
-            title: 'Question'
+            title: 'Document Ids',
+            type: 'array'
         },
         expected_answer: {
             anyOf: [
@@ -427,24 +422,33 @@ export const CreateRetrievalDraftSubmitSchema = {
             ],
             title: 'Expected Answer'
         },
-        unanswerable: {
-            type: 'boolean',
-            title: 'Unanswerable',
-            default: false
-        },
         gold_evidence_spans: {
             items: {
                 '$ref': '#/components/schemas/EvidenceSpan'
             },
-            type: 'array',
-            title: 'Gold Evidence Spans'
+            title: 'Gold Evidence Spans',
+            type: 'array'
+        },
+        question: {
+            minLength: 1,
+            title: 'Question',
+            type: 'string'
+        },
+        status: {
+            '$ref': '#/components/schemas/ItemStatus',
+            default: 'DRAFT'
         },
         trap_evidence_spans: {
             items: {
                 '$ref': '#/components/schemas/EvidenceSpan'
             },
-            type: 'array',
-            title: 'Trap Evidence Spans'
+            title: 'Trap Evidence Spans',
+            type: 'array'
+        },
+        unanswerable: {
+            default: false,
+            title: 'Unanswerable',
+            type: 'boolean'
         },
         why_not_answerable: {
             anyOf: [
@@ -456,32 +460,15 @@ export const CreateRetrievalDraftSubmitSchema = {
                 }
             ],
             title: 'Why Not Answerable'
-        },
-        status: {
-            '$ref': '#/components/schemas/ItemStatus',
-            default: 'DRAFT'
         }
     },
-    type: 'object',
     required: ['dataset_id', 'category', 'question'],
-    title: 'CreateRetrievalDraftSubmit'
+    title: 'CreateRetrievalDraftSubmit',
+    type: 'object'
 } as const;
 
 export const DatasetCreateSchema = {
     properties: {
-        name: {
-            type: 'string',
-            minLength: 1,
-            title: 'Name'
-        },
-        display_name: {
-            type: 'string',
-            minLength: 1,
-            title: 'Display Name'
-        },
-        eval_type: {
-            '$ref': '#/components/schemas/EvalType'
-        },
         description: {
             anyOf: [
                 {
@@ -493,59 +480,67 @@ export const DatasetCreateSchema = {
             ],
             title: 'Description'
         },
-        is_active: {
-            type: 'boolean',
-            title: 'Is Active',
-            default: true
-        }
-    },
-    type: 'object',
-    required: ['name', 'display_name', 'eval_type'],
-    title: 'DatasetCreate'
-} as const;
-
-export const DatasetSummarySchema = {
-    properties: {
-        id: {
-            type: 'integer',
-            title: 'Id'
-        },
-        name: {
-            type: 'string',
-            title: 'Name'
-        },
         display_name: {
-            type: 'string',
-            title: 'Display Name'
+            minLength: 1,
+            title: 'Display Name',
+            type: 'string'
         },
         eval_type: {
             '$ref': '#/components/schemas/EvalType'
         },
         is_active: {
-            type: 'boolean',
-            title: 'Is Active'
+            default: true,
+            title: 'Is Active',
+            type: 'boolean'
+        },
+        name: {
+            minLength: 1,
+            title: 'Name',
+            type: 'string'
         }
     },
-    type: 'object',
+    required: ['name', 'display_name', 'eval_type'],
+    title: 'DatasetCreate',
+    type: 'object'
+} as const;
+
+export const DatasetSummarySchema = {
+    properties: {
+        display_name: {
+            title: 'Display Name',
+            type: 'string'
+        },
+        eval_type: {
+            '$ref': '#/components/schemas/EvalType'
+        },
+        id: {
+            title: 'Id',
+            type: 'integer'
+        },
+        is_active: {
+            title: 'Is Active',
+            type: 'boolean'
+        },
+        name: {
+            title: 'Name',
+            type: 'string'
+        }
+    },
     required: ['id', 'name', 'display_name', 'eval_type', 'is_active'],
-    title: 'DatasetSummary'
+    title: 'DatasetSummary',
+    type: 'object'
 } as const;
 
 export const DocumentCreateSchema = {
     properties: {
-        dataset_id: {
-            type: 'integer',
-            title: 'Dataset Id'
-        },
-        title: {
-            type: 'string',
-            minLength: 1,
-            title: 'Title'
-        },
         content: {
-            type: 'string',
             minLength: 1,
-            title: 'Content'
+            title: 'Content',
+            type: 'string'
+        },
+        dataset_id: {
+            title: 'Dataset Id',
+            type: 'integer'
         },
         external_id: {
             anyOf: [
@@ -557,140 +552,131 @@ export const DocumentCreateSchema = {
                 }
             ],
             title: 'External Id'
+        },
+        title: {
+            minLength: 1,
+            title: 'Title',
+            type: 'string'
         }
     },
-    type: 'object',
     required: ['dataset_id', 'title', 'content'],
-    title: 'DocumentCreate'
+    title: 'DocumentCreate',
+    type: 'object'
 } as const;
 
 export const DocumentDetailSchema = {
     properties: {
-        id: {
-            type: 'integer',
-            title: 'Id'
-        },
-        dataset_id: {
-            type: 'integer',
-            title: 'Dataset Id'
-        },
-        external_id: {
-            type: 'string',
-            title: 'External Id'
-        },
-        title: {
-            type: 'string',
-            title: 'Title'
-        },
-        is_active: {
-            type: 'boolean',
-            title: 'Is Active'
+        chunks: {
+            items: {
+                '$ref': '#/components/schemas/ChunkSummary'
+            },
+            title: 'Chunks',
+            type: 'array'
         },
         content: {
-            type: 'string',
-            title: 'Content'
+            title: 'Content',
+            type: 'string'
+        },
+        dataset_id: {
+            title: 'Dataset Id',
+            type: 'integer'
+        },
+        external_id: {
+            title: 'External Id',
+            type: 'string'
+        },
+        id: {
+            title: 'Id',
+            type: 'integer'
+        },
+        is_active: {
+            title: 'Is Active',
+            type: 'boolean'
         },
         paragraphs: {
             items: {
                 additionalProperties: true,
                 type: 'object'
             },
-            type: 'array',
-            title: 'Paragraphs'
+            title: 'Paragraphs',
+            type: 'array'
         },
-        chunks: {
-            items: {
-                '$ref': '#/components/schemas/ChunkSummary'
-            },
-            type: 'array',
-            title: 'Chunks'
+        title: {
+            title: 'Title',
+            type: 'string'
         }
     },
-    type: 'object',
     required: ['id', 'dataset_id', 'external_id', 'title', 'is_active', 'content'],
-    title: 'DocumentDetail'
+    title: 'DocumentDetail',
+    type: 'object'
 } as const;
 
 export const DocumentSummarySchema = {
     properties: {
-        id: {
-            type: 'integer',
-            title: 'Id'
-        },
         dataset_id: {
-            type: 'integer',
-            title: 'Dataset Id'
+            title: 'Dataset Id',
+            type: 'integer'
         },
         external_id: {
-            type: 'string',
-            title: 'External Id'
+            title: 'External Id',
+            type: 'string'
         },
-        title: {
-            type: 'string',
-            title: 'Title'
+        id: {
+            title: 'Id',
+            type: 'integer'
         },
         is_active: {
-            type: 'boolean',
-            title: 'Is Active'
+            title: 'Is Active',
+            type: 'boolean'
+        },
+        title: {
+            title: 'Title',
+            type: 'string'
         }
     },
-    type: 'object',
     required: ['id', 'dataset_id', 'external_id', 'title', 'is_active'],
-    title: 'DocumentSummary'
+    title: 'DocumentSummary',
+    type: 'object'
 } as const;
 
 export const EvalTypeSchema = {
-    type: 'string',
     enum: ['RETRIEVAL', 'FACT_DECOMP'],
-    title: 'EvalType'
+    title: 'EvalType',
+    type: 'string'
 } as const;
 
 export const EvidenceSpanSchema = {
     properties: {
         chunk_id: {
-            type: 'integer',
-            title: 'Chunk Id'
-        },
-        start: {
-            type: 'integer',
-            minimum: 0,
-            title: 'Start'
+            title: 'Chunk Id',
+            type: 'integer'
         },
         end: {
-            type: 'integer',
             exclusiveMinimum: 0,
-            title: 'End'
+            title: 'End',
+            type: 'integer'
+        },
+        start: {
+            minimum: 0,
+            title: 'Start',
+            type: 'integer'
         },
         text: {
-            type: 'string',
             minLength: 1,
-            title: 'Text'
+            title: 'Text',
+            type: 'string'
         }
     },
-    type: 'object',
     required: ['chunk_id', 'start', 'end', 'text'],
-    title: 'EvidenceSpan'
+    title: 'EvidenceSpan',
+    type: 'object'
 } as const;
 
 export const FactDecompCreateResponseSchema = {
     properties: {
-        id: {
-            type: 'integer',
-            title: 'Id'
-        },
         dataset_id: {
-            type: 'integer',
-            title: 'Dataset Id'
-        },
-        eval_type: {
-            '$ref': '#/components/schemas/EvalType'
-        },
-        status: {
-            '$ref': '#/components/schemas/ItemStatus'
-        },
-        prompt_text: {
-            type: 'string',
-            title: 'Prompt Text'
+            title: 'Dataset Id',
+            type: 'integer'
         },
         document_id: {
             anyOf: [
@@ -703,82 +689,65 @@ export const FactDecompCreateResponseSchema = {
             ],
             title: 'Document Id'
         },
+        eval_type: {
+            '$ref': '#/components/schemas/EvalType'
+        },
         facts: {
             items: {
                 '$ref': '#/components/schemas/FactDraft'
             },
-            type: 'array',
-            title: 'Facts'
+            title: 'Facts',
+            type: 'array'
+        },
+        id: {
+            title: 'Id',
+            type: 'integer'
         },
         item_revision: {
-            type: 'integer',
-            title: 'Item Revision'
+            title: 'Item Revision',
+            type: 'integer'
+        },
+        prompt_text: {
+            title: 'Prompt Text',
+            type: 'string'
+        },
+        status: {
+            '$ref': '#/components/schemas/ItemStatus'
         },
         validation: {
             '$ref': '#/components/schemas/ValidationPreview'
         }
     },
-    type: 'object',
     required: ['id', 'dataset_id', 'eval_type', 'status', 'prompt_text', 'item_revision', 'validation'],
-    title: 'FactDecompCreateResponse'
+    title: 'FactDecompCreateResponse',
+    type: 'object'
 } as const;
 
 export const FactDecompReviewPayloadSchema = {
     properties: {
-        kind: {
-            type: 'string',
-            const: 'fact_decomp',
-            title: 'Kind',
-            default: 'fact_decomp'
-        },
-        dataset: {
-            '$ref': '#/components/schemas/ReviewDataset'
-        },
-        item: {
-            '$ref': '#/components/schemas/ReviewItem'
-        },
-        task_id: {
-            type: 'integer',
-            title: 'Task Id'
-        },
-        facts: {
+        allowed_actions: {
             items: {
-                '$ref': '#/components/schemas/ReviewFact'
+                type: 'string'
             },
-            type: 'array',
-            title: 'Facts'
-        },
-        rubric_dimensions: {
-            items: {
-                '$ref': '#/components/schemas/ReviewRubricDimension'
-            },
-            type: 'array',
-            title: 'Rubric Dimensions'
-        },
-        documents: {
-            items: {
-                '$ref': '#/components/schemas/DocumentDetail'
-            },
-            type: 'array',
-            title: 'Documents'
+            title: 'Allowed Actions',
+            type: 'array'
         },
         chunks: {
             items: {
                 '$ref': '#/components/schemas/ChunkSummary'
             },
-            type: 'array',
-            title: 'Chunks'
+            title: 'Chunks',
+            type: 'array'
         },
-        allowed_actions: {
+        dataset: {
+            '$ref': '#/components/schemas/ReviewDataset'
+        },
+        documents: {
             items: {
-                type: 'string'
+                '$ref': '#/components/schemas/DocumentDetail'
             },
-            type: 'array',
-            title: 'Allowed Actions'
-        },
-        item_revision: {
-            type: 'integer',
-            title: 'Item Revision'
+            title: 'Documents',
+            type: 'array'
         },
         existing_review: {
             anyOf: [
@@ -791,58 +760,75 @@ export const FactDecompReviewPayloadSchema = {
                 }
             ],
             title: 'Existing Review'
+        },
+        facts: {
+            items: {
+                '$ref': '#/components/schemas/ReviewFact'
+            },
+            title: 'Facts',
+            type: 'array'
+        },
+        item: {
+            '$ref': '#/components/schemas/ReviewItem'
+        },
+        item_revision: {
+            title: 'Item Revision',
+            type: 'integer'
+        },
+        kind: {
+            const: 'fact_decomp',
+            default: 'fact_decomp',
+            title: 'Kind',
+            type: 'string'
+        },
+        rubric_dimensions: {
+            items: {
+                '$ref': '#/components/schemas/ReviewRubricDimension'
+            },
+            title: 'Rubric Dimensions',
+            type: 'array'
+        },
+        task_id: {
+            title: 'Task Id',
+            type: 'integer'
         }
     },
-    type: 'object',
     required: ['dataset', 'item', 'task_id', 'item_revision'],
-    title: 'FactDecompReviewPayload'
+    title: 'FactDecompReviewPayload',
+    type: 'object'
 } as const;
 
 export const FactDecompReviewSubmissionResponseSchema = {
     properties: {
-        id: {
-            type: 'integer',
-            title: 'Id'
+        completed: {
+            default: true,
+            title: 'Completed',
+            type: 'boolean'
         },
-        task_id: {
-            type: 'integer',
-            title: 'Task Id'
+        id: {
+            title: 'Id',
+            type: 'integer'
         },
         item_id: {
-            type: 'integer',
-            title: 'Item Id'
+            title: 'Item Id',
+            type: 'integer'
         },
         labels_count: {
-            type: 'integer',
-            title: 'Labels Count'
+            title: 'Labels Count',
+            type: 'integer'
         },
-        completed: {
-            type: 'boolean',
-            title: 'Completed',
-            default: true
+        task_id: {
+            title: 'Task Id',
+            type: 'integer'
         }
     },
-    type: 'object',
     required: ['id', 'task_id', 'item_id', 'labels_count'],
-    title: 'FactDecompReviewSubmissionResponse'
+    title: 'FactDecompReviewSubmissionResponse',
+    type: 'object'
 } as const;
 
 export const FactDecompReviewSubmitSchema = {
     properties: {
-        fact_calls: {
-            additionalProperties: {
-                type: 'string'
-            },
-            type: 'object',
-            title: 'Fact Calls'
-        },
-        values: {
-            additionalProperties: {
-                type: 'string'
-            },
-            type: 'object',
-            title: 'Values'
-        },
         comments: {
             anyOf: [
                 {
@@ -864,51 +850,65 @@ export const FactDecompReviewSubmitSchema = {
                 }
             ]
         },
+        fact_calls: {
+            additionalProperties: {
+                type: 'string'
+            },
+            title: 'Fact Calls',
+            type: 'object'
+        },
         item_revision: {
-            type: 'integer',
-            title: 'Item Revision'
+            title: 'Item Revision',
+            type: 'integer'
+        },
+        values: {
+            additionalProperties: {
+                type: 'string'
+            },
+            title: 'Values',
+            type: 'object'
         }
     },
-    type: 'object',
     required: ['fact_calls', 'values', 'item_revision'],
-    title: 'FactDecompReviewSubmit'
+    title: 'FactDecompReviewSubmit',
+    type: 'object'
 } as const;
 
 export const FactDraftSchema = {
     properties: {
-        fact_uuid: {
-            type: 'string',
-            title: 'Fact Uuid'
-        },
         fact_text: {
-            type: 'string',
             minLength: 1,
-            title: 'Fact Text'
+            title: 'Fact Text',
+            type: 'string'
+        },
+        fact_uuid: {
+            title: 'Fact Uuid',
+            type: 'string'
         },
         polarity: {
             '$ref': '#/components/schemas/FactPolarity'
         },
         position: {
-            type: 'integer',
-            title: 'Position'
+            title: 'Position',
+            type: 'integer'
         },
         provenance_spans: {
             items: {
                 '$ref': '#/components/schemas/EvidenceSpan'
             },
-            type: 'array',
-            title: 'Provenance Spans'
+            title: 'Provenance Spans',
+            type: 'array'
         }
     },
-    type: 'object',
     required: ['fact_uuid', 'fact_text', 'polarity', 'position'],
-    title: 'FactDraft'
+    title: 'FactDraft',
+    type: 'object'
 } as const;
 
 export const FactPolaritySchema = {
-    type: 'string',
     enum: ['SHOULD_LIST', 'SHOULD_NOT_LIST'],
-    title: 'FactPolarity'
+    title: 'FactPolarity',
+    type: 'string'
 } as const;
 
 export const HTTPValidationErrorSchema = {
@@ -917,35 +917,27 @@ export const HTTPValidationErrorSchema = {
             items: {
                 '$ref': '#/components/schemas/ValidationError'
             },
-            type: 'array',
-            title: 'Detail'
+            title: 'Detail',
+            type: 'array'
         }
     },
-    type: 'object',
-    title: 'HTTPValidationError'
+    title: 'HTTPValidationError',
+    type: 'object'
 } as const;
 
 export const HomeSummarySchema = {
     properties: {
-        user: {
-            '$ref': '#/components/schemas/UserPublic'
+        authored_total: {
+            default: 0,
+            title: 'Authored Total',
+            type: 'integer'
         },
         outstanding_counts: {
             additionalProperties: {
                 type: 'integer'
             },
-            type: 'object',
-            title: 'Outstanding Counts'
-        },
-        authored_total: {
-            type: 'integer',
-            title: 'Authored Total',
-            default: 0
-        },
-        reviewed_total: {
-            type: 'integer',
-            title: 'Reviewed Total',
-            default: 0
+            title: 'Outstanding Counts',
+            type: 'object'
         },
         recommended_task: {
             anyOf: [
@@ -956,86 +948,65 @@ export const HomeSummarySchema = {
                     type: 'null'
                 }
             ]
+        },
+        reviewed_total: {
+            default: 0,
+            title: 'Reviewed Total',
+            type: 'integer'
+        },
+        user: {
+            '$ref': '#/components/schemas/UserPublic'
         }
     },
-    type: 'object',
     required: ['user'],
-    title: 'HomeSummary'
+    title: 'HomeSummary',
+    type: 'object'
 } as const;
 
 export const ItemStatusSchema = {
-    type: 'string',
     enum: ['DRAFT', 'SUBMITTED', 'ACTIVE', 'REJECTED'],
-    title: 'ItemStatus'
+    title: 'ItemStatus',
+    type: 'string'
 } as const;
 
 export const JudgmentConfidenceSchema = {
-    type: 'string',
     enum: ['EASY_CALL', 'DELIBERATED'],
-    title: 'JudgmentConfidence'
+    title: 'JudgmentConfidence',
+    type: 'string'
 } as const;
 
 export const MessageSchema = {
     properties: {
         message: {
-            type: 'string',
-            title: 'Message'
+            title: 'Message',
+            type: 'string'
         }
     },
-    type: 'object',
     required: ['message'],
-    title: 'Message'
+    title: 'Message',
+    type: 'object'
 } as const;
 
 export const NewPasswordSchema = {
     properties: {
-        token: {
-            type: 'string',
-            title: 'Token'
-        },
         new_password: {
-            type: 'string',
             maxLength: 128,
             minLength: 8,
-            title: 'New Password'
+            title: 'New Password',
+            type: 'string'
+        },
+        token: {
+            title: 'Token',
+            type: 'string'
         }
     },
-    type: 'object',
     required: ['token', 'new_password'],
-    title: 'NewPassword'
+    title: 'NewPassword',
+    type: 'object'
 } as const;
 
 export const NextReviewRecommendationSchema = {
     properties: {
-        kind: {
-            type: 'string',
-            enum: ['retrieval_audit', 'fact_decomp', 'relevance'],
-            title: 'Kind'
-        },
-        eval_type: {
-            '$ref': '#/components/schemas/EvalType'
-        },
-        dataset_id: {
-            type: 'integer',
-            title: 'Dataset Id'
-        },
-        title: {
-            type: 'string',
-            title: 'Title'
-        },
-        reason: {
-            type: 'string',
-            title: 'Reason'
-        },
-        review_url: {
-            type: 'string',
-            title: 'Review Url'
-        },
-        reservation_state: {
-            type: 'string',
-            enum: ['existing', 'created', 'selected'],
-            title: 'Reservation State'
-        },
         assignment_id: {
             anyOf: [
                 {
@@ -1046,6 +1017,42 @@ export const NextReviewRecommendationSchema = {
                 }
             ],
             title: 'Assignment Id'
+        },
+        dataset_id: {
+            title: 'Dataset Id',
+            type: 'integer'
+        },
+        eval_type: {
+            '$ref': '#/components/schemas/EvalType'
+        },
+        item_id: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Item Id'
+        },
+        kind: {
+            enum: ['retrieval_audit', 'fact_decomp', 'relevance'],
+            title: 'Kind',
+            type: 'string'
+        },
+        reason: {
+            title: 'Reason',
+            type: 'string'
+        },
+        reservation_state: {
+            enum: ['existing', 'created', 'selected'],
+            title: 'Reservation State',
+            type: 'string'
+        },
+        review_url: {
+            title: 'Review Url',
+            type: 'string'
         },
         task_id: {
             anyOf: [
@@ -1058,142 +1065,99 @@ export const NextReviewRecommendationSchema = {
             ],
             title: 'Task Id'
         },
-        item_id: {
-            anyOf: [
-                {
-                    type: 'integer'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Item Id'
+        title: {
+            title: 'Title',
+            type: 'string'
         }
     },
-    type: 'object',
     required: ['kind', 'eval_type', 'dataset_id', 'title', 'reason', 'review_url', 'reservation_state'],
-    title: 'NextReviewRecommendation'
+    title: 'NextReviewRecommendation',
+    type: 'object'
 } as const;
 
 export const NiceDocumentResponseSchema = {
     properties: {
-        document_id: {
-            type: 'integer',
-            title: 'Document Id'
+        char_count: {
+            title: 'Char Count',
+            type: 'integer'
         },
         dataset_id: {
-            type: 'integer',
-            title: 'Dataset Id'
+            title: 'Dataset Id',
+            type: 'integer'
         },
-        reference: {
-            type: 'string',
-            title: 'Reference'
-        },
-        title: {
-            type: 'string',
-            title: 'Title'
-        },
-        section_count: {
-            type: 'integer',
-            title: 'Section Count'
-        },
-        char_count: {
-            type: 'integer',
-            title: 'Char Count'
+        document_id: {
+            title: 'Document Id',
+            type: 'integer'
         },
         page_url: {
-            type: 'string',
-            title: 'Page Url'
+            title: 'Page Url',
+            type: 'string'
+        },
+        reference: {
+            title: 'Reference',
+            type: 'string'
+        },
+        section_count: {
+            title: 'Section Count',
+            type: 'integer'
+        },
+        title: {
+            title: 'Title',
+            type: 'string'
         }
     },
-    type: 'object',
     required: ['document_id', 'dataset_id', 'reference', 'title', 'section_count', 'char_count', 'page_url'],
-    title: 'NiceDocumentResponse'
+    title: 'NiceDocumentResponse',
+    type: 'object'
 } as const;
 
 export const NiceDownloadSummarySchema = {
     properties: {
+        char_count: {
+            title: 'Char Count',
+            type: 'integer'
+        },
         id: {
-            type: 'integer',
-            title: 'Id'
-        },
-        reference: {
-            type: 'string',
-            title: 'Reference'
-        },
-        title: {
-            type: 'string',
-            title: 'Title'
-        },
-        page_url: {
-            type: 'string',
-            title: 'Page Url'
+            title: 'Id',
+            type: 'integer'
         },
         page_count: {
-            type: 'integer',
-            title: 'Page Count'
+            title: 'Page Count',
+            type: 'integer'
         },
-        char_count: {
-            type: 'integer',
-            title: 'Char Count'
+        page_url: {
+            title: 'Page Url',
+            type: 'string'
+        },
+        reference: {
+            title: 'Reference',
+            type: 'string'
+        },
+        title: {
+            title: 'Title',
+            type: 'string'
         }
     },
-    type: 'object',
     required: ['id', 'reference', 'title', 'page_url', 'page_count', 'char_count'],
-    title: 'NiceDownloadSummary'
+    title: 'NiceDownloadSummary',
+    type: 'object'
 } as const;
 
 export const NiceImportJobStatusSchema = {
-    type: 'string',
     enum: ['pending', 'running', 'completed', 'failed', 'cancelled'],
-    title: 'NiceImportJobStatus'
+    title: 'NiceImportJobStatus',
+    type: 'string'
 } as const;
 
 export const NiceImportJobStatusResponseSchema = {
     properties: {
-        id: {
-            type: 'integer',
-            title: 'Id'
-        },
-        status: {
-            '$ref': '#/components/schemas/NiceImportJobStatus'
-        },
-        requested_limit: {
-            '$ref': '#/components/schemas/NiceImportLimit'
-        },
-        target_count: {
-            anyOf: [
-                {
-                    type: 'integer'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Target Count'
-        },
         completed_count: {
-            type: 'integer',
-            title: 'Completed Count'
+            title: 'Completed Count',
+            type: 'integer'
         },
         failed_count: {
-            type: 'integer',
-            title: 'Failed Count'
-        },
-        started_by_user_id: {
-            type: 'string',
-            title: 'Started By User Id'
-        },
-        started_at: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Started At'
+            title: 'Failed Count',
+            type: 'integer'
         },
         finished_at: {
             anyOf: [
@@ -1206,6 +1170,21 @@ export const NiceImportJobStatusResponseSchema = {
             ],
             title: 'Finished At'
         },
+        heartbeat_at: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Heartbeat At'
+        },
+        id: {
+            title: 'Id',
+            type: 'integer'
+        },
         last_error: {
             anyOf: [
                 {
@@ -1217,7 +1196,10 @@ export const NiceImportJobStatusResponseSchema = {
             ],
             title: 'Last Error'
         },
-        heartbeat_at: {
+        requested_limit: {
+            '$ref': '#/components/schemas/NiceImportLimit'
+        },
+        started_at: {
             anyOf: [
                 {
                     type: 'string'
@@ -1226,18 +1208,36 @@ export const NiceImportJobStatusResponseSchema = {
                     type: 'null'
                 }
             ],
-            title: 'Heartbeat At'
+            title: 'Started At'
+        },
+        started_by_user_id: {
+            title: 'Started By User Id',
+            type: 'string'
+        },
+        status: {
+            '$ref': '#/components/schemas/NiceImportJobStatus'
+        },
+        target_count: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Target Count'
         }
     },
-    type: 'object',
     required: ['id', 'status', 'requested_limit', 'completed_count', 'failed_count', 'started_by_user_id'],
-    title: 'NiceImportJobStatusResponse'
+    title: 'NiceImportJobStatusResponse',
+    type: 'object'
 } as const;
 
 export const NiceImportLimitSchema = {
-    type: 'string',
     enum: ['10', '20', '50', 'all'],
-    title: 'NiceImportLimit'
+    title: 'NiceImportLimit',
+    type: 'string'
 } as const;
 
 export const NiceImportStartSchema = {
@@ -1247,9 +1247,9 @@ export const NiceImportStartSchema = {
             title: 'Limit'
         }
     },
-    type: 'object',
     required: ['limit'],
-    title: 'NiceImportStart'
+    title: 'NiceImportStart',
+    type: 'object'
 } as const;
 
 export const NiceUrlRecommendationRequestSchema = {
@@ -1266,26 +1266,29 @@ export const NiceUrlRecommendationRequestSchema = {
             title: 'Dataset Id'
         },
         url: {
-            type: 'string',
-            title: 'Url'
+            title: 'Url',
+            type: 'string'
         }
     },
-    type: 'object',
     required: ['url'],
-    title: 'NiceUrlRecommendationRequest'
+    title: 'NiceUrlRecommendationRequest',
+    type: 'object'
 } as const;
 
 export const PooledCandidateSchema = {
     properties: {
-        created_at: {
-            type: 'string',
-            format: 'date-time',
-            title: 'Created At'
+        chunk_id: {
+            title: 'Chunk Id',
+            type: 'integer'
         },
-        updated_at: {
-            type: 'string',
+        created_at: {
             format: 'date-time',
-            title: 'Updated At'
+            title: 'Created At',
+            type: 'string'
+        },
+        dataset_id: {
+            title: 'Dataset Id',
+            type: 'integer'
         },
         id: {
             anyOf: [
@@ -1298,39 +1301,24 @@ export const PooledCandidateSchema = {
             ],
             title: 'Id'
         },
-        dataset_id: {
-            type: 'integer',
-            title: 'Dataset Id'
+        is_calibration: {
+            default: false,
+            title: 'Is Calibration',
+            type: 'boolean'
+        },
+        is_trap: {
+            default: false,
+            title: 'Is Trap',
+            type: 'boolean'
         },
         item_id: {
-            type: 'integer',
-            title: 'Item Id'
-        },
-        chunk_id: {
-            type: 'integer',
-            title: 'Chunk Id'
-        },
-        systems: {
-            items: {
-                type: 'string'
-            },
-            type: 'array',
-            title: 'Systems'
+            title: 'Item Id',
+            type: 'integer'
         },
         ranks: {
             additionalProperties: true,
-            type: 'object',
-            title: 'Ranks'
-        },
-        is_calibration: {
-            type: 'boolean',
-            title: 'Is Calibration',
-            default: false
-        },
-        is_trap: {
-            type: 'boolean',
-            title: 'Is Trap',
-            default: false
+            title: 'Ranks',
+            type: 'object'
         },
         reference_grade: {
             anyOf: [
@@ -1342,40 +1330,45 @@ export const PooledCandidateSchema = {
                 }
             ],
             title: 'Reference Grade'
+        },
+        systems: {
+            items: {
+                type: 'string'
+            },
+            title: 'Systems',
+            type: 'array'
+        },
+        updated_at: {
+            format: 'date-time',
+            title: 'Updated At',
+            type: 'string'
         }
     },
-    type: 'object',
     required: ['dataset_id', 'item_id', 'chunk_id'],
-    title: 'PooledCandidate'
-} as const;
-
-export const PrivateUserCreateSchema = {
-    properties: {
-        email: {
-            type: 'string',
-            title: 'Email'
-        },
-        password: {
-            type: 'string',
-            title: 'Password'
-        },
-        full_name: {
-            type: 'string',
-            title: 'Full Name'
-        },
-        is_verified: {
-            type: 'boolean',
-            title: 'Is Verified',
-            default: false
-        }
-    },
-    type: 'object',
-    required: ['email', 'password', 'full_name'],
-    title: 'PrivateUserCreate'
+    title: 'PooledCandidate',
+    type: 'object'
 } as const;
 
 export const RecommendedTaskSchema = {
     properties: {
+        assignment_id: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Assignment Id'
+        },
+        dataset_id: {
+            title: 'Dataset Id',
+            type: 'integer'
+        },
+        eval_type: {
+            '$ref': '#/components/schemas/EvalType'
+        },
         kind: {
             anyOf: [
                 {
@@ -1387,31 +1380,9 @@ export const RecommendedTaskSchema = {
             ],
             title: 'Kind'
         },
-        eval_type: {
-            '$ref': '#/components/schemas/EvalType'
-        },
-        dataset_id: {
-            type: 'integer',
-            title: 'Dataset Id'
-        },
-        title: {
-            type: 'string',
-            title: 'Title'
-        },
         reason: {
-            type: 'string',
-            title: 'Reason'
-        },
-        assignment_id: {
-            anyOf: [
-                {
-                    type: 'integer'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Assignment Id'
+            title: 'Reason',
+            type: 'string'
         },
         task_id: {
             anyOf: [
@@ -1423,50 +1394,41 @@ export const RecommendedTaskSchema = {
                 }
             ],
             title: 'Task Id'
+        },
+        title: {
+            title: 'Title',
+            type: 'string'
         }
     },
-    type: 'object',
     required: ['kind', 'eval_type', 'dataset_id', 'title', 'reason'],
-    title: 'RecommendedTask'
+    title: 'RecommendedTask',
+    type: 'object'
 } as const;
 
 export const RelevanceReviewPayloadSchema = {
     properties: {
-        kind: {
-            type: 'string',
-            const: 'relevance',
-            title: 'Kind',
-            default: 'relevance'
-        },
-        dataset: {
-            '$ref': '#/components/schemas/ReviewDataset'
-        },
-        item: {
-            '$ref': '#/components/schemas/ReviewItem'
-        },
-        assignment_id: {
-            type: 'integer',
-            title: 'Assignment Id'
-        },
-        candidate: {
-            '$ref': '#/components/schemas/PooledCandidate'
-        },
-        document: {
-            '$ref': '#/components/schemas/DocumentDetail'
-        },
-        chunk: {
-            '$ref': '#/components/schemas/ChunkSummary'
-        },
         allowed_actions: {
             items: {
                 type: 'string'
             },
-            type: 'array',
-            title: 'Allowed Actions'
+            title: 'Allowed Actions',
+            type: 'array'
         },
-        item_revision: {
-            type: 'integer',
-            title: 'Item Revision'
+        assignment_id: {
+            title: 'Assignment Id',
+            type: 'integer'
+        },
+        candidate: {
+            '$ref': '#/components/schemas/PooledCandidate'
+        },
+        chunk: {
+            '$ref': '#/components/schemas/ChunkSummary'
+        },
+        dataset: {
+            '$ref': '#/components/schemas/ReviewDataset'
+        },
+        document: {
+            '$ref': '#/components/schemas/DocumentDetail'
         },
         existing_submission: {
             anyOf: [
@@ -1479,21 +1441,28 @@ export const RelevanceReviewPayloadSchema = {
                 }
             ],
             title: 'Existing Submission'
+        },
+        item: {
+            '$ref': '#/components/schemas/ReviewItem'
+        },
+        item_revision: {
+            title: 'Item Revision',
+            type: 'integer'
+        },
+        kind: {
+            const: 'relevance',
+            default: 'relevance',
+            title: 'Kind',
+            type: 'string'
         }
     },
-    type: 'object',
     required: ['dataset', 'item', 'assignment_id', 'candidate', 'document', 'chunk', 'item_revision'],
-    title: 'RelevanceReviewPayload'
+    title: 'RelevanceReviewPayload',
+    type: 'object'
 } as const;
 
 export const RelevanceReviewSubmitSchema = {
     properties: {
-        grade: {
-            type: 'integer',
-            maximum: 3,
-            minimum: 0,
-            title: 'Grade'
-        },
         confidence: {
             anyOf: [
                 {
@@ -1504,44 +1473,53 @@ export const RelevanceReviewSubmitSchema = {
                 }
             ]
         },
+        grade: {
+            maximum: 3,
+            minimum: 0,
+            title: 'Grade',
+            type: 'integer'
+        },
         item_revision: {
-            type: 'integer',
-            title: 'Item Revision'
+            title: 'Item Revision',
+            type: 'integer'
         }
     },
-    type: 'object',
     required: ['grade', 'item_revision'],
-    title: 'RelevanceReviewSubmit'
+    title: 'RelevanceReviewSubmit',
+    type: 'object'
 } as const;
 
 export const RetrievalCategorySchema = {
-    type: 'string',
     enum: ['VERBATIM', 'PARAPHRASE', 'MULTI_CHUNK', 'ADVERSARIAL', 'MULTI_DOCUMENT'],
-    title: 'RetrievalCategory'
+    title: 'RetrievalCategory',
+    type: 'string'
 } as const;
 
 export const RetrievalCreateResponseSchema = {
     properties: {
-        id: {
-            type: 'integer',
-            title: 'Id'
+        category: {
+            '$ref': '#/components/schemas/RetrievalCategory'
         },
         dataset_id: {
-            type: 'integer',
-            title: 'Dataset Id'
+            title: 'Dataset Id',
+            type: 'integer'
+        },
+        document_ids: {
+            items: {
+                type: 'integer'
+            },
+            title: 'Document Ids',
+            type: 'array'
         },
         eval_type: {
             '$ref': '#/components/schemas/EvalType'
         },
-        category: {
-            '$ref': '#/components/schemas/RetrievalCategory'
-        },
-        status: {
-            '$ref': '#/components/schemas/ItemStatus'
-        },
-        prompt_text: {
-            type: 'string',
-            title: 'Prompt Text'
+        evidence_spans: {
+            items: {
+                '$ref': '#/components/schemas/EvidenceSpan'
+            },
+            title: 'Evidence Spans',
+            type: 'array'
         },
         expected_answer: {
             anyOf: [
@@ -1554,96 +1532,66 @@ export const RetrievalCreateResponseSchema = {
             ],
             title: 'Expected Answer'
         },
-        evidence_spans: {
-            items: {
-                '$ref': '#/components/schemas/EvidenceSpan'
-            },
-            type: 'array',
-            title: 'Evidence Spans'
+        id: {
+            title: 'Id',
+            type: 'integer'
+        },
+        item_revision: {
+            title: 'Item Revision',
+            type: 'integer'
+        },
+        prompt_text: {
+            title: 'Prompt Text',
+            type: 'string'
+        },
+        status: {
+            '$ref': '#/components/schemas/ItemStatus'
         },
         trap_evidence_spans: {
             items: {
                 '$ref': '#/components/schemas/EvidenceSpan'
             },
-            type: 'array',
-            title: 'Trap Evidence Spans'
-        },
-        document_ids: {
-            items: {
-                type: 'integer'
-            },
-            type: 'array',
-            title: 'Document Ids'
-        },
-        item_revision: {
-            type: 'integer',
-            title: 'Item Revision'
+            title: 'Trap Evidence Spans',
+            type: 'array'
         },
         validation: {
             '$ref': '#/components/schemas/ValidationPreview'
         }
     },
-    type: 'object',
     required: ['id', 'dataset_id', 'eval_type', 'category', 'status', 'prompt_text', 'item_revision', 'validation'],
-    title: 'RetrievalCreateResponse'
+    title: 'RetrievalCreateResponse',
+    type: 'object'
 } as const;
 
 export const RetrievalReviewPayloadSchema = {
     properties: {
-        kind: {
-            type: 'string',
-            const: 'retrieval_audit',
-            title: 'Kind',
-            default: 'retrieval_audit'
-        },
-        dataset: {
-            '$ref': '#/components/schemas/ReviewDataset'
-        },
-        item: {
-            '$ref': '#/components/schemas/ReviewItem'
+        allowed_actions: {
+            items: {
+                type: 'string'
+            },
+            title: 'Allowed Actions',
+            type: 'array'
         },
         assignment_id: {
-            type: 'integer',
-            title: 'Assignment Id'
-        },
-        documents: {
-            items: {
-                '$ref': '#/components/schemas/DocumentDetail'
-            },
-            type: 'array',
-            title: 'Documents'
+            title: 'Assignment Id',
+            type: 'integer'
         },
         chunks: {
             items: {
                 '$ref': '#/components/schemas/ChunkSummary'
             },
-            type: 'array',
-            title: 'Chunks'
+            title: 'Chunks',
+            type: 'array'
         },
-        gold_evidence_spans: {
+        dataset: {
+            '$ref': '#/components/schemas/ReviewDataset'
+        },
+        documents: {
             items: {
-                '$ref': '#/components/schemas/EvidenceSpan'
+                '$ref': '#/components/schemas/DocumentDetail'
             },
-            type: 'array',
-            title: 'Gold Evidence Spans'
-        },
-        trap_evidence_spans: {
-            items: {
-                '$ref': '#/components/schemas/EvidenceSpan'
-            },
-            type: 'array',
-            title: 'Trap Evidence Spans'
-        },
-        allowed_actions: {
-            items: {
-                type: 'string'
-            },
-            type: 'array',
-            title: 'Allowed Actions'
-        },
-        item_revision: {
-            type: 'integer',
-            title: 'Item Revision'
+            title: 'Documents',
+            type: 'array'
         },
         existing_submission: {
             anyOf: [
@@ -1656,38 +1604,60 @@ export const RetrievalReviewPayloadSchema = {
                 }
             ],
             title: 'Existing Submission'
+        },
+        gold_evidence_spans: {
+            items: {
+                '$ref': '#/components/schemas/EvidenceSpan'
+            },
+            title: 'Gold Evidence Spans',
+            type: 'array'
+        },
+        item: {
+            '$ref': '#/components/schemas/ReviewItem'
+        },
+        item_revision: {
+            title: 'Item Revision',
+            type: 'integer'
+        },
+        kind: {
+            const: 'retrieval_audit',
+            default: 'retrieval_audit',
+            title: 'Kind',
+            type: 'string'
+        },
+        trap_evidence_spans: {
+            items: {
+                '$ref': '#/components/schemas/EvidenceSpan'
+            },
+            title: 'Trap Evidence Spans',
+            type: 'array'
         }
     },
-    type: 'object',
     required: ['dataset', 'item', 'assignment_id', 'item_revision'],
-    title: 'RetrievalReviewPayload'
+    title: 'RetrievalReviewPayload',
+    type: 'object'
 } as const;
 
 export const RetrievalReviewSubmitSchema = {
     properties: {
-        question_validity: {
-            type: 'integer',
-            enum: [1, 2, 3, 4],
-            title: 'Question Validity'
-        },
-        evidence_quality: {
-            type: 'integer',
-            enum: [1, 2, 3, 4],
-            title: 'Evidence Quality'
+        accept_as_gold: {
+            title: 'Accept As Gold',
+            type: 'boolean'
         },
         answer_correctness: {
-            type: 'integer',
             enum: [1, 2, 3, 4],
-            title: 'Answer Correctness'
+            title: 'Answer Correctness',
+            type: 'integer'
         },
         answer_faithfulness: {
-            type: 'integer',
             enum: [1, 2, 3, 4],
-            title: 'Answer Faithfulness'
+            title: 'Answer Faithfulness',
+            type: 'integer'
         },
-        accept_as_gold: {
-            type: 'boolean',
-            title: 'Accept As Gold'
+        evidence_quality: {
+            enum: [1, 2, 3, 4],
+            title: 'Evidence Quality',
+            type: 'integer'
         },
         notes: {
             anyOf: [
@@ -1699,87 +1669,70 @@ export const RetrievalReviewSubmitSchema = {
                 }
             ],
             title: 'Notes'
+        },
+        question_validity: {
+            enum: [1, 2, 3, 4],
+            title: 'Question Validity',
+            type: 'integer'
         }
     },
-    type: 'object',
     required: ['question_validity', 'evidence_quality', 'answer_correctness', 'answer_faithfulness', 'accept_as_gold'],
-    title: 'RetrievalReviewSubmit'
+    title: 'RetrievalReviewSubmit',
+    type: 'object'
 } as const;
 
 export const ReviewDatasetSchema = {
     properties: {
-        id: {
-            type: 'integer',
-            title: 'Id'
-        },
-        name: {
-            type: 'string',
-            title: 'Name'
-        },
         display_name: {
-            type: 'string',
-            title: 'Display Name'
+            title: 'Display Name',
+            type: 'string'
         },
         eval_type: {
             '$ref': '#/components/schemas/EvalType'
+        },
+        id: {
+            title: 'Id',
+            type: 'integer'
+        },
+        name: {
+            title: 'Name',
+            type: 'string'
         }
     },
-    type: 'object',
     required: ['id', 'name', 'display_name', 'eval_type'],
-    title: 'ReviewDataset'
+    title: 'ReviewDataset',
+    type: 'object'
 } as const;
 
 export const ReviewFactSchema = {
     properties: {
-        id: {
-            type: 'integer',
-            title: 'Id'
+        fact_text: {
+            title: 'Fact Text',
+            type: 'string'
         },
         fact_uuid: {
-            type: 'string',
-            title: 'Fact Uuid'
+            title: 'Fact Uuid',
+            type: 'string'
         },
-        fact_text: {
-            type: 'string',
-            title: 'Fact Text'
+        id: {
+            title: 'Id',
+            type: 'integer'
         },
         polarity: {
             '$ref': '#/components/schemas/FactPolarity'
         },
         position: {
-            type: 'integer',
-            title: 'Position'
+            title: 'Position',
+            type: 'integer'
         }
     },
-    type: 'object',
     required: ['id', 'fact_uuid', 'fact_text', 'polarity', 'position'],
-    title: 'ReviewFact'
+    title: 'ReviewFact',
+    type: 'object'
 } as const;
 
 export const ReviewItemSchema = {
     properties: {
-        id: {
-            type: 'integer',
-            title: 'Id'
-        },
-        dataset_id: {
-            type: 'integer',
-            title: 'Dataset Id'
-        },
-        eval_type: {
-            '$ref': '#/components/schemas/EvalType'
-        },
-        prompt_text: {
-            type: 'string',
-            title: 'Prompt Text'
-        },
-        status: {
-            '$ref': '#/components/schemas/ItemStatus'
-        },
-        revision: {
-            type: 'integer',
-            title: 'Revision'
-        },
         category: {
             anyOf: [
                 {
@@ -1789,6 +1742,13 @@ export const ReviewItemSchema = {
                     type: 'null'
                 }
             ]
+        },
+        dataset_id: {
+            title: 'Dataset Id',
+            type: 'integer'
+        },
+        eval_type: {
+            '$ref': '#/components/schemas/EvalType'
         },
         expected_answer: {
             anyOf: [
@@ -1800,6 +1760,21 @@ export const ReviewItemSchema = {
                 }
             ],
             title: 'Expected Answer'
+        },
+        id: {
+            title: 'Id',
+            type: 'integer'
+        },
+        prompt_text: {
+            title: 'Prompt Text',
+            type: 'string'
+        },
+        revision: {
+            title: 'Revision',
+            type: 'integer'
+        },
+        status: {
+            '$ref': '#/components/schemas/ItemStatus'
         },
         why_not_answerable: {
             anyOf: [
@@ -1813,82 +1788,77 @@ export const ReviewItemSchema = {
             title: 'Why Not Answerable'
         }
     },
-    type: 'object',
     required: ['id', 'dataset_id', 'eval_type', 'prompt_text', 'status', 'revision'],
-    title: 'ReviewItem'
+    title: 'ReviewItem',
+    type: 'object'
 } as const;
 
 export const ReviewRubricDimensionSchema = {
     properties: {
         key: {
-            type: 'string',
-            title: 'Key'
+            title: 'Key',
+            type: 'string'
         },
         label: {
-            type: 'string',
-            title: 'Label'
+            title: 'Label',
+            type: 'string'
         },
         options: {
             items: {
                 type: 'string'
             },
-            type: 'array',
-            title: 'Options'
+            title: 'Options',
+            type: 'array'
         }
     },
-    type: 'object',
     required: ['key', 'label'],
-    title: 'ReviewRubricDimension'
+    title: 'ReviewRubricDimension',
+    type: 'object'
 } as const;
 
 export const ReviewSubmissionResponseSchema = {
     properties: {
-        id: {
-            type: 'integer',
-            title: 'Id'
-        },
         assignment_id: {
-            type: 'integer',
-            title: 'Assignment Id'
-        },
-        item_id: {
-            type: 'integer',
-            title: 'Item Id'
-        },
-        kind: {
-            type: 'string',
-            enum: ['retrieval_audit', 'relevance'],
-            title: 'Kind'
+            title: 'Assignment Id',
+            type: 'integer'
         },
         completed: {
-            type: 'boolean',
+            default: true,
             title: 'Completed',
-            default: true
+            type: 'boolean'
+        },
+        id: {
+            title: 'Id',
+            type: 'integer'
+        },
+        item_id: {
+            title: 'Item Id',
+            type: 'integer'
+        },
+        kind: {
+            enum: ['retrieval_audit', 'relevance'],
+            title: 'Kind',
+            type: 'string'
         }
     },
-    type: 'object',
     required: ['id', 'assignment_id', 'item_id', 'kind'],
-    title: 'ReviewSubmissionResponse'
+    title: 'ReviewSubmissionResponse',
+    type: 'object'
 } as const;
 
 export const ReviewerKindSchema = {
-    type: 'string',
     enum: ['human', 'expert'],
-    title: 'ReviewerKind'
+    title: 'ReviewerKind',
+    type: 'string'
 } as const;
 
 export const SignupInviteCreateSchema = {
     properties: {
-        role: {
-            '$ref': '#/components/schemas/UserRole',
-            maxLength: 32,
-            default: 'user'
-        },
         expires_at: {
             anyOf: [
                 {
-                    type: 'string',
-                    format: 'date-time'
+                    format: 'date-time',
+                    type: 'string'
                 },
                 {
                     type: 'null'
@@ -1897,53 +1867,29 @@ export const SignupInviteCreateSchema = {
             title: 'Expires At'
         },
         max_redemptions: {
-            type: 'integer',
+            default: 1,
             maximum: 100,
             minimum: 1,
             title: 'Max Redemptions',
-            default: 1
+            type: 'integer'
+        },
+        role: {
+            '$ref': '#/components/schemas/UserRole',
+            default: 'user',
+            maxLength: 32
         }
     },
-    type: 'object',
-    title: 'SignupInviteCreate'
+    title: 'SignupInviteCreate',
+    type: 'object'
 } as const;
 
 export const SignupInviteCreatedSchema = {
     properties: {
-        role: {
-            '$ref': '#/components/schemas/UserRole',
-            maxLength: 32,
-            default: 'user'
-        },
-        expires_at: {
-            anyOf: [
-                {
-                    type: 'string',
-                    format: 'date-time'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Expires At'
-        },
-        max_redemptions: {
-            type: 'integer',
-            maximum: 100,
-            minimum: 1,
-            title: 'Max Redemptions',
-            default: 1
-        },
-        id: {
-            type: 'string',
-            format: 'uuid',
-            title: 'Id'
-        },
         created_at: {
             anyOf: [
                 {
-                    type: 'string',
-                    format: 'date-time'
+                    format: 'date-time',
+                    type: 'string'
                 },
                 {
                     type: 'null'
@@ -1951,27 +1897,11 @@ export const SignupInviteCreatedSchema = {
             ],
             title: 'Created At'
         },
-        redeemed_count: {
-            type: 'integer',
-            title: 'Redeemed Count'
-        },
-        disabled_at: {
-            anyOf: [
-                {
-                    type: 'string',
-                    format: 'date-time'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Disabled At'
-        },
         created_by_user_id: {
             anyOf: [
                 {
-                    type: 'string',
-                    format: 'uuid'
+                    format: 'uuid',
+                    type: 'string'
                 },
                 {
                     type: 'null'
@@ -1979,26 +1909,68 @@ export const SignupInviteCreatedSchema = {
             ],
             title: 'Created By User Id'
         },
-        token: {
-            type: 'string',
-            title: 'Token'
-        }
-    },
-    type: 'object',
-    required: ['id', 'redeemed_count', 'token'],
-    title: 'SignupInviteCreated'
-} as const;
-
-export const SignupInvitePreviewSchema = {
-    properties: {
-        role: {
-            '$ref': '#/components/schemas/UserRole'
+        disabled_at: {
+            anyOf: [
+                {
+                    format: 'date-time',
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Disabled At'
         },
         expires_at: {
             anyOf: [
                 {
-                    type: 'string',
-                    format: 'date-time'
+                    format: 'date-time',
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Expires At'
+        },
+        id: {
+            format: 'uuid',
+            title: 'Id',
+            type: 'string'
+        },
+        max_redemptions: {
+            default: 1,
+            maximum: 100,
+            minimum: 1,
+            title: 'Max Redemptions',
+            type: 'integer'
+        },
+        redeemed_count: {
+            title: 'Redeemed Count',
+            type: 'integer'
+        },
+        role: {
+            '$ref': '#/components/schemas/UserRole',
+            default: 'user',
+            maxLength: 32
+        },
+        token: {
+            title: 'Token',
+            type: 'string'
+        }
+    },
+    required: ['id', 'redeemed_count', 'token'],
+    title: 'SignupInviteCreated',
+    type: 'object'
+} as const;
+
+export const SignupInvitePreviewSchema = {
+    properties: {
+        expires_at: {
+            anyOf: [
+                {
+                    format: 'date-time',
+                    type: 'string'
                 },
                 {
                     type: 'null'
@@ -2007,51 +1979,25 @@ export const SignupInvitePreviewSchema = {
             title: 'Expires At'
         },
         remaining_redemptions: {
-            type: 'integer',
-            title: 'Remaining Redemptions'
+            title: 'Remaining Redemptions',
+            type: 'integer'
+        },
+        role: {
+            '$ref': '#/components/schemas/UserRole'
         }
     },
-    type: 'object',
     required: ['role', 'remaining_redemptions'],
-    title: 'SignupInvitePreview'
+    title: 'SignupInvitePreview',
+    type: 'object'
 } as const;
 
 export const SignupInvitePublicSchema = {
     properties: {
-        role: {
-            '$ref': '#/components/schemas/UserRole',
-            maxLength: 32,
-            default: 'user'
-        },
-        expires_at: {
-            anyOf: [
-                {
-                    type: 'string',
-                    format: 'date-time'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Expires At'
-        },
-        max_redemptions: {
-            type: 'integer',
-            maximum: 100,
-            minimum: 1,
-            title: 'Max Redemptions',
-            default: 1
-        },
-        id: {
-            type: 'string',
-            format: 'uuid',
-            title: 'Id'
-        },
         created_at: {
             anyOf: [
                 {
-                    type: 'string',
-                    format: 'date-time'
+                    format: 'date-time',
+                    type: 'string'
                 },
                 {
                     type: 'null'
@@ -2059,15 +2005,23 @@ export const SignupInvitePublicSchema = {
             ],
             title: 'Created At'
         },
-        redeemed_count: {
-            type: 'integer',
-            title: 'Redeemed Count'
+        created_by_user_id: {
+            anyOf: [
+                {
+                    format: 'uuid',
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Created By User Id'
         },
         disabled_at: {
             anyOf: [
                 {
-                    type: 'string',
-                    format: 'date-time'
+                    format: 'date-time',
+                    type: 'string'
                 },
                 {
                     type: 'null'
@@ -2075,115 +2029,108 @@ export const SignupInvitePublicSchema = {
             ],
             title: 'Disabled At'
         },
-        created_by_user_id: {
+        expires_at: {
             anyOf: [
                 {
-                    type: 'string',
-                    format: 'uuid'
+                    format: 'date-time',
+                    type: 'string'
                 },
                 {
                     type: 'null'
                 }
             ],
-            title: 'Created By User Id'
+            title: 'Expires At'
+        },
+        id: {
+            format: 'uuid',
+            title: 'Id',
+            type: 'string'
+        },
+        max_redemptions: {
+            default: 1,
+            maximum: 100,
+            minimum: 1,
+            title: 'Max Redemptions',
+            type: 'integer'
+        },
+        redeemed_count: {
+            title: 'Redeemed Count',
+            type: 'integer'
+        },
+        role: {
+            '$ref': '#/components/schemas/UserRole',
+            default: 'user',
+            maxLength: 32
         }
     },
-    type: 'object',
     required: ['id', 'redeemed_count'],
-    title: 'SignupInvitePublic'
+    title: 'SignupInvitePublic',
+    type: 'object'
 } as const;
 
 export const SignupInvitesPublicSchema = {
     properties: {
+        count: {
+            title: 'Count',
+            type: 'integer'
+        },
         data: {
             items: {
                 '$ref': '#/components/schemas/SignupInvitePublic'
             },
-            type: 'array',
-            title: 'Data'
-        },
-        count: {
-            type: 'integer',
-            title: 'Count'
+            title: 'Data',
+            type: 'array'
         }
     },
-    type: 'object',
     required: ['data', 'count'],
-    title: 'SignupInvitesPublic'
+    title: 'SignupInvitesPublic',
+    type: 'object'
 } as const;
 
 export const TokenSchema = {
     properties: {
         access_token: {
-            type: 'string',
-            title: 'Access Token'
+            title: 'Access Token',
+            type: 'string'
         },
         token_type: {
-            type: 'string',
+            default: 'bearer',
             title: 'Token Type',
-            default: 'bearer'
+            type: 'string'
         }
     },
-    type: 'object',
     required: ['access_token'],
-    title: 'Token'
+    title: 'Token',
+    type: 'object'
 } as const;
 
 export const UpdatePasswordSchema = {
     properties: {
         current_password: {
-            type: 'string',
             maxLength: 128,
             minLength: 8,
-            title: 'Current Password'
+            title: 'Current Password',
+            type: 'string'
         },
         new_password: {
-            type: 'string',
             maxLength: 128,
             minLength: 8,
-            title: 'New Password'
+            title: 'New Password',
+            type: 'string'
         }
     },
-    type: 'object',
     required: ['current_password', 'new_password'],
-    title: 'UpdatePassword'
+    title: 'UpdatePassword',
+    type: 'object'
 } as const;
 
 export const UserCreateSchema = {
     properties: {
-        email: {
-            type: 'string',
-            maxLength: 255,
-            format: 'email',
-            title: 'Email'
-        },
-        is_active: {
-            type: 'boolean',
-            title: 'Is Active',
-            default: true
-        },
-        is_superuser: {
-            type: 'boolean',
-            title: 'Is Superuser',
-            default: false
-        },
-        full_name: {
-            anyOf: [
-                {
-                    type: 'string',
-                    maxLength: 255
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Full Name'
-        },
         discord_handle: {
             anyOf: [
                 {
-                    type: 'string',
-                    maxLength: 255
+                    maxLength: 255,
+                    type: 'string'
                 },
                 {
                     type: 'null'
@@ -2191,33 +2138,17 @@ export const UserCreateSchema = {
             ],
             title: 'Discord Handle'
         },
-        medical_profession: {
-            anyOf: [
-                {
-                    type: 'string',
-                    maxLength: 100
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Medical Profession'
-        },
-        role: {
-            '$ref': '#/components/schemas/UserRole',
-            maxLength: 32,
-            default: 'user'
-        },
-        reviewer_kind: {
-            '$ref': '#/components/schemas/ReviewerKind',
-            maxLength: 32,
-            default: 'human'
+        email: {
+            format: 'email',
+            maxLength: 255,
+            title: 'Email',
+            type: 'string'
         },
         expertise_note: {
             anyOf: [
                 {
-                    type: 'string',
-                    maxLength: 500
+                    maxLength: 500,
+                    type: 'string'
                 },
                 {
                     type: 'null'
@@ -2225,227 +2156,81 @@ export const UserCreateSchema = {
             ],
             title: 'Expertise Note'
         },
+        full_name: {
+            anyOf: [
+                {
+                    maxLength: 255,
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Full Name'
+        },
+        is_active: {
+            default: true,
+            title: 'Is Active',
+            type: 'boolean'
+        },
+        is_superuser: {
+            default: false,
+            title: 'Is Superuser',
+            type: 'boolean'
+        },
+        medical_profession: {
+            anyOf: [
+                {
+                    maxLength: 100,
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Medical Profession'
+        },
         password: {
-            type: 'string',
             maxLength: 128,
             minLength: 8,
-            title: 'Password'
+            title: 'Password',
+            type: 'string'
+        },
+        reviewer_kind: {
+            '$ref': '#/components/schemas/ReviewerKind',
+            default: 'human',
+            maxLength: 32
+        },
+        role: {
+            '$ref': '#/components/schemas/UserRole',
+            default: 'user',
+            maxLength: 32
         }
     },
-    type: 'object',
     required: ['email', 'password'],
-    title: 'UserCreate'
+    title: 'UserCreate',
+    type: 'object'
 } as const;
 
 export const UserPublicSchema = {
     properties: {
-        email: {
-            type: 'string',
-            maxLength: 255,
-            format: 'email',
-            title: 'Email'
-        },
-        is_active: {
-            type: 'boolean',
-            title: 'Is Active',
-            default: true
-        },
-        is_superuser: {
-            type: 'boolean',
-            title: 'Is Superuser',
-            default: false
-        },
-        full_name: {
-            anyOf: [
-                {
-                    type: 'string',
-                    maxLength: 255
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Full Name'
-        },
-        discord_handle: {
-            anyOf: [
-                {
-                    type: 'string',
-                    maxLength: 255
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Discord Handle'
-        },
-        medical_profession: {
-            anyOf: [
-                {
-                    type: 'string',
-                    maxLength: 100
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Medical Profession'
-        },
-        role: {
-            '$ref': '#/components/schemas/UserRole',
-            maxLength: 32,
-            default: 'user'
-        },
-        reviewer_kind: {
-            '$ref': '#/components/schemas/ReviewerKind',
-            maxLength: 32,
-            default: 'human'
-        },
-        expertise_note: {
-            anyOf: [
-                {
-                    type: 'string',
-                    maxLength: 500
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Expertise Note'
-        },
-        id: {
-            type: 'string',
-            format: 'uuid',
-            title: 'Id'
-        },
         created_at: {
             anyOf: [
                 {
-                    type: 'string',
-                    format: 'date-time'
+                    format: 'date-time',
+                    type: 'string'
                 },
                 {
                     type: 'null'
                 }
             ],
             title: 'Created At'
-        }
-    },
-    type: 'object',
-    required: ['email', 'id'],
-    title: 'UserPublic'
-} as const;
-
-export const UserRegisterSchema = {
-    properties: {
-        invite_token: {
-            type: 'string',
-            maxLength: 255,
-            minLength: 16,
-            title: 'Invite Token'
-        },
-        email: {
-            type: 'string',
-            maxLength: 255,
-            format: 'email',
-            title: 'Email'
-        },
-        password: {
-            type: 'string',
-            maxLength: 128,
-            minLength: 8,
-            title: 'Password'
-        },
-        full_name: {
-            anyOf: [
-                {
-                    type: 'string',
-                    maxLength: 255
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Full Name'
         },
         discord_handle: {
             anyOf: [
                 {
-                    type: 'string',
-                    maxLength: 255
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Discord Handle'
-        },
-        medical_profession: {
-            anyOf: [
-                {
-                    type: 'string',
-                    maxLength: 100
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Medical Profession'
-        }
-    },
-    type: 'object',
-    required: ['invite_token', 'email', 'password'],
-    title: 'UserRegister'
-} as const;
-
-export const UserRoleSchema = {
-    type: 'string',
-    enum: ['user', 'data_admin', 'admin'],
-    title: 'UserRole'
-} as const;
-
-export const UserUpdateSchema = {
-    properties: {
-        email: {
-            anyOf: [
-                {
-                    type: 'string',
                     maxLength: 255,
-                    format: 'email'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Email'
-        },
-        is_active: {
-            type: 'boolean',
-            title: 'Is Active',
-            default: true
-        },
-        is_superuser: {
-            type: 'boolean',
-            title: 'Is Superuser',
-            default: false
-        },
-        full_name: {
-            anyOf: [
-                {
-                    type: 'string',
-                    maxLength: 255
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Full Name'
-        },
-        discord_handle: {
-            anyOf: [
-                {
-                    type: 'string',
-                    maxLength: 255
+                    type: 'string'
                 },
                 {
                     type: 'null'
@@ -2453,33 +2238,17 @@ export const UserUpdateSchema = {
             ],
             title: 'Discord Handle'
         },
-        medical_profession: {
-            anyOf: [
-                {
-                    type: 'string',
-                    maxLength: 100
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Medical Profession'
-        },
-        role: {
-            '$ref': '#/components/schemas/UserRole',
-            maxLength: 32,
-            default: 'user'
-        },
-        reviewer_kind: {
-            '$ref': '#/components/schemas/ReviewerKind',
-            maxLength: 32,
-            default: 'human'
+        email: {
+            format: 'email',
+            maxLength: 255,
+            title: 'Email',
+            type: 'string'
         },
         expertise_note: {
             anyOf: [
                 {
-                    type: 'string',
-                    maxLength: 500
+                    maxLength: 500,
+                    type: 'string'
                 },
                 {
                     type: 'null'
@@ -2487,31 +2256,11 @@ export const UserUpdateSchema = {
             ],
             title: 'Expertise Note'
         },
-        password: {
-            anyOf: [
-                {
-                    type: 'string',
-                    maxLength: 128,
-                    minLength: 8
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Password'
-        }
-    },
-    type: 'object',
-    title: 'UserUpdate'
-} as const;
-
-export const UserUpdateMeSchema = {
-    properties: {
         full_name: {
             anyOf: [
                 {
-                    type: 'string',
-                    maxLength: 255
+                    maxLength: 255,
+                    type: 'string'
                 },
                 {
                     type: 'null'
@@ -2519,24 +2268,56 @@ export const UserUpdateMeSchema = {
             ],
             title: 'Full Name'
         },
-        email: {
+        id: {
+            format: 'uuid',
+            title: 'Id',
+            type: 'string'
+        },
+        is_active: {
+            default: true,
+            title: 'Is Active',
+            type: 'boolean'
+        },
+        is_superuser: {
+            default: false,
+            title: 'Is Superuser',
+            type: 'boolean'
+        },
+        medical_profession: {
             anyOf: [
                 {
-                    type: 'string',
-                    maxLength: 255,
-                    format: 'email'
+                    maxLength: 100,
+                    type: 'string'
                 },
                 {
                     type: 'null'
                 }
             ],
-            title: 'Email'
+            title: 'Medical Profession'
         },
+        reviewer_kind: {
+            '$ref': '#/components/schemas/ReviewerKind',
+            default: 'human',
+            maxLength: 32
+        },
+        role: {
+            '$ref': '#/components/schemas/UserRole',
+            default: 'user',
+            maxLength: 32
+        }
+    },
+    required: ['email', 'id'],
+    title: 'UserPublic',
+    type: 'object'
+} as const;
+
+export const UserRegisterSchema = {
+    properties: {
         discord_handle: {
             anyOf: [
                 {
-                    type: 'string',
-                    maxLength: 255
+                    maxLength: 255,
+                    type: 'string'
                 },
                 {
                     type: 'null'
@@ -2544,11 +2325,205 @@ export const UserUpdateMeSchema = {
             ],
             title: 'Discord Handle'
         },
+        email: {
+            format: 'email',
+            maxLength: 255,
+            title: 'Email',
+            type: 'string'
+        },
+        full_name: {
+            anyOf: [
+                {
+                    maxLength: 255,
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Full Name'
+        },
+        invite_token: {
+            maxLength: 255,
+            minLength: 16,
+            title: 'Invite Token',
+            type: 'string'
+        },
         medical_profession: {
             anyOf: [
                 {
-                    type: 'string',
-                    maxLength: 100
+                    maxLength: 100,
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Medical Profession'
+        },
+        password: {
+            maxLength: 128,
+            minLength: 8,
+            title: 'Password',
+            type: 'string'
+        }
+    },
+    required: ['invite_token', 'email', 'password'],
+    title: 'UserRegister',
+    type: 'object'
+} as const;
+
+export const UserRoleSchema = {
+    enum: ['user', 'data_admin', 'admin'],
+    title: 'UserRole',
+    type: 'string'
+} as const;
+
+export const UserUpdateSchema = {
+    properties: {
+        discord_handle: {
+            anyOf: [
+                {
+                    maxLength: 255,
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Discord Handle'
+        },
+        email: {
+            anyOf: [
+                {
+                    format: 'email',
+                    maxLength: 255,
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Email'
+        },
+        expertise_note: {
+            anyOf: [
+                {
+                    maxLength: 500,
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Expertise Note'
+        },
+        full_name: {
+            anyOf: [
+                {
+                    maxLength: 255,
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Full Name'
+        },
+        is_active: {
+            default: true,
+            title: 'Is Active',
+            type: 'boolean'
+        },
+        is_superuser: {
+            default: false,
+            title: 'Is Superuser',
+            type: 'boolean'
+        },
+        medical_profession: {
+            anyOf: [
+                {
+                    maxLength: 100,
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Medical Profession'
+        },
+        password: {
+            anyOf: [
+                {
+                    maxLength: 128,
+                    minLength: 8,
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Password'
+        },
+        reviewer_kind: {
+            '$ref': '#/components/schemas/ReviewerKind',
+            default: 'human',
+            maxLength: 32
+        },
+        role: {
+            '$ref': '#/components/schemas/UserRole',
+            default: 'user',
+            maxLength: 32
+        }
+    },
+    title: 'UserUpdate',
+    type: 'object'
+} as const;
+
+export const UserUpdateMeSchema = {
+    properties: {
+        discord_handle: {
+            anyOf: [
+                {
+                    maxLength: 255,
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Discord Handle'
+        },
+        email: {
+            anyOf: [
+                {
+                    format: 'email',
+                    maxLength: 255,
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Email'
+        },
+        full_name: {
+            anyOf: [
+                {
+                    maxLength: 255,
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Full Name'
+        },
+        medical_profession: {
+            anyOf: [
+                {
+                    maxLength: 100,
+                    type: 'string'
                 },
                 {
                     type: 'null'
@@ -2557,31 +2532,38 @@ export const UserUpdateMeSchema = {
             title: 'Medical Profession'
         }
     },
-    type: 'object',
-    title: 'UserUpdateMe'
+    title: 'UserUpdateMe',
+    type: 'object'
 } as const;
 
 export const UsersPublicSchema = {
     properties: {
+        count: {
+            title: 'Count',
+            type: 'integer'
+        },
         data: {
             items: {
                 '$ref': '#/components/schemas/UserPublic'
             },
-            type: 'array',
-            title: 'Data'
-        },
-        count: {
-            type: 'integer',
-            title: 'Count'
+            title: 'Data',
+            type: 'array'
         }
     },
-    type: 'object',
     required: ['data', 'count'],
-    title: 'UsersPublic'
+    title: 'UsersPublic',
+    type: 'object'
 } as const;
 
 export const ValidationErrorSchema = {
     properties: {
+        ctx: {
+            title: 'Context',
+            type: 'object'
+        },
+        input: {
+            title: 'Input'
+        },
         loc: {
             items: {
                 anyOf: [
@@ -2593,36 +2575,25 @@ export const ValidationErrorSchema = {
                     }
                 ]
             },
-            type: 'array',
-            title: 'Location'
+            title: 'Location',
+            type: 'array'
         },
         msg: {
-            type: 'string',
-            title: 'Message'
+            title: 'Message',
+            type: 'string'
         },
         type: {
-            type: 'string',
-            title: 'Error Type'
-        },
-        input: {
-            title: 'Input'
-        },
-        ctx: {
-            type: 'object',
-            title: 'Context'
+            title: 'Error Type',
+            type: 'string'
         }
     },
-    type: 'object',
     required: ['loc', 'msg', 'type'],
-    title: 'ValidationError'
+    title: 'ValidationError',
+    type: 'object'
 } as const;
 
 export const ValidationPreviewSchema = {
     properties: {
-        ok: {
-            type: 'boolean',
-            title: 'Ok'
-        },
         flags: {
             items: {
                 additionalProperties: {
@@ -2630,11 +2601,15 @@ export const ValidationPreviewSchema = {
                 },
                 type: 'object'
             },
-            type: 'array',
-            title: 'Flags'
+            title: 'Flags',
+            type: 'array'
+        },
+        ok: {
+            title: 'Ok',
+            type: 'boolean'
         }
     },
-    type: 'object',
     required: ['ok'],
-    title: 'ValidationPreview'
+    title: 'ValidationPreview',
+    type: 'object'
 } as const;

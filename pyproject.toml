@@ -13,8 +13,10 @@ dev = [
     "amfv-search",
     "amfv-utils",
     "amfv-verifier",
+    "amfv-web-backend",
     "pytest>=8.0",
     "ruff>=0.11",
+    "ty>=0.0.25",
 ]
 
 [tool.uv]
@@ -26,6 +28,7 @@ amfv-decomposer = { workspace = true }
 amfv-search = { workspace = true }
 amfv-utils = { workspace = true }
 amfv-verifier = { workspace = true }
+amfv-web-backend = { workspace = true }
 
 [tool.uv.workspace]
 members = [
@@ -34,6 +37,7 @@ members = [
     "search",
     "utils",
     "verifier",
+    "web/backend",
 ]
 exclude = [
     "baseline",
@@ -47,4 +51,5 @@ testpaths = [
     "search/test",
     "utils/test",
     "verifier/test",
+    "web/backend/tests",
 ]

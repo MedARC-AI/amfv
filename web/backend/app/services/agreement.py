@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from itertools import combinations
 from uuid import UUID
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from app.models import (
     EvalItem,
@@ -109,14 +109,16 @@ def dataset_judgments_for_all(
     reviewer_kind: ReviewerKind | None = None,
 ) -> dict[str, JudgmentMap]:
     output: dict[str, JudgmentMap] = defaultdict(lambda: defaultdict(dict))
-    statement = select(FactDecompReview, ReviewTask, EvalItem).join(ReviewTask, FactDecompReview.task_id == ReviewTask.id).join(
+    statement = select(FactDecompReview, ReviewTask, EvalItem).join(
+        ReviewTask, col(FactDecompReview.task_id) == col(ReviewTask.id)
+    ).join(
         EvalItem,
-        ReviewTask.item_a_id == EvalItem.id,
+        col(ReviewTask.item_a_id) == col(EvalItem.id),
     )
     if dataset_id is not None:
-        statement = statement.where(ReviewTask.dataset_id == dataset_id)
+        statement = statement.where(col(ReviewTask.dataset_id) == dataset_id)
     if reviewer_kind is not None:
-        statement = statement.where(FactDecompReview.reviewer_kind == reviewer_kind)
+        statement = statement.where(col(FactDecompReview.reviewer_kind) == reviewer_kind)
     for review, task, item in session.exec(statement).all():
         if review.item_revision != item.revision:
             continue
@@ -131,9 +133,11 @@ def dataset_judgments_for_all(
             elif isinstance(value, str):
                 output[key][f"task:{task.id}"][review.user_id] = value
     user_kinds = _user_kinds(session) if reviewer_kind is not None else {}
-    item_statement = select(RetrievalQAReview, EvalItem).join(EvalItem, RetrievalQAReview.item_id == EvalItem.id)
+    item_statement = select(RetrievalQAReview, EvalItem).join(
+        EvalItem, col(RetrievalQAReview.item_id) == col(EvalItem.id)
+    )
     if dataset_id is not None:
-        item_statement = item_statement.where(EvalItem.dataset_id == dataset_id)
+        item_statement = item_statement.where(col(EvalItem.dataset_id) == dataset_id)
     for judgment, item in session.exec(item_statement).all():
         if judgment.skipped or (reviewer_kind is not None and user_kinds.get(judgment.user_id) != reviewer_kind):
             continue
@@ -143,10 +147,10 @@ def dataset_judgments_for_all(
         if judgment.verdict:
             output["item_verdict"][f"item:{item.id}"][judgment.user_id] = judgment.verdict.value
     relevance_statement = select(RelevanceJudgment, PooledCandidate).join(
-        PooledCandidate, RelevanceJudgment.candidate_id == PooledCandidate.id
+        PooledCandidate, col(RelevanceJudgment.candidate_id) == col(PooledCandidate.id)
     )
     if dataset_id is not None:
-        relevance_statement = relevance_statement.where(PooledCandidate.dataset_id == dataset_id)
+        relevance_statement = relevance_statement.where(col(PooledCandidate.dataset_id) == dataset_id)
     for judgment, candidate in session.exec(relevance_statement).all():
         if judgment.skipped or judgment.grade is None:
             continue

@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from sqlmodel import Session, select
+import argparse
+import json
+import sys
+
+from sqlmodel import Session, col, select
 
 from app.core.db import engine, init_db
 from app.core.security import get_password_hash
@@ -25,8 +29,9 @@ from app.services.documents import create_document_with_chunks
 
 def _get_or_create_user(session: Session) -> User:
     email = "e2e-user@example.com"
-    user = session.exec(select(User).where(User.email == email)).first()
+    user = session.exec(select(User).where(col(User.email) == email)).first()
     if user:
+        assert user.id is not None
         return user
 
     user = User(
@@ -38,7 +43,27 @@ def _get_or_create_user(session: Session) -> User:
     )
     session.add(user)
     session.flush()
+    assert user.id is not None
     return user
+
+
+def create_browser_test_user(*, email: str, password: str) -> User:
+    """Create one browser-test identity directly in the disposable database."""
+    with Session(engine) as session:
+        user = session.exec(select(User).where(col(User.email) == email)).first()
+        if user is None:
+            user = User(
+                email=email,
+                full_name="Test User",
+                role=UserRole.user,
+                hashed_password=get_password_hash(password),
+                profile_completed=True,
+            )
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+        assert user.id is not None
+        return user
 
 
 def _get_or_create_dataset(
@@ -48,13 +73,15 @@ def _get_or_create_dataset(
     display_name: str,
     eval_type: EvalType,
 ) -> Dataset:
-    dataset = session.exec(select(Dataset).where(Dataset.name == name)).first()
+    dataset = session.exec(select(Dataset).where(col(Dataset.name) == name)).first()
     if dataset:
+        assert dataset.id is not None
         return dataset
 
     dataset = Dataset(name=name, display_name=display_name, eval_type=eval_type)
     session.add(dataset)
     session.flush()
+    assert dataset.id is not None
     return dataset
 
 
@@ -68,27 +95,31 @@ def _get_or_create_document(
 ) -> Document:
     existing = session.exec(
         select(Document).where(
-            Document.dataset_id == dataset_id,
-            Document.external_id == external_id,
+            col(Document.dataset_id) == dataset_id,
+            col(Document.external_id) == external_id,
         )
     ).first()
     if existing:
+        assert existing.id is not None
         return existing
-    return create_document_with_chunks(
+    document = create_document_with_chunks(
         session,
         dataset_id=dataset_id,
         title=title,
         content=content,
         external_id=external_id,
     )
+    assert document.id is not None
+    return document
 
 
 def _first_chunk(session: Session, *, document_id: int) -> Chunk:
     chunk = session.exec(
-        select(Chunk).where(Chunk.document_id == document_id).order_by(Chunk.position)
+        select(Chunk).where(col(Chunk.document_id) == document_id).order_by(col(Chunk.position))
     ).first()
     if chunk is None:
         raise RuntimeError(f"Seed document {document_id} has no chunks")
+    assert chunk.id is not None
     return chunk
 
 
@@ -99,13 +130,16 @@ def _get_or_create_retrieval_item(
     user: User,
     chunk: Chunk,
 ) -> EvalItem:
+    assert dataset.id is not None
+    assert chunk.id is not None
     item = session.exec(
         select(EvalItem).where(
-            EvalItem.dataset_id == dataset.id,
-            EvalItem.external_id == "e2e-retrieval-item",
+            col(EvalItem.dataset_id) == dataset.id,
+            col(EvalItem.external_id) == "e2e-retrieval-item",
         )
     ).first()
     if item:
+        assert item.id is not None
         return item
 
     answer = "Baker"
@@ -135,6 +169,7 @@ def _get_or_create_retrieval_item(
     )
     session.add(item)
     session.flush()
+    assert item.id is not None
     return item
 
 
@@ -145,13 +180,16 @@ def _get_or_create_submitted_retrieval_item(
     user: User,
     chunk: Chunk,
 ) -> EvalItem:
+    assert dataset.id is not None
+    assert chunk.id is not None
     item = session.exec(
         select(EvalItem).where(
-            EvalItem.dataset_id == dataset.id,
-            EvalItem.external_id == "e2e-submitted-retrieval-item",
+            col(EvalItem.dataset_id) == dataset.id,
+            col(EvalItem.external_id) == "e2e-submitted-retrieval-item",
         )
     ).first()
     if item:
+        assert item.id is not None
         return item
 
     answer = "Baker"
@@ -181,6 +219,7 @@ def _get_or_create_submitted_retrieval_item(
     )
     session.add(item)
     session.flush()
+    assert item.id is not None
     return item
 
 
@@ -191,11 +230,14 @@ def _get_or_create_candidate(
     item: EvalItem,
     chunk: Chunk,
 ) -> None:
+    assert dataset.id is not None
+    assert item.id is not None
+    assert chunk.id is not None
     existing = session.exec(
         select(PooledCandidate).where(
-            PooledCandidate.dataset_id == dataset.id,
-            PooledCandidate.item_id == item.id,
-            PooledCandidate.chunk_id == chunk.id,
+            col(PooledCandidate.dataset_id) == dataset.id,
+            col(PooledCandidate.item_id) == item.id,
+            col(PooledCandidate.chunk_id) == chunk.id,
         )
     ).first()
     if existing:
@@ -222,13 +264,16 @@ def _get_or_create_fact_item(
     user: User,
     chunk: Chunk,
 ) -> EvalItem:
+    assert dataset.id is not None
+    assert chunk.id is not None
     item = session.exec(
         select(EvalItem).where(
-            EvalItem.dataset_id == dataset.id,
-            EvalItem.external_id == "e2e-fact-item",
+            col(EvalItem.dataset_id) == dataset.id,
+            col(EvalItem.external_id) == "e2e-fact-item",
         )
     ).first()
     if item:
+        assert item.id is not None
         return item
 
     item = EvalItem(
@@ -254,6 +299,7 @@ def _get_or_create_fact_item(
     )
     session.add(item)
     session.flush()
+    assert item.id is not None
 
     session.add(
         EvalFact(
@@ -283,8 +329,10 @@ def _get_or_create_review_task(
     dataset: Dataset,
     item: EvalItem,
 ) -> None:
+    assert dataset.id is not None
+    assert item.id is not None
     existing = session.exec(
-        select(ReviewTask).where(ReviewTask.item_a_id == item.id)
+        select(ReviewTask).where(col(ReviewTask.item_a_id) == item.id)
     ).first()
     if existing:
         return
@@ -316,6 +364,8 @@ def seed() -> None:
             display_name="E2E Fact Decomposition",
             eval_type=EvalType.FACT_DECOMP,
         )
+        assert retrieval_dataset.id is not None
+        assert fact_dataset.id is not None
 
         retrieval_document = _get_or_create_document(
             session,
@@ -331,9 +381,13 @@ def seed() -> None:
             title="E2E Fact Source",
             content="Baker appears in the E2E source.\n\nCafe\u0301 and emoji 😀 are available for offset checks.",
         )
+        assert retrieval_document.id is not None
+        assert fact_document.id is not None
 
         retrieval_chunk = _first_chunk(session, document_id=retrieval_document.id)
         fact_chunk = _first_chunk(session, document_id=fact_document.id)
+        assert retrieval_chunk.id is not None
+        assert fact_chunk.id is not None
         retrieval_item = _get_or_create_retrieval_item(
             session,
             dataset=retrieval_dataset,
@@ -362,5 +416,31 @@ def seed() -> None:
         session.commit()
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Seed the standard E2E data or create one requested browser identity."""
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command")
+    create_user_parser = subparsers.add_parser("create-user")
+    create_user_parser.add_argument("--email", required=True)
+    create_user_parser.add_argument("--password", required=True)
+    args = parser.parse_args()
+
+    if args.command == "create-user":
+        user = create_browser_test_user(email=args.email, password=args.password)
+        sys.stdout.write(
+            json.dumps(
+                {
+                    "id": str(user.id),
+                    "email": user.email,
+                    "full_name": user.full_name,
+                }
+            )
+            + "\n"
+        )
+        return
+
     seed()
+
+
+if __name__ == "__main__":
+    main()

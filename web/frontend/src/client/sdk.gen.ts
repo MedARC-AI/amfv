@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { AdminReadAdminDatasetsResponse, AdminCreateAdminDatasetData, AdminCreateAdminDatasetResponse, AdminReadAdminDatasetData, AdminReadAdminDatasetResponse, AdminGenerateDatasetTasksData, AdminGenerateDatasetTasksResponse, AdminReadAdminDocumentsResponse, AdminCreateAdminDocumentData, AdminCreateAdminDocumentResponse, AdminReadAdminDocumentData, AdminReadAdminDocumentResponse, AdminToggleAdminDocumentData, AdminToggleAdminDocumentResponse, AdminStartNiceImportData, AdminStartNiceImportResponse, AdminReadCurrentNiceImportResponse, AdminCancelNiceImportData, AdminCancelNiceImportResponse, AdminReadAdminItemsData, AdminReadAdminItemsResponse, AdminApproveAdminItemData, AdminApproveAdminItemResponse, AdminRejectAdminItemData, AdminRejectAdminItemResponse, AdminReadAdminUsersResponse, AdminUpdateAdminUserData, AdminUpdateAdminUserResponse, AdminReadAdminUserReviewsData, AdminReadAdminUserReviewsResponse, AdminReadAgreementMetricsData, AdminReadAgreementMetricsResponse, AdminReadUserMetricsData, AdminReadUserMetricsResponse, AdminReadInterUserAgreementData, AdminReadInterUserAgreementResponse, AdminIngestDatasetResponse, AdminExportDatasetData, AdminExportDatasetResponse, AuthListInvitesResponse, AuthCreateInviteData, AuthCreateInviteResponse, AuthPreviewInviteData, AuthPreviewInviteResponse, AuthDisableInviteData, AuthDisableInviteResponse, AuthInviteSignupData, AuthInviteSignupResponse, CreateReadCreateOptionsResponse, CreateReadSourceDocumentsData, CreateReadSourceDocumentsResponse, CreateReadSourceDocumentDetailData, CreateReadSourceDocumentDetailResponse, CreateCreateRetrievalDraftData, CreateCreateRetrievalDraftResponse, CreateSubmitRetrievalDraftData, CreateSubmitRetrievalDraftResponse, CreateCreateFactDecompDraftData, CreateCreateFactDecompDraftResponse, CreateSubmitFactDecompDraftData, CreateSubmitFactDecompDraftResponse, CreateValidateCreationRequestData, CreateValidateCreationRequestResponse, HomeReadHomeSummaryResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, NiceFetchNiceRecommendationByUrlData, NiceFetchNiceRecommendationByUrlResponse, NiceListNiceDownloadsResponse, PrivateCreateUserData, PrivateCreateUserResponse, ReviewReadNextReviewTaskData, ReviewReadNextReviewTaskResponse, ReviewReadRetrievalReviewData, ReviewReadRetrievalReviewResponse, ReviewSubmitRetrievalReviewData, ReviewSubmitRetrievalReviewResponse, ReviewReadFactDecompReviewData, ReviewReadFactDecompReviewResponse, ReviewSubmitFactDecompReviewData, ReviewSubmitFactDecompReviewResponse, ReviewReadRelevanceReviewData, ReviewReadRelevanceReviewResponse, ReviewSubmitRelevanceReviewData, ReviewSubmitRelevanceReviewResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { AdminReadAdminDatasetsResponse, AdminCreateAdminDatasetData, AdminCreateAdminDatasetResponse, AdminReadAdminDatasetData, AdminReadAdminDatasetResponse, AdminGenerateDatasetTasksData, AdminGenerateDatasetTasksResponse, AdminReadAdminDocumentsResponse, AdminCreateAdminDocumentData, AdminCreateAdminDocumentResponse, AdminReadAdminDocumentData, AdminReadAdminDocumentResponse, AdminToggleAdminDocumentData, AdminToggleAdminDocumentResponse, AdminExportDatasetData, AdminExportDatasetResponse, AdminIngestDatasetResponse, AdminReadAdminItemsData, AdminReadAdminItemsResponse, AdminApproveAdminItemData, AdminApproveAdminItemResponse, AdminRejectAdminItemData, AdminRejectAdminItemResponse, AdminReadAgreementMetricsData, AdminReadAgreementMetricsResponse, AdminReadInterUserAgreementData, AdminReadInterUserAgreementResponse, AdminReadUserMetricsData, AdminReadUserMetricsResponse, AdminStartNiceImportData, AdminStartNiceImportResponse, AdminReadCurrentNiceImportResponse, AdminCancelNiceImportData, AdminCancelNiceImportResponse, AdminReadAdminUsersResponse, AdminUpdateAdminUserData, AdminUpdateAdminUserResponse, AdminReadAdminUserReviewsData, AdminReadAdminUserReviewsResponse, AuthListInvitesResponse, AuthCreateInviteData, AuthCreateInviteResponse, AuthDisableInviteData, AuthDisableInviteResponse, AuthPreviewInviteData, AuthPreviewInviteResponse, AuthInviteSignupData, AuthInviteSignupResponse, CreateCreateFactDecompDraftData, CreateCreateFactDecompDraftResponse, CreateSubmitFactDecompDraftData, CreateSubmitFactDecompDraftResponse, CreateReadCreateOptionsResponse, CreateCreateRetrievalDraftData, CreateCreateRetrievalDraftResponse, CreateSubmitRetrievalDraftData, CreateSubmitRetrievalDraftResponse, CreateReadSourceDocumentsData, CreateReadSourceDocumentsResponse, CreateReadSourceDocumentDetailData, CreateReadSourceDocumentDetailResponse, CreateValidateCreationRequestData, CreateValidateCreationRequestResponse, HomeReadHomeSummaryResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, NiceListNiceDownloadsResponse, NiceFetchNiceRecommendationByUrlData, NiceFetchNiceRecommendationByUrlResponse, ReviewReadFactDecompReviewData, ReviewReadFactDecompReviewResponse, ReviewSubmitFactDecompReviewData, ReviewSubmitFactDecompReviewResponse, ReviewReadNextReviewTaskData, ReviewReadNextReviewTaskResponse, ReviewReadRelevanceReviewData, ReviewReadRelevanceReviewResponse, ReviewSubmitRelevanceReviewData, ReviewSubmitRelevanceReviewResponse, ReviewReadRetrievalReviewData, ReviewReadRetrievalReviewResponse, ReviewSubmitRetrievalReviewData, ReviewSubmitRetrievalReviewResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UtilsHealthCheckResponse, UtilsTestEmailData, UtilsTestEmailResponse } from './types.gen';
 
 export class AdminService {
     /**
@@ -149,53 +149,34 @@ export class AdminService {
     }
 
     /**
-     * Start Nice Import
+     * Export Dataset
      * @param data The data for the request.
-     * @param data.requestBody
-     * @returns NiceImportJobStatusResponse Successful Response
+     * @param data.datasetId
+     * @returns AdminExport Successful Response
      * @throws ApiError
      */
-    public static startNiceImport(data: AdminStartNiceImportData): CancelablePromise<AdminStartNiceImportResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/v1/admin/nice-imports',
-            body: data.requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-
-    /**
-     * Read Current Nice Import
-     * @returns unknown Successful Response
-     * @throws ApiError
-     */
-    public static readCurrentNiceImport(): CancelablePromise<AdminReadCurrentNiceImportResponse> {
+    public static exportDataset(data: AdminExportDatasetData = {}): CancelablePromise<AdminExportDatasetResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/v1/admin/nice-imports/current'
-        });
-    }
-
-    /**
-     * Cancel Nice Import
-     * @param data The data for the request.
-     * @param data.jobId
-     * @returns NiceImportJobStatusResponse Successful Response
-     * @throws ApiError
-     */
-    public static cancelNiceImport(data: AdminCancelNiceImportData): CancelablePromise<AdminCancelNiceImportResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/v1/admin/nice-imports/{job_id}/cancel',
-            path: {
-                job_id: data.jobId
+            url: '/api/v1/admin/export',
+            query: {
+                dataset_id: data.datasetId
             },
             errors: {
                 422: 'Validation Error'
             }
+        });
+    }
+
+    /**
+     * Ingest Dataset
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static ingestDataset(): CancelablePromise<AdminIngestDatasetResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/admin/ingest'
         });
     }
 
@@ -268,6 +249,121 @@ export class AdminService {
     }
 
     /**
+     * Read Agreement Metrics
+     * @param data The data for the request.
+     * @param data.datasetId
+     * @param data.reviewerKind
+     * @returns AdminAgreementMetric Successful Response
+     * @throws ApiError
+     */
+    public static readAgreementMetrics(data: AdminReadAgreementMetricsData = {}): CancelablePromise<AdminReadAgreementMetricsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/admin/metrics/agreement',
+            query: {
+                dataset_id: data.datasetId,
+                reviewer_kind: data.reviewerKind
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+
+    /**
+     * Read Inter User Agreement
+     * @param data The data for the request.
+     * @param data.datasetId
+     * @param data.minOverlap
+     * @returns AdminInterUserAgreementMetric Successful Response
+     * @throws ApiError
+     */
+    public static readInterUserAgreement(data: AdminReadInterUserAgreementData = {}): CancelablePromise<AdminReadInterUserAgreementResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/admin/metrics/inter-user-agreement',
+            query: {
+                dataset_id: data.datasetId,
+                min_overlap: data.minOverlap
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+
+    /**
+     * Read User Metrics
+     * @param data The data for the request.
+     * @param data.datasetId
+     * @returns AdminUserMetric Successful Response
+     * @throws ApiError
+     */
+    public static readUserMetrics(data: AdminReadUserMetricsData = {}): CancelablePromise<AdminReadUserMetricsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/admin/metrics/users',
+            query: {
+                dataset_id: data.datasetId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+
+    /**
+     * Start Nice Import
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns NiceImportJobStatusResponse Successful Response
+     * @throws ApiError
+     */
+    public static startNiceImport(data: AdminStartNiceImportData): CancelablePromise<AdminStartNiceImportResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/admin/nice-imports',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+
+    /**
+     * Read Current Nice Import
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static readCurrentNiceImport(): CancelablePromise<AdminReadCurrentNiceImportResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/admin/nice-imports/current'
+        });
+    }
+
+    /**
+     * Cancel Nice Import
+     * @param data The data for the request.
+     * @param data.jobId
+     * @returns NiceImportJobStatusResponse Successful Response
+     * @throws ApiError
+     */
+    public static cancelNiceImport(data: AdminCancelNiceImportData): CancelablePromise<AdminCancelNiceImportResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/admin/nice-imports/{job_id}/cancel',
+            path: {
+                job_id: data.jobId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+
+    /**
      * Read Admin Users
      * @returns unknown Successful Response
      * @throws ApiError
@@ -318,102 +414,6 @@ export class AdminService {
             }
         });
     }
-
-    /**
-     * Read Agreement Metrics
-     * @param data The data for the request.
-     * @param data.datasetId
-     * @param data.reviewerKind
-     * @returns AdminAgreementMetric Successful Response
-     * @throws ApiError
-     */
-    public static readAgreementMetrics(data: AdminReadAgreementMetricsData = {}): CancelablePromise<AdminReadAgreementMetricsResponse> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/v1/admin/metrics/agreement',
-            query: {
-                dataset_id: data.datasetId,
-                reviewer_kind: data.reviewerKind
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-
-    /**
-     * Read User Metrics
-     * @param data The data for the request.
-     * @param data.datasetId
-     * @returns AdminUserMetric Successful Response
-     * @throws ApiError
-     */
-    public static readUserMetrics(data: AdminReadUserMetricsData = {}): CancelablePromise<AdminReadUserMetricsResponse> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/v1/admin/metrics/users',
-            query: {
-                dataset_id: data.datasetId
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-
-    /**
-     * Read Inter User Agreement
-     * @param data The data for the request.
-     * @param data.datasetId
-     * @param data.minOverlap
-     * @returns AdminInterUserAgreementMetric Successful Response
-     * @throws ApiError
-     */
-    public static readInterUserAgreement(data: AdminReadInterUserAgreementData = {}): CancelablePromise<AdminReadInterUserAgreementResponse> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/v1/admin/metrics/inter-user-agreement',
-            query: {
-                dataset_id: data.datasetId,
-                min_overlap: data.minOverlap
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-
-    /**
-     * Ingest Dataset
-     * @returns unknown Successful Response
-     * @throws ApiError
-     */
-    public static ingestDataset(): CancelablePromise<AdminIngestDatasetResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/v1/admin/ingest'
-        });
-    }
-
-    /**
-     * Export Dataset
-     * @param data The data for the request.
-     * @param data.datasetId
-     * @returns AdminExport Successful Response
-     * @throws ApiError
-     */
-    public static exportDataset(data: AdminExportDatasetData = {}): CancelablePromise<AdminExportDatasetResponse> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/v1/admin/export',
-            query: {
-                dataset_id: data.datasetId
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
 }
 
 export class AuthService {
@@ -451,27 +451,6 @@ export class AuthService {
     }
 
     /**
-     * Preview Invite
-     * Preview an invite without exposing the stored token hash.
-     * @param data The data for the request.
-     * @param data.token
-     * @returns SignupInvitePreview Successful Response
-     * @throws ApiError
-     */
-    public static previewInvite(data: AuthPreviewInviteData): CancelablePromise<AuthPreviewInviteResponse> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/v1/auth/invites/{token}',
-            path: {
-                token: data.token
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-
-    /**
      * Disable Invite
      * Disable an invite before its normal expiry or redemption limit.
      * @param data The data for the request.
@@ -485,6 +464,27 @@ export class AuthService {
             url: '/api/v1/auth/invites/{invite_id}/disable',
             path: {
                 invite_id: data.inviteId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+
+    /**
+     * Preview Invite
+     * Preview an invite without exposing the stored token hash.
+     * @param data The data for the request.
+     * @param data.token
+     * @returns SignupInvitePreview Successful Response
+     * @throws ApiError
+     */
+    public static previewInvite(data: AuthPreviewInviteData): CancelablePromise<AuthPreviewInviteResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/auth/invites/{token}',
+            path: {
+                token: data.token
             },
             errors: {
                 422: 'Validation Error'
@@ -515,6 +515,44 @@ export class AuthService {
 
 export class CreateService {
     /**
+     * Create Fact Decomp Draft
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns FactDecompCreateResponse Successful Response
+     * @throws ApiError
+     */
+    public static createFactDecompDraft(data: CreateCreateFactDecompDraftData): CancelablePromise<CreateCreateFactDecompDraftResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/create/fact-decomp/draft',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+
+    /**
+     * Submit Fact Decomp Draft
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns FactDecompCreateResponse Successful Response
+     * @throws ApiError
+     */
+    public static submitFactDecompDraft(data: CreateSubmitFactDecompDraftData): CancelablePromise<CreateSubmitFactDecompDraftResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/create/fact-decomp/submit',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+
+    /**
      * Read Create Options
      * @returns DatasetSummary Successful Response
      * @throws ApiError
@@ -523,6 +561,44 @@ export class CreateService {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/v1/create/options'
+        });
+    }
+
+    /**
+     * Create Retrieval Draft
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns RetrievalCreateResponse Successful Response
+     * @throws ApiError
+     */
+    public static createRetrievalDraft(data: CreateCreateRetrievalDraftData): CancelablePromise<CreateCreateRetrievalDraftResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/create/retrieval/draft',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+
+    /**
+     * Submit Retrieval Draft
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns RetrievalCreateResponse Successful Response
+     * @throws ApiError
+     */
+    public static submitRetrievalDraft(data: CreateSubmitRetrievalDraftData): CancelablePromise<CreateSubmitRetrievalDraftResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/create/retrieval/submit',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
         });
     }
 
@@ -570,82 +646,6 @@ export class CreateService {
                 dataset_id: data.datasetId,
                 eval_type: data.evalType
             },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-
-    /**
-     * Create Retrieval Draft
-     * @param data The data for the request.
-     * @param data.requestBody
-     * @returns RetrievalCreateResponse Successful Response
-     * @throws ApiError
-     */
-    public static createRetrievalDraft(data: CreateCreateRetrievalDraftData): CancelablePromise<CreateCreateRetrievalDraftResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/v1/create/retrieval/draft',
-            body: data.requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-
-    /**
-     * Submit Retrieval Draft
-     * @param data The data for the request.
-     * @param data.requestBody
-     * @returns RetrievalCreateResponse Successful Response
-     * @throws ApiError
-     */
-    public static submitRetrievalDraft(data: CreateSubmitRetrievalDraftData): CancelablePromise<CreateSubmitRetrievalDraftResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/v1/create/retrieval/submit',
-            body: data.requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-
-    /**
-     * Create Fact Decomp Draft
-     * @param data The data for the request.
-     * @param data.requestBody
-     * @returns FactDecompCreateResponse Successful Response
-     * @throws ApiError
-     */
-    public static createFactDecompDraft(data: CreateCreateFactDecompDraftData): CancelablePromise<CreateCreateFactDecompDraftResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/v1/create/fact-decomp/draft',
-            body: data.requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-
-    /**
-     * Submit Fact Decomp Draft
-     * @param data The data for the request.
-     * @param data.requestBody
-     * @returns FactDecompCreateResponse Successful Response
-     * @throws ApiError
-     */
-    public static submitFactDecompDraft(data: CreateSubmitFactDecompDraftData): CancelablePromise<CreateSubmitFactDecompDraftResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/v1/create/fact-decomp/submit',
-            body: data.requestBody,
-            mediaType: 'application/json',
             errors: {
                 422: 'Validation Error'
             }
@@ -721,6 +721,27 @@ export class LoginService {
     }
 
     /**
+     * Recover Password Html Content
+     * HTML Content for Password Recovery
+     * @param data The data for the request.
+     * @param data.email
+     * @returns string Successful Response
+     * @throws ApiError
+     */
+    public static recoverPasswordHtmlContent(data: LoginRecoverPasswordHtmlContentData): CancelablePromise<LoginRecoverPasswordHtmlContentResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/password-recovery-html-content/{email}',
+            path: {
+                email: data.email
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+
+    /**
      * Recover Password
      * Password Recovery
      * @param data The data for the request.
@@ -760,30 +781,22 @@ export class LoginService {
             }
         });
     }
-
-    /**
-     * Recover Password Html Content
-     * HTML Content for Password Recovery
-     * @param data The data for the request.
-     * @param data.email
-     * @returns string Successful Response
-     * @throws ApiError
-     */
-    public static recoverPasswordHtmlContent(data: LoginRecoverPasswordHtmlContentData): CancelablePromise<LoginRecoverPasswordHtmlContentResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/v1/password-recovery-html-content/{email}',
-            path: {
-                email: data.email
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
 }
 
 export class NiceService {
+    /**
+     * List Nice Downloads
+     * List previously downloaded NICE recommendations (metadata only).
+     * @returns NiceDownloadSummary Successful Response
+     * @throws ApiError
+     */
+    public static listNiceDownloads(): CancelablePromise<NiceListNiceDownloadsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/nice/downloads'
+        });
+    }
+
     /**
      * Fetch Nice Recommendation By Url
      * Materialize a locally imported NICE recommendation URL.
@@ -803,109 +816,9 @@ export class NiceService {
             }
         });
     }
-
-    /**
-     * List Nice Downloads
-     * List previously downloaded NICE recommendations (metadata only).
-     * @returns NiceDownloadSummary Successful Response
-     * @throws ApiError
-     */
-    public static listNiceDownloads(): CancelablePromise<NiceListNiceDownloadsResponse> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/v1/nice/downloads'
-        });
-    }
-}
-
-export class PrivateService {
-    /**
-     * Create User
-     * Create a new user.
-     * @param data The data for the request.
-     * @param data.requestBody
-     * @returns UserPublic Successful Response
-     * @throws ApiError
-     */
-    public static createUser(data: PrivateCreateUserData): CancelablePromise<PrivateCreateUserResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/v1/private/users/',
-            body: data.requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
 }
 
 export class ReviewService {
-    /**
-     * Read Next Review Task
-     * @param data The data for the request.
-     * @param data.evalType
-     * @param data.mode
-     * @returns NextReviewRecommendation Successful Response
-     * @throws ApiError
-     */
-    public static readNextReviewTask(data: ReviewReadNextReviewTaskData): CancelablePromise<ReviewReadNextReviewTaskResponse> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/v1/review/next',
-            query: {
-                eval_type: data.evalType,
-                mode: data.mode
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-
-    /**
-     * Read Retrieval Review
-     * @param data The data for the request.
-     * @param data.assignmentId
-     * @returns RetrievalReviewPayload Successful Response
-     * @throws ApiError
-     */
-    public static readRetrievalReview(data: ReviewReadRetrievalReviewData): CancelablePromise<ReviewReadRetrievalReviewResponse> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/v1/review/retrieval/{assignment_id}',
-            path: {
-                assignment_id: data.assignmentId
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-
-    /**
-     * Submit Retrieval Review
-     * @param data The data for the request.
-     * @param data.assignmentId
-     * @param data.requestBody
-     * @returns ReviewSubmissionResponse Successful Response
-     * @throws ApiError
-     */
-    public static submitRetrievalReview(data: ReviewSubmitRetrievalReviewData): CancelablePromise<ReviewSubmitRetrievalReviewResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/v1/review/retrieval/{assignment_id}',
-            path: {
-                assignment_id: data.assignmentId
-            },
-            body: data.requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-
     /**
      * Read Fact Decomp Review
      * @param data The data for the request.
@@ -950,6 +863,28 @@ export class ReviewService {
     }
 
     /**
+     * Read Next Review Task
+     * @param data The data for the request.
+     * @param data.evalType
+     * @param data.mode
+     * @returns NextReviewRecommendation Successful Response
+     * @throws ApiError
+     */
+    public static readNextReviewTask(data: ReviewReadNextReviewTaskData): CancelablePromise<ReviewReadNextReviewTaskResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/review/next',
+            query: {
+                eval_type: data.evalType,
+                mode: data.mode
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+
+    /**
      * Read Relevance Review
      * @param data The data for the request.
      * @param data.assignmentId
@@ -981,6 +916,49 @@ export class ReviewService {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/v1/review/relevance/{assignment_id}',
+            path: {
+                assignment_id: data.assignmentId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+
+    /**
+     * Read Retrieval Review
+     * @param data The data for the request.
+     * @param data.assignmentId
+     * @returns RetrievalReviewPayload Successful Response
+     * @throws ApiError
+     */
+    public static readRetrievalReview(data: ReviewReadRetrievalReviewData): CancelablePromise<ReviewReadRetrievalReviewResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/review/retrieval/{assignment_id}',
+            path: {
+                assignment_id: data.assignmentId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+
+    /**
+     * Submit Retrieval Review
+     * @param data The data for the request.
+     * @param data.assignmentId
+     * @param data.requestBody
+     * @returns ReviewSubmissionResponse Successful Response
+     * @throws ApiError
+     */
+    public static submitRetrievalReview(data: ReviewSubmitRetrievalReviewData): CancelablePromise<ReviewSubmitRetrievalReviewResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/review/retrieval/{assignment_id}',
             path: {
                 assignment_id: data.assignmentId
             },
@@ -1138,6 +1116,18 @@ export class UsersService {
 
 export class UtilsService {
     /**
+     * Health Check
+     * @returns boolean Successful Response
+     * @throws ApiError
+     */
+    public static healthCheck(): CancelablePromise<UtilsHealthCheckResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/utils/health-check/'
+        });
+    }
+
+    /**
      * Test Email
      * Test emails.
      * @param data The data for the request.
@@ -1155,18 +1145,6 @@ export class UtilsService {
             errors: {
                 422: 'Validation Error'
             }
-        });
-    }
-
-    /**
-     * Health Check
-     * @returns boolean Successful Response
-     * @throws ApiError
-     */
-    public static healthCheck(): CancelablePromise<UtilsHealthCheckResponse> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/v1/utils/health-check/'
         });
     }
 }

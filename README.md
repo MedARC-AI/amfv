@@ -23,6 +23,14 @@ Following Baichuan-M3, the task is split into three models across four steps:
 | [`search`](search/README.md)       | Claim → supporting / contradictory sources | Yes |
 | [`datasets`](datasets/README.md)   | Dataset ingestion, construction, and synthetic data | Yes |
 | [`utils`](utils/README.md)         | Shared helpers used across AMFV packages | Yes |
+| [`web`](web/README.md)             | Eval-set creation, review, and administration app | Backend |
 | [`training`](training/README.md)   | Training experiments and recipes for the above | Independent |
 
-The **Workspace** column marks membership in the root `uv` workspace. Independent packages (`baseline`, `training`) are excluded so they can evolve on their own.
+The **Workspace** column marks membership in the root `uv` workspace. `web/backend` is the web application's Python
+workspace member; `web/frontend` remains a Bun workspace. Independent packages (`baseline`, `training`) are excluded so
+they can evolve on their own.
+
+Install every Python workspace package and its development tools with `uv sync --dev`. Run all Python tests with
+`uv run pytest`, or only the web backend tests with `uv run pytest web/backend/tests`. Install and build the frontend with
+`cd web/frontend && bun install --frozen-lockfile && bun run build`. Regenerate the public API client from the repository
+root with `bash web/scripts/generate-client.sh`.

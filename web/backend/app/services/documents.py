@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Iterable, Sequence
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from app.models import Chunk, Document, EvalItem, EvalType, ItemStatus
 from app.schemas import EvidenceSpan
@@ -45,6 +45,7 @@ def create_document_with_chunks(
     )
     session.add(document)
     session.flush()
+    assert document.id is not None
     for paragraph in paragraphs:
         position = int(paragraph["idx"])
         session.add(
@@ -126,14 +127,14 @@ def resolve_item_chunks(
 
     if not chunk_ids:
         return []
-    return list(session.exec(select(Chunk).where(Chunk.id.in_(chunk_ids))).all())
+    return list(session.exec(select(Chunk).where(col(Chunk.id).in_(chunk_ids))).all())
 
 
 def documents_for_chunks(session: Session, chunks: Iterable[Chunk]) -> list[Document]:
     document_ids = {chunk.document_id for chunk in chunks}
     if not document_ids:
         return []
-    return list(session.exec(select(Document).where(Document.id.in_(document_ids))).all())
+    return list(session.exec(select(Document).where(col(Document.id).in_(document_ids))).all())
 
 
 def used_retrieval_document_ids(
@@ -141,13 +142,13 @@ def used_retrieval_document_ids(
 ) -> set[int]:
     items = session.exec(
         select(EvalItem).where(
-            EvalItem.dataset_id == dataset_id,
-            EvalItem.eval_type == EvalType.RETRIEVAL,
-            EvalItem.author_user_id == user_id,
-            EvalItem.status.in_(
+            col(EvalItem.dataset_id) == dataset_id,
+            col(EvalItem.eval_type) == EvalType.RETRIEVAL,
+            col(EvalItem.author_user_id) == user_id,
+            col(EvalItem.status).in_(
                 [ItemStatus.DRAFT, ItemStatus.SUBMITTED, ItemStatus.ACTIVE]
             ),
-            EvalItem.is_active == True,  # noqa: E712
+            col(EvalItem.is_active) == True,  # noqa: E712
         )
     ).all()
 

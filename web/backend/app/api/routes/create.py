@@ -1,7 +1,7 @@
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import (
@@ -44,7 +44,7 @@ router = APIRouter(prefix="/create", tags=["create"])
 def read_create_options(session: SessionDep, current_user: CurrentUser) -> Any:
     _ = current_user
     datasets = session.exec(
-        select(Dataset).where(Dataset.is_active == True).order_by(Dataset.display_name)  # noqa: E712
+        select(Dataset).where(col(Dataset.is_active) == True).order_by(col(Dataset.display_name))  # noqa: E712
     ).all()
     return [DatasetSummary.model_validate(dataset) for dataset in datasets]
 
@@ -59,13 +59,13 @@ def read_source_documents(
 ) -> Any:
     documents = session.exec(
         select(Document)
-        .join(Dataset, Document.dataset_id == Dataset.id)
+        .join(Dataset, col(Document.dataset_id) == col(Dataset.id))
         .where(
-            Document.dataset_id == dataset_id,
-            Dataset.eval_type == eval_type,
-            Document.is_active == True,  # noqa: E712
+            col(Document.dataset_id) == dataset_id,
+            col(Dataset.eval_type) == eval_type,
+            col(Document.is_active) == True,  # noqa: E712
         )
-        .order_by(Document.title)
+        .order_by(col(Document.title))
     ).all()
     if include_used or eval_type != EvalType.RETRIEVAL:
         return [DocumentSummary.model_validate(document) for document in documents]
@@ -93,21 +93,23 @@ def read_source_document_detail(
     _ = current_user
     document = session.exec(
         select(Document)
-        .join(Dataset, Document.dataset_id == Dataset.id)
+        .join(Dataset, col(Document.dataset_id) == col(Dataset.id))
         .where(
-            Document.id == document_id,
-            Document.dataset_id == dataset_id,
-            Document.is_active == True,  # noqa: E712
-            Dataset.is_active == True,  # noqa: E712
-            Dataset.eval_type == eval_type,
+            col(Document.id) == document_id,
+            col(Document.dataset_id) == dataset_id,
+            col(Document.is_active) == True,  # noqa: E712
+            col(Dataset.is_active) == True,  # noqa: E712
+            col(Dataset.eval_type) == eval_type,
         )
     ).first()
     if document is None:
         raise HTTPException(status_code=404, detail="Source document not found")
+    assert document.id is not None
+    assert document.dataset_id is not None
     chunks = session.exec(
         select(Chunk)
-        .where(Chunk.document_id == document.id)
-        .order_by(Chunk.position)
+        .where(col(Chunk.document_id) == document.id)
+        .order_by(col(Chunk.position))
     ).all()
     return DocumentDetail(
         id=document.id,
@@ -223,6 +225,7 @@ def _create_retrieval_item(
     session.add(item)
     session.commit()
     session.refresh(item)
+    assert item.id is not None
     return _retrieval_response(
         item, body.gold_evidence_spans, body.trap_evidence_spans, document_ids, preview
     )
@@ -322,9 +325,9 @@ def _read_active_documents(
     return list(
         session.exec(
             select(Document).where(
-                Document.id.in_(set(document_ids)),
-                Document.dataset_id == dataset_id,
-                Document.is_active == True,  # noqa: E712
+                col(Document.id).in_(set(document_ids)),
+                col(Document.dataset_id) == dataset_id,
+                col(Document.is_active) == True,  # noqa: E712
             )
         ).all()
     )
@@ -337,6 +340,7 @@ def _retrieval_response(
     document_ids: list[int],
     validation: ValidationPreview,
 ) -> RetrievalCreateResponse:
+    assert item.id is not None
     return RetrievalCreateResponse(
         id=item.id,
         dataset_id=item.dataset_id,
@@ -388,11 +392,13 @@ def _create_fact_decomp_item(
     )
     session.add(item)
     session.flush()
+    assert item.id is not None
     facts = _fact_models(item.id, body.facts)
     for fact in facts:
         session.add(fact)
     session.commit()
     session.refresh(item)
+    assert item.id is not None
     return FactDecompCreateResponse(
         id=item.id,
         dataset_id=item.dataset_id,
@@ -464,9 +470,9 @@ def _read_optional_source_document(
         return None
     return session.exec(
         select(Document).where(
-            Document.id == document_id,
-            Document.dataset_id == dataset_id,
-            Document.is_active == True,  # noqa: E712
+            col(Document.id) == document_id,
+            col(Document.dataset_id) == dataset_id,
+            col(Document.is_active) == True,  # noqa: E712
         )
     ).first()
 

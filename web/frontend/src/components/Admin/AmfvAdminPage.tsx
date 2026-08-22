@@ -18,7 +18,9 @@ export default function AmfvAdminPage() {
     <div className="flex flex-col gap-6">
       <Tabs key={defaultTab} defaultValue={defaultTab} className="gap-6">
         <TabsList>
-          {canManageUsers ? <TabsTrigger value="users">Users</TabsTrigger> : null}
+          {canManageUsers ? (
+            <TabsTrigger value="users">Users</TabsTrigger>
+          ) : null}
           <TabsTrigger value="datasets">Datasets</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
           {canManageUsers ? <TabsTrigger value="nice">NICE</TabsTrigger> : null}

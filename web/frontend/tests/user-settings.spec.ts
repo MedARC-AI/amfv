@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test"
-import { createUser } from "./utils/privateApi.ts"
 import { randomEmail, randomPassword } from "./utils/random"
+import { createUser } from "./utils/testBootstrap.ts"
 import { logInUser, logOutUser } from "./utils/user"
 
 const tabs = ["My profile", "Password"]

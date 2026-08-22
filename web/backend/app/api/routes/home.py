@@ -1,7 +1,7 @@
 from typing import Any
 
 from fastapi import APIRouter
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import (
@@ -57,9 +57,9 @@ def read_home_summary(session: SessionDep, current_user: CurrentUser) -> Any:
     outstanding_counts["authored_items"] = _authored_item_count(session, current_user)
 
     reviewed_total = (
-        _row_count(session, RetrievalQAReview.user_id == current_user.id)
-        + _row_count(session, RelevanceJudgment.user_id == current_user.id)
-        + _row_count(session, FactDecompReview.user_id == current_user.id)
+        _row_count(session, col(RetrievalQAReview.user_id) == current_user.id)
+        + _row_count(session, col(RelevanceJudgment.user_id) == current_user.id)
+        + _row_count(session, col(FactDecompReview.user_id) == current_user.id)
     )
 
     return HomeSummary(
@@ -80,11 +80,11 @@ def _authored_item_count(
     session: SessionDep, current_user: CurrentUser, *, status: ItemStatus | None = None
 ) -> int:
     where = [
-        EvalItem.author_user_id == current_user.id,
-        EvalItem.is_active == True,  # noqa: E712
+        col(EvalItem.author_user_id) == current_user.id,
+        col(EvalItem.is_active) == True,  # noqa: E712
     ]
     if status is not None:
-        where.append(EvalItem.status == status)
+        where.append(col(EvalItem.status) == status)
     return _row_count(session, *where)
 
 
@@ -201,16 +201,20 @@ def _available_fact_decomp_tasks(
         return []
     tasks = session.exec(
         select(ReviewTask)
-        .join(EvalItem, ReviewTask.item_a_id == EvalItem.id)
+        .join(EvalItem, col(ReviewTask.item_a_id) == col(EvalItem.id))
         .where(
-            ReviewTask.dataset_id == dataset.id,
-            ReviewTask.is_active == True,  # noqa: E712
-            EvalItem.dataset_id == ReviewTask.dataset_id,
-            EvalItem.eval_type == EvalType.FACT_DECOMP,
-            EvalItem.status == ItemStatus.ACTIVE,
-            EvalItem.is_active == True,  # noqa: E712
+            col(ReviewTask.dataset_id) == dataset.id,
+            col(ReviewTask.is_active) == True,  # noqa: E712
+            col(EvalItem.dataset_id) == col(ReviewTask.dataset_id),
+            col(EvalItem.eval_type) == EvalType.FACT_DECOMP,
+            col(EvalItem.status) == ItemStatus.ACTIVE,
+            col(EvalItem.is_active) == True,  # noqa: E712
         )
-        .order_by(ReviewTask.labels_count, ReviewTask.priority_score.desc(), ReviewTask.id)
+        .order_by(
+            col(ReviewTask.labels_count),
+            col(ReviewTask.priority_score).desc(),
+            col(ReviewTask.id),
+        )
     ).all()
     available: list[ReviewTask] = []
     for task in tasks:
@@ -219,8 +223,8 @@ def _available_fact_decomp_tasks(
             continue
         if session.exec(
             select(FactDecompReview).where(
-                FactDecompReview.task_id == task.id,
-                FactDecompReview.user_id == current_user.id,
+                col(FactDecompReview.task_id) == task.id,
+                col(FactDecompReview.user_id) == current_user.id,
             )
         ).first():
             continue

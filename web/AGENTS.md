@@ -28,9 +28,10 @@ Do not hand-edit generated files: `frontend/src/client/*`, `frontend/openapi.jso
 - `bash ./scripts/backend.sh`: apply migrations, seed the first superuser, and serve the backend with `fastapi run`.
 - `bash ./scripts/backend-dev.sh`: apply migrations, seed the first superuser, and serve the backend with `fastapi dev`.
 - `bash ./scripts/frontend.sh`: start Vite on `http://localhost:5173`.
-- `cd backend && uv sync`: install backend dependencies.
-- `cd backend && uv run alembic upgrade head`: apply migrations.
-- `cd backend && uv run alembic revision --autogenerate -m "describe change"`: create a model migration.
+- `uv sync --dev` from the monorepo root: install all Python workspace packages and development tools.
+- `uv run pytest web/backend/tests` from the monorepo root: run the web backend tests.
+- `cd web/backend && uv run alembic upgrade head`: apply web database migrations.
+- `cd web/backend && uv run alembic revision --autogenerate -m "describe change"`: create a model migration.
 - `cd frontend && bun install`: install frontend dependencies.
 - `cd frontend && bun run dev`: run the frontend manually.
 
@@ -42,7 +43,7 @@ This repo is derived from `full-stack-fastapi-template`; inherited auth/user pat
 
 ## Testing Guidelines
 
-Run backend checks with `cd backend && uv run ruff check .`, `cd backend && uv run ty check app`, and `cd backend && uv run pytest`. Run frontend checks with `cd frontend && bunx tsc -p tsconfig.build.json`, `cd frontend && bunx biome check ./src ./tests`, `cd frontend && bun run build`, and `cd frontend && bun run test`.
+From the monorepo root, run backend checks with `uv run ruff check web/backend`, `uv run ty check web/backend/app`, and `uv run pytest web/backend/tests`. Run frontend checks from `web/frontend` with `bunx tsc -p tsconfig.build.json`, `bunx biome check ./src ./tests`, `bun run build`, and `bun run test`.
 
 For full hook parity, install/run `prek` from `backend/`: `uv run prek install -f` and `uv run prek run --all-files`.
 

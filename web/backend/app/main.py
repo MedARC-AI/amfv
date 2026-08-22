@@ -7,7 +7,7 @@ from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.main import api_router
-from app.core.config import settings
+from app.core.config import Settings, settings
 from app.services import nice_import_scheduler
 
 
@@ -16,8 +16,7 @@ def custom_generate_unique_id(route: APIRoute) -> str:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    _ = app
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     nice_import_scheduler.startup_recover()
     try:
         yield
@@ -25,24 +24,29 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         nice_import_scheduler.shutdown()
 
 
-if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
-    sentry_sdk.init(dsn=str(settings.SENTRY_DSN), enable_tracing=True)
+def create_app(app_settings: Settings) -> FastAPI:
+    """Construct the product application from explicit settings."""
+    if app_settings.SENTRY_DSN and app_settings.ENVIRONMENT != "local":
+        sentry_sdk.init(dsn=str(app_settings.SENTRY_DSN), enable_tracing=True)
 
-app = FastAPI(
-    title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json",
-    generate_unique_id_function=custom_generate_unique_id,
-    lifespan=lifespan,
-)
-
-# Set all CORS enabled origins
-if settings.all_cors_origins:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.all_cors_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+    application = FastAPI(
+        title=app_settings.PROJECT_NAME,
+        openapi_url=f"{app_settings.API_V1_STR}/openapi.json",
+        generate_unique_id_function=custom_generate_unique_id,
+        lifespan=lifespan,
     )
 
-app.include_router(api_router, prefix=settings.API_V1_STR)
+    if app_settings.all_cors_origins:
+        application.add_middleware(
+            CORSMiddleware,
+            allow_origins=app_settings.all_cors_origins,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
+    application.include_router(api_router, prefix=app_settings.API_V1_STR)
+    return application
+
+
+app = create_app(settings)

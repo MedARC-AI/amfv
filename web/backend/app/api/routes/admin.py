@@ -3,7 +3,7 @@ from itertools import combinations
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 
 from app.api.deps import (
     SessionDep,
@@ -64,7 +64,7 @@ router = APIRouter(
 
 @router.get("/datasets", response_model=list[DatasetSummary])
 def read_admin_datasets(session: SessionDep) -> Any:
-    datasets = session.exec(select(Dataset).order_by(Dataset.display_name)).all()
+    datasets = session.exec(select(Dataset).order_by(col(Dataset.display_name))).all()
     return [DatasetSummary.model_validate(dataset) for dataset in datasets]
 
 
@@ -94,20 +94,22 @@ def read_admin_dataset(session: SessionDep, dataset_id: int) -> Any:
 @router.post("/datasets/{dataset_id}/generate-tasks", response_model=AdminTaskGenerationResult)
 def generate_dataset_tasks(session: SessionDep, dataset_id: int) -> Any:
     dataset = _get_dataset_or_404(session, dataset_id)
+    assert dataset.id is not None
     item_ids = session.exec(
-        select(EvalItem.id).where(
-            EvalItem.dataset_id == dataset.id,
-            EvalItem.status == ItemStatus.ACTIVE,
-            EvalItem.is_active == True,  # noqa: E712
+        select(col(EvalItem.id)).where(
+            col(EvalItem.dataset_id) == dataset.id,
+            col(EvalItem.status) == ItemStatus.ACTIVE,
+            col(EvalItem.is_active) == True,  # noqa: E712
         )
     ).all()
     existing_item_ids = set(
         session.exec(
-            select(ReviewTask.item_a_id).where(ReviewTask.dataset_id == dataset.id)
+            select(col(ReviewTask.item_a_id)).where(col(ReviewTask.dataset_id) == dataset.id)
         ).all()
     )
     created = 0
     for item_id in item_ids:
+        assert item_id is not None
         if item_id in existing_item_ids:
             continue
         session.add(ReviewTask(dataset_id=dataset.id, item_a_id=item_id))
@@ -122,13 +124,14 @@ def generate_dataset_tasks(session: SessionDep, dataset_id: int) -> Any:
 
 @router.get("/documents", response_model=list[DocumentSummary])
 def read_admin_documents(session: SessionDep) -> Any:
-    documents = session.exec(select(Document).order_by(Document.title)).all()
+    documents = session.exec(select(Document).order_by(col(Document.title))).all()
     return [DocumentSummary.model_validate(document) for document in documents]
 
 
 @router.post("/documents", response_model=DocumentDetail)
 def create_admin_document(session: SessionDep, body: DocumentCreate) -> Any:
     dataset = _get_dataset_or_404(session, body.dataset_id)
+    assert dataset.id is not None
     document = create_document_with_chunks(
         session,
         dataset_id=dataset.id,
@@ -212,11 +215,11 @@ def read_admin_items(
     dataset_id: int | None = None,
     status: ItemStatus | None = ItemStatus.SUBMITTED,
 ) -> Any:
-    statement = select(EvalItem).order_by(EvalItem.created_at.desc())
+    statement = select(EvalItem).order_by(col(EvalItem.created_at).desc())
     if dataset_id is not None:
-        statement = statement.where(EvalItem.dataset_id == dataset_id)
+        statement = statement.where(col(EvalItem.dataset_id) == dataset_id)
     if status is not None:
-        statement = statement.where(EvalItem.status == status)
+        statement = statement.where(col(EvalItem.status) == status)
     items = session.exec(statement).all()
     return [_admin_item_summary(item) for item in items]
 
@@ -258,14 +261,13 @@ def read_agreement_metrics(
     reviewer_kind: ReviewerKind | None = None,
 ) -> Any:
     if dataset_id is None:
-        datasets = session.exec(select(Dataset.id).order_by(Dataset.id)).all()
-        summaries = [
-            summary
-            for current_dataset_id in datasets
-            for summary in dataset_agreement(
-                session, current_dataset_id, reviewer_kind=reviewer_kind
+        datasets = session.exec(select(col(Dataset.id)).order_by(col(Dataset.id))).all()
+        summaries = []
+        for current_dataset_id in datasets:
+            assert current_dataset_id is not None
+            summaries.extend(
+                dataset_agreement(session, current_dataset_id, reviewer_kind=reviewer_kind)
             )
-        ]
     else:
         _get_dataset_or_404(session, dataset_id)
         summaries = dataset_agreement(session, dataset_id, reviewer_kind=reviewer_kind)
@@ -281,7 +283,7 @@ def read_agreement_metrics(
 
 @router.get("/metrics/users", response_model=list[AdminUserMetric])
 def read_user_metrics(session: SessionDep, dataset_id: int | None = None) -> Any:
-    users = session.exec(select(User).order_by(User.email)).all()
+    users = session.exec(select(User).order_by(col(User.email))).all()
     return [_user_metric(session, user, dataset_id=dataset_id) for user in users]
 
 
@@ -340,10 +342,10 @@ def ingest_dataset() -> Any:
 
 @router.get("/export", response_model=AdminExport)
 def export_dataset(session: SessionDep, dataset_id: int | None = None) -> Any:
-    statement = select(EvalItem).order_by(EvalItem.dataset_id, EvalItem.id)
+    statement = select(EvalItem).order_by(col(EvalItem.dataset_id), col(EvalItem.id))
     if dataset_id is not None:
         _get_dataset_or_404(session, dataset_id)
-        statement = statement.where(EvalItem.dataset_id == dataset_id)
+        statement = statement.where(col(EvalItem.dataset_id) == dataset_id)
     items = session.exec(statement).all()
     return AdminExport(
         dataset_id=dataset_id,
@@ -359,8 +361,10 @@ def _get_dataset_or_404(session: SessionDep, dataset_id: int) -> Dataset:
 
 
 def _document_detail(session: SessionDep, document: Document) -> DocumentDetail:
+    assert document.id is not None
+    assert document.dataset_id is not None
     chunks = session.exec(
-        select(Chunk).where(Chunk.document_id == document.id).order_by(Chunk.position)
+        select(Chunk).where(col(Chunk.document_id) == document.id).order_by(col(Chunk.position))
     ).all()
     return DocumentDetail(
         id=document.id,
@@ -391,6 +395,7 @@ def _nice_import_status(job) -> NiceImportJobStatusResponse:
 
 
 def _admin_item_summary(item: EvalItem) -> AdminItemSummary:
+    assert item.id is not None
     return AdminItemSummary(
         id=item.id,
         dataset_id=item.dataset_id,
@@ -436,12 +441,12 @@ def _moderate_item(
 
 def _export_item(session: SessionDep, item: EvalItem) -> dict:
     facts = session.exec(
-        select(EvalFact).where(EvalFact.item_id == item.id).order_by(EvalFact.position)
+        select(EvalFact).where(col(EvalFact.item_id) == item.id).order_by(col(EvalFact.position))
     ).all()
     chunks = resolve_item_chunks(session, item)
     documents = documents_for_chunks(session, chunks)
     review_task_count = session.exec(
-        select(func.count(ReviewTask.id)).where(ReviewTask.item_a_id == item.id)
+        select(func.count(col(ReviewTask.id))).where(col(ReviewTask.item_a_id) == item.id)
     ).one()
     return {
         "id": item.id,
@@ -489,30 +494,30 @@ def _user_metric(
     *,
     dataset_id: int | None,
 ) -> AdminUserMetric:
-    authored_statement = select(func.count(EvalItem.id)).where(
-        EvalItem.author_user_id == user.id
+    authored_statement = select(func.count(col(EvalItem.id))).where(
+        col(EvalItem.author_user_id) == user.id
     )
-    fact_decomp_review_statement = select(func.count(FactDecompReview.id)).where(
-        FactDecompReview.user_id == user.id
+    fact_decomp_review_statement = select(func.count(col(FactDecompReview.id))).where(
+        col(FactDecompReview.user_id) == user.id
     )
-    retrieval_qa_review_statement = select(func.count(RetrievalQAReview.id)).where(
-        RetrievalQAReview.user_id == user.id
+    retrieval_qa_review_statement = select(func.count(col(RetrievalQAReview.id))).where(
+        col(RetrievalQAReview.user_id) == user.id
     )
-    relevance_statement = select(func.count(RelevanceJudgment.id)).where(
-        RelevanceJudgment.user_id == user.id
+    relevance_statement = select(func.count(col(RelevanceJudgment.id))).where(
+        col(RelevanceJudgment.user_id) == user.id
     )
     if dataset_id is not None:
         _get_dataset_or_404(session, dataset_id)
-        authored_statement = authored_statement.where(EvalItem.dataset_id == dataset_id)
+        authored_statement = authored_statement.where(col(EvalItem.dataset_id) == dataset_id)
         fact_decomp_review_statement = fact_decomp_review_statement.join(
-            ReviewTask, FactDecompReview.task_id == ReviewTask.id
-        ).where(ReviewTask.dataset_id == dataset_id)
+            ReviewTask, col(FactDecompReview.task_id) == col(ReviewTask.id)
+        ).where(col(ReviewTask.dataset_id) == dataset_id)
         retrieval_qa_review_statement = retrieval_qa_review_statement.join(
-            EvalItem, RetrievalQAReview.item_id == EvalItem.id
-        ).where(EvalItem.dataset_id == dataset_id)
+            EvalItem, col(RetrievalQAReview.item_id) == col(EvalItem.id)
+        ).where(col(EvalItem.dataset_id) == dataset_id)
         relevance_statement = relevance_statement.join(
-            PooledCandidate, RelevanceJudgment.candidate_id == PooledCandidate.id
-        ).where(PooledCandidate.dataset_id == dataset_id)
+            PooledCandidate, col(RelevanceJudgment.candidate_id) == col(PooledCandidate.id)
+        ).where(col(PooledCandidate.dataset_id) == dataset_id)
     mean_kappa, overlap = reviewer_mean_kappa(
         session, user.id, min_overlap=1, dataset_id=dataset_id
     )
