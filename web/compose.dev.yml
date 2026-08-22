@@ -1,0 +1,76 @@
+services:
+  backend:
+    restart: "no"
+    read_only: false
+    ports:
+      - "127.0.0.1:8000:8000"
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command:
+      - fastapi
+      - dev
+      - "app/main.py"
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
+    develop:
+      watch:
+        - path: ./backend
+          action: sync
+          target: /app/backend
+          ignore:
+            - ./backend/.venv
+            - .venv
+        - path: ./backend/pyproject.toml
+          action: rebuild
+    volumes:
+      - ./backend/htmlcov:/app/backend/htmlcov
+    environment:
+      ENVIRONMENT: "local"
+      SMTP_HOST: "mailcatcher"
+      SMTP_PORT: "1025"
+      SMTP_TLS: "false"
+      EMAILS_FROM_EMAIL: "noreply@example.com"
+
+  mailcatcher:
+    image: schickling/mailcatcher
+    ports:
+      - "127.0.0.1:1080:1080"
+      - "127.0.0.1:1025:1025"
+
+  frontend:
+    restart: "no"
+    ports:
+      - "127.0.0.1:5173:8080"
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:8000
+        - NODE_ENV=development
+
+  playwright:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.playwright
+      args:
+        - VITE_API_URL=http://backend:8000
+        - NODE_ENV=production
+    ipc: host
+    depends_on:
+      - backend
+      - mailcatcher
+    env_file:
+      - .env
+    environment:
+      - VITE_API_URL=http://backend:8000
+      - MAILCATCHER_HOST=http://mailcatcher:1080
+      - PLAYWRIGHT_HTML_HOST=0.0.0.0
+      - CI=${CI}
+    volumes:
+      - ./frontend/blob-report:/app/frontend/blob-report
+      - ./frontend/test-results:/app/frontend/test-results
+    ports:
+      - "127.0.0.1:9323:9323"

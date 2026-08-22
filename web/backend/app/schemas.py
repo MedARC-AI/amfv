@@ -1,0 +1,371 @@
+from typing import Literal
+
+from pydantic import model_validator
+from sqlmodel import Field, SQLModel
+
+from app.models import (
+    AssignmentKind,
+    EvalType,
+    FactPolarity,
+    ItemStatus,
+    JudgmentConfidence,
+    NiceImportJobStatus,
+    NiceImportLimit,
+    PooledCandidate,
+    RetrievalCategory,
+    UserPublic,
+)
+
+
+class EvidenceSpan(SQLModel):
+    chunk_id: int
+    start: int = Field(ge=0)
+    end: int = Field(gt=0)
+    text: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _validate_order(self) -> "EvidenceSpan":
+        if self.end <= self.start:
+            raise ValueError("Evidence span end must be greater than start")
+        return self
+
+
+class RecommendedTask(SQLModel):
+    kind: AssignmentKind | str
+    eval_type: EvalType
+    dataset_id: int
+    title: str
+    reason: str
+    assignment_id: int | None = None
+    task_id: int | None = None
+
+
+class HomeSummary(SQLModel):
+    user: UserPublic
+    outstanding_counts: dict[str, int] = Field(default_factory=dict)
+    authored_total: int = 0
+    reviewed_total: int = 0
+    recommended_task: RecommendedTask | None = None
+
+
+class DatasetSummary(SQLModel):
+    id: int
+    name: str
+    display_name: str
+    eval_type: EvalType
+    is_active: bool
+
+
+class DatasetCreate(SQLModel):
+    name: str = Field(min_length=1)
+    display_name: str = Field(min_length=1)
+    eval_type: EvalType
+    description: str | None = None
+    is_active: bool = True
+
+
+class DocumentSummary(SQLModel):
+    id: int
+    dataset_id: int
+    external_id: str
+    title: str
+    is_active: bool
+
+
+class DocumentCreate(SQLModel):
+    dataset_id: int
+    title: str = Field(min_length=1)
+    content: str = Field(min_length=1)
+    external_id: str | None = None
+
+
+class NiceImportStart(SQLModel):
+    limit: Literal[10, 20, 50, "all"]
+
+
+class NiceImportJobStatusResponse(SQLModel):
+    id: int
+    status: NiceImportJobStatus
+    requested_limit: NiceImportLimit
+    target_count: int | None = None
+    completed_count: int
+    failed_count: int
+    started_by_user_id: str
+    started_at: str | None = None
+    finished_at: str | None = None
+    last_error: str | None = None
+    heartbeat_at: str | None = None
+
+
+class DocumentDetail(DocumentSummary):
+    content: str
+    paragraphs: list[dict] = Field(default_factory=list)
+    chunks: list["ChunkSummary"] = Field(default_factory=list)
+
+
+class ChunkSummary(SQLModel):
+    id: int
+    dataset_id: int
+    document_id: int
+    external_id: str
+    text: str
+    position: int
+
+
+class ReviewTaskPayload(SQLModel):
+    dataset_id: int
+    eval_type: EvalType
+    item_id: int | None = None
+    assignment_id: int | None = None
+    task_id: int | None = None
+    prompt_text: str
+    evidence_spans: list[EvidenceSpan] = Field(default_factory=list)
+    allowed_actions: list[str] = Field(default_factory=list)
+    item_revision: int
+
+
+class ReviewDataset(SQLModel):
+    id: int
+    name: str
+    display_name: str
+    eval_type: EvalType
+
+
+class ReviewItem(SQLModel):
+    id: int
+    dataset_id: int
+    eval_type: EvalType
+    prompt_text: str
+    status: ItemStatus
+    revision: int
+    category: RetrievalCategory | None = None
+    expected_answer: str | None = None
+    why_not_answerable: str | None = None
+
+
+class ReviewFact(SQLModel):
+    id: int
+    fact_uuid: str
+    fact_text: str
+    polarity: FactPolarity
+    position: int
+
+
+class ReviewRubricDimension(SQLModel):
+    key: str
+    label: str
+    options: list[str] = Field(default_factory=list)
+
+
+class NextReviewRecommendation(SQLModel):
+    kind: Literal["retrieval_audit", "fact_decomp", "relevance"]
+    eval_type: EvalType
+    dataset_id: int
+    title: str
+    reason: str
+    review_url: str
+    reservation_state: Literal["existing", "created", "selected"]
+    assignment_id: int | None = None
+    task_id: int | None = None
+    item_id: int | None = None
+
+
+class RetrievalReviewPayload(SQLModel):
+    kind: Literal["retrieval_audit"] = "retrieval_audit"
+    dataset: ReviewDataset
+    item: ReviewItem
+    assignment_id: int
+    documents: list[DocumentDetail] = Field(default_factory=list)
+    chunks: list[ChunkSummary] = Field(default_factory=list)
+    gold_evidence_spans: list[EvidenceSpan] = Field(default_factory=list)
+    trap_evidence_spans: list[EvidenceSpan] = Field(default_factory=list)
+    allowed_actions: list[str] = Field(default_factory=list)
+    item_revision: int
+    existing_submission: dict | None = None
+
+
+class FactDecompReviewPayload(SQLModel):
+    kind: Literal["fact_decomp"] = "fact_decomp"
+    dataset: ReviewDataset
+    item: ReviewItem
+    task_id: int
+    facts: list[ReviewFact] = Field(default_factory=list)
+    rubric_dimensions: list[ReviewRubricDimension] = Field(default_factory=list)
+    documents: list[DocumentDetail] = Field(default_factory=list)
+    chunks: list[ChunkSummary] = Field(default_factory=list)
+    allowed_actions: list[str] = Field(default_factory=list)
+    item_revision: int
+    existing_review: dict | None = None
+
+
+class RelevanceReviewPayload(SQLModel):
+    kind: Literal["relevance"] = "relevance"
+    dataset: ReviewDataset
+    item: ReviewItem
+    assignment_id: int
+    candidate: PooledCandidate
+    document: DocumentDetail
+    chunk: ChunkSummary
+    allowed_actions: list[str] = Field(default_factory=list)
+    item_revision: int
+    existing_submission: dict | None = None
+
+
+RubricScore = Literal[1, 2, 3, 4]
+
+
+class RetrievalReviewSubmit(SQLModel):
+    question_validity: RubricScore
+    evidence_quality: RubricScore
+    answer_correctness: RubricScore
+    answer_faithfulness: RubricScore
+    accept_as_gold: bool
+    notes: str | None = None
+
+
+class RelevanceReviewSubmit(SQLModel):
+    grade: int = Field(ge=0, le=3)
+    confidence: JudgmentConfidence | None = None
+    item_revision: int
+
+
+class ReviewSubmissionResponse(SQLModel):
+    id: int
+    assignment_id: int
+    item_id: int
+    kind: Literal["retrieval_audit", "relevance"]
+    completed: bool = True
+
+
+class FactDecompReviewSubmissionResponse(SQLModel):
+    id: int
+    task_id: int
+    item_id: int
+    labels_count: int
+    completed: bool = True
+
+
+class FactDecompReviewSubmit(SQLModel):
+    fact_calls: dict[str, str]
+    values: dict[str, str]
+    comments: str | None = None
+    confidence: JudgmentConfidence | None = None
+    item_revision: int
+
+
+class CreateRetrievalDraftSubmit(SQLModel):
+    dataset_id: int
+    document_ids: list[int] = Field(default_factory=list)
+    category: RetrievalCategory
+    question: str = Field(min_length=1)
+    expected_answer: str | None = None
+    unanswerable: bool = False
+    gold_evidence_spans: list[EvidenceSpan] = Field(default_factory=list)
+    trap_evidence_spans: list[EvidenceSpan] = Field(default_factory=list)
+    why_not_answerable: str | None = None
+    status: ItemStatus = ItemStatus.DRAFT
+
+
+class FactDraft(SQLModel):
+    fact_uuid: str
+    fact_text: str = Field(min_length=1)
+    polarity: FactPolarity
+    position: int
+    provenance_spans: list[EvidenceSpan] = Field(default_factory=list)
+
+
+class CreateFactDecompDraftSubmit(SQLModel):
+    dataset_id: int
+    document_id: int | None = None
+    source_text: str = Field(min_length=1)
+    facts: list[FactDraft]
+    status: ItemStatus = ItemStatus.DRAFT
+
+
+class ValidationPreview(SQLModel):
+    ok: bool
+    flags: list[dict[str, str]] = Field(default_factory=list)
+
+
+class RetrievalCreateResponse(SQLModel):
+    id: int
+    dataset_id: int
+    eval_type: EvalType
+    category: RetrievalCategory
+    status: ItemStatus
+    prompt_text: str
+    expected_answer: str | None = None
+    evidence_spans: list[EvidenceSpan] = Field(default_factory=list)
+    trap_evidence_spans: list[EvidenceSpan] = Field(default_factory=list)
+    document_ids: list[int] = Field(default_factory=list)
+    item_revision: int
+    validation: ValidationPreview
+
+
+class FactDecompCreateResponse(SQLModel):
+    id: int
+    dataset_id: int
+    eval_type: EvalType
+    status: ItemStatus
+    prompt_text: str
+    document_id: int | None = None
+    facts: list[FactDraft] = Field(default_factory=list)
+    item_revision: int
+    validation: ValidationPreview
+
+
+class AdminModerationAction(SQLModel):
+    action: Literal["approve", "reject", "return_to_draft"]
+    dataset_id: int
+    expected_item_revision: int
+    reason: str | None = None
+
+
+class AdminItemSummary(SQLModel):
+    id: int
+    dataset_id: int
+    eval_type: EvalType
+    status: ItemStatus
+    prompt_text: str
+    category: RetrievalCategory | None = None
+    document_id: int | None = None
+    revision: int
+    validation_flags: list[dict] = Field(default_factory=list)
+
+
+class AdminTaskGenerationResult(SQLModel):
+    dataset_id: int
+    created: int
+    existing: int
+
+
+class AdminExport(SQLModel):
+    dataset_id: int | None = None
+    items: list[dict] = Field(default_factory=list)
+
+
+class AdminAgreementMetric(SQLModel):
+    dimension: str
+    alpha: float | None
+    n: int
+
+
+class AdminUserMetric(SQLModel):
+    user_id: str
+    email: str
+    role: str
+    reviewer_kind: str
+    authored_items: int
+    fact_decomp_reviews: int
+    retrieval_qa_reviews: int
+    relevance_judgments: int
+    mean_kappa: float | None = None
+    kappa_overlap: int = 0
+
+
+class AdminInterUserAgreementMetric(SQLModel):
+    dimension: str
+    left_user_id: str
+    right_user_id: str
+    kappa: float | None
+    overlap: int

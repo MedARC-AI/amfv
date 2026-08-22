@@ -1,0 +1,11 @@
+[tool.uv.workspace]
+members = ["backend"]
+
+[dependency-groups]
+dev = [
+    "zizmor>=1.25.2",
+]
+
+github-actions = [
+    "smokeshow >=0.5.0",
+]

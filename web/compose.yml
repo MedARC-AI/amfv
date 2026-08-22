@@ -1,0 +1,79 @@
+services:
+  prestart:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: bash scripts/prestart.sh
+    env_file:
+      - .env
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+      FRONTEND_HOST: ${PUBLIC_APP_URL:-http://localhost:${FRONTEND_PORT:-24861}}
+      ENVIRONMENT: ${AMFV_ENVIRONMENT:-production}
+      BACKEND_CORS_ORIGINS: ${PUBLIC_APP_URL:-},http://localhost:${FRONTEND_PORT:-24861},http://127.0.0.1:${FRONTEND_PORT:-24861}
+      SQLITE_DATABASE_URL: sqlite:////app/data/app.db
+    user: "${AMFV_DOCKER_UID:?Set AMFV_DOCKER_UID to your host uid}:${AMFV_DOCKER_GID:?Set AMFV_DOCKER_GID to your host gid}"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./data:/app/data
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      prestart:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+      FRONTEND_HOST: ${PUBLIC_APP_URL:-http://localhost:${FRONTEND_PORT:-24861}}
+      ENVIRONMENT: ${AMFV_ENVIRONMENT:-production}
+      BACKEND_CORS_ORIGINS: ${PUBLIC_APP_URL:-},http://localhost:${FRONTEND_PORT:-24861},http://127.0.0.1:${FRONTEND_PORT:-24861}
+      SQLITE_DATABASE_URL: sqlite:////app/data/app.db
+    user: "${AMFV_DOCKER_UID:?Set AMFV_DOCKER_UID to your host uid}:${AMFV_DOCKER_GID:?Set AMFV_DOCKER_GID to your host gid}"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-21783}:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/utils/health-check/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_URL: ""
+        NODE_ENV: production
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /var/cache/nginx:uid=101,gid=101
+      - /var/run:uid=101,gid=101
+      - /tmp:uid=101,gid=101
+    user: "101:101"
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-24861}:8080"
