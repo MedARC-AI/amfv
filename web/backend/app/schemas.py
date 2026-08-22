@@ -147,6 +147,14 @@ class DocumentImportSummary(SQLModel):
     dry_run: bool
 
 
+RetrievalReviewAction = Literal["accept", "reject"]
+FactDecompReviewAction = Literal["save_review"]
+RelevanceReviewAction = Literal["grade_relevance"]
+ReviewAction = (
+    RetrievalReviewAction | FactDecompReviewAction | RelevanceReviewAction
+)
+
+
 class ReviewTaskPayload(SQLModel):
     dataset_id: int
     eval_type: EvalType
@@ -155,7 +163,7 @@ class ReviewTaskPayload(SQLModel):
     task_id: int | None = None
     prompt_text: str
     evidence_spans: list[EvidenceSpan] = Field(default_factory=list)
-    allowed_actions: list[str] = Field(default_factory=list)
+    allowed_actions: list[ReviewAction] = Field(default_factory=list)
     item_revision: int
 
 
@@ -240,7 +248,7 @@ class RetrievalReviewPayload(SQLModel):
     chunks: list[ChunkSummary] = Field(default_factory=list)
     gold_evidence_spans: list[EvidenceSpan] = Field(default_factory=list)
     trap_evidence_spans: list[EvidenceSpan] = Field(default_factory=list)
-    allowed_actions: list[str] = Field(default_factory=list)
+    allowed_actions: list[RetrievalReviewAction] = Field(default_factory=list)
     item_revision: int
     existing_submission: RetrievalReviewSubmission | None = None
 
@@ -254,7 +262,7 @@ class FactDecompReviewPayload(SQLModel):
     rubric_dimensions: list[ReviewRubricDimension] = Field(default_factory=list)
     documents: list[DocumentDetail] = Field(default_factory=list)
     chunks: list[ChunkSummary] = Field(default_factory=list)
-    allowed_actions: list[str] = Field(default_factory=list)
+    allowed_actions: list[FactDecompReviewAction] = Field(default_factory=list)
     item_revision: int
     existing_review: dict | None = None
 
@@ -267,7 +275,7 @@ class RelevanceReviewPayload(SQLModel):
     candidate: PooledCandidate
     document: DocumentDetail
     chunk: ChunkSummary
-    allowed_actions: list[str] = Field(default_factory=list)
+    allowed_actions: list[RelevanceReviewAction] = Field(default_factory=list)
     item_revision: int
     existing_submission: dict | None = None
 

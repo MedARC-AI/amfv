@@ -994,6 +994,7 @@ export const FactDecompReviewPayloadSchema = {
     properties: {
         allowed_actions: {
             items: {
+                const: 'save_review',
                 type: 'string'
             },
             title: 'Allowed Actions',
@@ -1544,6 +1545,7 @@ export const RelevanceReviewPayloadSchema = {
     properties: {
         allowed_actions: {
             items: {
+                const: 'grade_relevance',
                 type: 'string'
             },
             title: 'Allowed Actions',
@@ -1702,6 +1704,7 @@ export const RetrievalReviewPayloadSchema = {
     properties: {
         allowed_actions: {
             items: {
+                enum: ['accept', 'reject'],
                 type: 'string'
             },
             title: 'Allowed Actions',

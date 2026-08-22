@@ -248,7 +248,7 @@ export type FactDecompCreateResponse = {
 };
 
 export type FactDecompReviewPayload = {
-    allowed_actions?: Array<(string)>;
+    allowed_actions?: Array<("save_review")>;
     chunks?: Array<ChunkSummary>;
     dataset: ReviewDataset;
     documents?: Array<DocumentDetail>;
@@ -378,7 +378,7 @@ export type RecommendedTask = {
 };
 
 export type RelevanceReviewPayload = {
-    allowed_actions?: Array<(string)>;
+    allowed_actions?: Array<("grade_relevance")>;
     assignment_id: number;
     candidate: PooledCandidate;
     chunk: ChunkSummary;
@@ -416,7 +416,7 @@ export type RetrievalCreateResponse = {
 };
 
 export type RetrievalReviewPayload = {
-    allowed_actions?: Array<(string)>;
+    allowed_actions?: Array<('accept' | 'reject')>;
     assignment_id: number;
     chunks?: Array<ChunkSummary>;
     dataset: ReviewDataset;
