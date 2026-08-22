@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import hashlib
-import json
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from sqlalchemy import update
+from sqlalchemy import delete
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import col, delete, select
+from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import (
@@ -22,10 +20,8 @@ from app.models import (
     ItemSource,
     ItemStatus,
     RetrievalSubmissionBatch,
-    get_datetime_utc,
 )
 from app.schemas import (
-    AuthoringConflict,
     AuthoringConflictResponse,
     AuthoringItemState,
     ChunkSummary,
@@ -34,24 +30,24 @@ from app.schemas import (
     DatasetSummary,
     DocumentDetail,
     DocumentSummary,
-    EvidenceSpan,
     FactDecompCreateResponse,
     FactDecompSaveCommand,
     FactDecompSaveReceiptResponse,
-    FactDraft,
     RetrievalCreateResponse,
     RetrievalSubmissionBatchResponse,
     RetrievalSubmissionBatchSubmit,
     ValidationPreview,
 )
+from app.services import authoring_fact_decomp, authoring_retrieval
+from app.services.authoring_common import (
+    raise_authoring_conflict,
+    raise_evidence_error,
+    raise_validation_error,
+)
 from app.services.documents import (
     EvidenceSpanValidationError,
-    documents_for_chunks,
-    span_dicts,
     used_retrieval_document_ids,
-    validate_evidence_spans,
 )
-from app.services.validation import validate_item
 
 router = APIRouter(prefix="/create", tags=["create"])
 
@@ -149,7 +145,7 @@ def preview_retrieval_creation(
     current_user: CurrentUser,
 ) -> ValidationPreview:
     _ = current_user
-    return _preview_retrieval_validation(session, body)
+    return authoring_retrieval.preview_retrieval_validation(session, body)
 
 
 @router.post("/retrieval/draft", response_model=RetrievalCreateResponse)
@@ -182,20 +178,22 @@ def submit_retrieval_batch(
     body: RetrievalSubmissionBatchSubmit,
     current_user: CurrentUser,
 ) -> RetrievalSubmissionBatchResponse:
-    request_hash = _canonical_retrieval_batch_hash(body.items)
-    existing = _read_retrieval_batch_receipt(session, current_user.id, body.request_id)
+    request_hash = authoring_retrieval.canonical_retrieval_batch_hash(body.items)
+    existing = authoring_retrieval.read_retrieval_batch_receipt(
+        session, current_user.id, body.request_id
+    )
     if existing is not None:
-        return _reconcile_retrieval_batch(existing, request_hash)
+        return authoring_retrieval.reconcile_retrieval_batch(existing, request_hash)
 
     # Build and validate every item before adding the receipt or any item. This
     # keeps validation errors outside the transaction's write set.
     prepared_items = [
-        _build_retrieval_item(
+        authoring_retrieval.build_retrieval_item(
             session, item_body, current_user, status=ItemStatus.SUBMITTED
         )[0]
         for item_body in body.items
     ]
-    _ensure_batch_prompts_are_distinct(prepared_items)
+    authoring_retrieval.ensure_batch_prompts_are_distinct(prepared_items)
     receipt = RetrievalSubmissionBatch(
         author_user_id=current_user.id,
         request_id=body.request_id,
@@ -205,11 +203,13 @@ def submit_retrieval_batch(
         _persist_retrieval_batch(session, receipt, prepared_items)
     except IntegrityError:
         session.rollback()
-        raced_receipt = _read_retrieval_batch_receipt(
+        raced_receipt = authoring_retrieval.read_retrieval_batch_receipt(
             session, current_user.id, body.request_id
         )
         if raced_receipt is not None:
-            return _reconcile_retrieval_batch(raced_receipt, request_hash)
+            return authoring_retrieval.reconcile_retrieval_batch(
+                raced_receipt, request_hash
+            )
         raise
     except Exception as exc:
         session.rollback()
@@ -217,7 +217,7 @@ def submit_retrieval_batch(
             status_code=500,
             detail="Retrieval batch could not be saved; no items were created.",
         ) from exc
-    return _retrieval_batch_response(receipt, replayed=False)
+    return authoring_retrieval.retrieval_batch_response(receipt, replayed=False)
 
 
 @router.get(
@@ -229,10 +229,12 @@ def read_retrieval_batch(
     request_id: str,
     current_user: CurrentUser,
 ) -> RetrievalSubmissionBatchResponse:
-    receipt = _read_retrieval_batch_receipt(session, current_user.id, request_id)
+    receipt = authoring_retrieval.read_retrieval_batch_receipt(
+        session, current_user.id, request_id
+    )
     if receipt is None:
         raise HTTPException(status_code=404, detail="Retrieval batch receipt not found")
-    return _retrieval_batch_response(receipt, replayed=True)
+    return authoring_retrieval.retrieval_batch_response(receipt, replayed=True)
 
 
 @router.post("/fact-decomp/preview", response_model=ValidationPreview)
@@ -242,7 +244,7 @@ def preview_fact_decomp_creation(
     current_user: CurrentUser,
 ) -> ValidationPreview:
     _ = current_user
-    return _preview_fact_decomp_validation(session, body)
+    return authoring_fact_decomp.preview_fact_decomp_validation(session, body)
 
 
 @router.post(
@@ -284,10 +286,14 @@ def read_fact_decomp_save_receipt(
     request_id: str,
     current_user: CurrentUser,
 ) -> FactDecompSaveReceiptResponse:
-    receipt = _read_fact_decomp_save_receipt(session, current_user.id, request_id)
+    receipt = authoring_fact_decomp.read_fact_decomp_save_receipt(
+        session, current_user.id, request_id
+    )
     if receipt is None:
         raise HTTPException(status_code=404, detail="Fact save receipt not found")
-    return _fact_decomp_save_receipt_response(receipt, replayed=True)
+    return authoring_fact_decomp.fact_decomp_save_receipt_response(
+        receipt, replayed=True
+    )
 
 
 @router.get("/items/{item_id}", response_model=AuthoringItemState)
@@ -319,8 +325,8 @@ def validate_creation_request(
 
     _ = current_user
     if isinstance(body, CreateRetrievalDraftSubmit):
-        return _preview_retrieval_validation(session, body)
-    return _preview_fact_decomp_validation(session, body)
+        return authoring_retrieval.preview_retrieval_validation(session, body)
+    return authoring_fact_decomp.preview_fact_decomp_validation(session, body)
 
 
 def _create_retrieval_item(
@@ -330,13 +336,13 @@ def _create_retrieval_item(
     *,
     status: ItemStatus,
 ) -> RetrievalCreateResponse:
-    item, preview, document_ids = _build_retrieval_item(
+    item, preview, document_ids = authoring_retrieval.build_retrieval_item(
         session, body, current_user, status=status
     )
     session.add(item)
     session.commit()
     session.refresh(item)
-    return _retrieval_response(
+    return authoring_retrieval.retrieval_response(
         item,
         body.gold_evidence_spans,
         body.trap_evidence_spans,
@@ -345,323 +351,14 @@ def _create_retrieval_item(
     )
 
 
-def _build_retrieval_item(
-    session: SessionDep,
-    body: CreateRetrievalDraftSubmit,
-    current_user: CurrentUser,
-    *,
-    status: ItemStatus,
-) -> tuple[EvalItem, ValidationPreview, list[int]]:
-    _ensure_retrieval_dataset(session, body.dataset_id)
-    requested_documents = _ensure_selected_documents(
-        session, body.dataset_id, body.document_ids
-    )
-    preview = _preview_retrieval_validation(session, body)
-    if status == ItemStatus.SUBMITTED and not preview.ok:
-        _raise_validation_error(preview)
-
-    try:
-        chunks = validate_evidence_spans(
-            session,
-            dataset_id=body.dataset_id,
-            spans=body.gold_evidence_spans + body.trap_evidence_spans,
-            allowed_document_ids=set(body.document_ids) if body.document_ids else None,
-        )
-    except EvidenceSpanValidationError as exc:
-        _raise_evidence_error(exc)
-    document_ids = sorted(
-        {document.id for document in requested_documents if document.id is not None}
-        | {chunk.document_id for chunk in chunks if chunk.document_id}
-    )
-    item = EvalItem(
-        dataset_id=body.dataset_id,
-        eval_type=EvalType.RETRIEVAL,
-        category=body.category,
-        document_id=document_ids[0] if len(document_ids) == 1 else None,
-        source=ItemSource.HUMAN,
-        author_kind=AuthorKind.HUMAN_LAY,
-        author_user_id=current_user.id,
-        prompt_text=body.question,
-        expected_answer=body.expected_answer,
-        evidence_spans=span_dicts(body.gold_evidence_spans, kind="gold")
-        + span_dicts(body.trap_evidence_spans, kind="trap"),
-        gold_chunk_ids=[span.chunk_id for span in body.gold_evidence_spans],
-        trap_chunk_ids=[span.chunk_id for span in body.trap_evidence_spans],
-        why_not_answerable=body.why_not_answerable,
-        status=status,
-        validation_flags=preview.flags,
-    )
-    return item, preview, document_ids
-
-
-def _preview_retrieval_validation(
-    session: SessionDep, body: CreateRetrievalDraftSubmit
-) -> ValidationPreview:
-    dataset_error = _retrieval_dataset_error(session, body.dataset_id)
-    if dataset_error is not None:
-        return _invalid_preview(dataset_error)
-    documents = _read_active_documents(session, body.dataset_id, body.document_ids)
-    if len(documents) != len(set(body.document_ids)):
-        return _invalid_preview("One or more selected documents are unavailable.")
-    try:
-        chunks = validate_evidence_spans(
-            session,
-            dataset_id=body.dataset_id,
-            spans=body.gold_evidence_spans + body.trap_evidence_spans,
-            allowed_document_ids=set(body.document_ids) if body.document_ids else None,
-        )
-    except EvidenceSpanValidationError as exc:
-        return ValidationPreview(
-            ok=False,
-            flags=[{"level": "error", "message": message} for message in exc.messages],
-        )
-    evidence_documents = documents_for_chunks(session, chunks)
-    document = (
-        evidence_documents[0]
-        if len(evidence_documents) == 1
-        else (documents[0] if len(documents) == 1 else None)
-    )
-    item = EvalItem(
-        dataset_id=body.dataset_id,
-        eval_type=EvalType.RETRIEVAL,
-        category=body.category,
-        source=ItemSource.HUMAN,
-        prompt_text=body.question,
-        expected_answer=body.expected_answer,
-        evidence_spans=span_dicts(body.gold_evidence_spans, kind="gold")
-        + span_dicts(body.trap_evidence_spans, kind="trap"),
-        gold_chunk_ids=[span.chunk_id for span in body.gold_evidence_spans],
-        trap_chunk_ids=[span.chunk_id for span in body.trap_evidence_spans],
-        why_not_answerable=body.why_not_answerable,
-        # A client-supplied status must not influence authoring validation.
-        status=ItemStatus.DRAFT,
-    )
-    result = validate_item(session, item, document=document, chunks=chunks)
-    return ValidationPreview(ok=result.ok, flags=result.as_flags())
-
-
-def _retrieval_dataset_error(session: SessionDep, dataset_id: int) -> str | None:
-    dataset = session.get(Dataset, dataset_id)
-    if dataset is None or not dataset.is_active:
-        return "Dataset is not active or does not exist."
-    if dataset.eval_type != EvalType.RETRIEVAL:
-        return "Dataset is not a retrieval dataset."
-    return None
-
-
-def _ensure_retrieval_dataset(session: SessionDep, dataset_id: int) -> None:
-    error = _retrieval_dataset_error(session, dataset_id)
-    if error is not None:
-        _raise_validation_flags([{"level": "error", "message": error}])
-
-
-def _ensure_selected_documents(
-    session: SessionDep, dataset_id: int, document_ids: list[int]
-) -> list[Document]:
-    documents = _read_active_documents(session, dataset_id, document_ids)
-    if len(documents) != len(set(document_ids)):
-        _raise_validation_flags(
-            [
-                {
-                    "level": "error",
-                    "message": "One or more selected documents are unavailable.",
-                }
-            ]
-        )
-    return documents
-
-
-def _read_active_documents(
-    session: SessionDep, dataset_id: int, document_ids: list[int]
-) -> list[Document]:
-    if not document_ids:
-        return []
-    return list(
-        session.exec(
-            select(Document).where(
-                col(Document.id).in_(set(document_ids)),
-                col(Document.dataset_id) == dataset_id,
-                col(Document.is_active) == True,  # noqa: E712
-            )
-        ).all()
-    )
-
-
-def _retrieval_response(
-    item: EvalItem,
-    gold_spans: list[EvidenceSpan],
-    trap_spans: list[EvidenceSpan],
-    document_ids: list[int],
-    validation: ValidationPreview,
-) -> RetrievalCreateResponse:
-    assert item.id is not None
-    return RetrievalCreateResponse(
-        id=item.id,
-        dataset_id=item.dataset_id,
-        eval_type=item.eval_type,
-        category=item.category,
-        status=item.status,
-        prompt_text=item.prompt_text,
-        expected_answer=item.expected_answer,
-        evidence_spans=gold_spans,
-        trap_evidence_spans=trap_spans,
-        document_ids=document_ids,
-        item_revision=item.revision,
-        validation=validation,
-    )
-
-
-def _canonical_retrieval_batch_hash(items: list[CreateRetrievalDraftSubmit]) -> str:
-    canonical_items: list[dict[str, Any]] = []
-    for item in items:
-        payload = item.model_dump(mode="json", exclude={"status"})
-        payload["document_ids"] = sorted(set(payload["document_ids"]))
-        canonical_items.append(payload)
-    encoded = json.dumps(
-        {"items": canonical_items},
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode()
-    return hashlib.sha256(encoded).hexdigest()
-
-
-def _read_retrieval_batch_receipt(
-    session: SessionDep,
-    author_user_id: Any,
-    request_id: str,
-) -> RetrievalSubmissionBatch | None:
-    return session.exec(
-        select(RetrievalSubmissionBatch).where(
-            col(RetrievalSubmissionBatch.author_user_id) == author_user_id,
-            col(RetrievalSubmissionBatch.request_id) == request_id,
-        )
-    ).first()
-
-
-def _reconcile_retrieval_batch(
-    receipt: RetrievalSubmissionBatch, request_hash: str
-) -> RetrievalSubmissionBatchResponse:
-    if receipt.request_hash != request_hash:
-        _raise_authoring_conflict(
-            code="retrieval_batch_request_conflict",
-            message="request_id was already used for a different retrieval batch.",
-            request_id=receipt.request_id,
-        )
-    return _retrieval_batch_response(receipt, replayed=True)
-
-
-def _retrieval_batch_response(
-    receipt: RetrievalSubmissionBatch, *, replayed: bool
-) -> RetrievalSubmissionBatchResponse:
-    return RetrievalSubmissionBatchResponse(
-        request_id=receipt.request_id,
-        item_ids=[int(item_id) for item_id in receipt.created_item_ids],
-        replayed=replayed,
-    )
-
-
 def _persist_retrieval_batch(
     session: SessionDep,
     receipt: RetrievalSubmissionBatch,
     items: list[EvalItem],
 ) -> None:
-    """Flush receipt and items together so a failure leaves no partial batch."""
+    """Keep the route-level persistence seam used by failure-injection tests."""
 
-    session.add(receipt)
-    for item in items:
-        session.add(item)
-    session.flush()
-    receipt.created_item_ids = [item.id for item in items if item.id is not None]
-    if len(receipt.created_item_ids) != len(items):
-        raise RuntimeError("A retrieval batch item did not receive an id")
-    session.add(receipt)
-    session.commit()
-    session.refresh(receipt)
-
-
-def _canonical_fact_save_hash(
-    request: CreateFactDecompDraftSubmit,
-    *,
-    command: str,
-) -> str:
-    encoded = json.dumps(
-        {
-            "command": command,
-            "request": request.model_dump(mode="json"),
-        },
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode()
-    return hashlib.sha256(encoded).hexdigest()
-
-
-def _read_fact_decomp_save_receipt(
-    session: SessionDep,
-    author_user_id: Any,
-    request_id: str,
-) -> FactDecompSaveReceipt | None:
-    return session.exec(
-        select(FactDecompSaveReceipt).where(
-            col(FactDecompSaveReceipt.author_user_id) == author_user_id,
-            col(FactDecompSaveReceipt.request_id) == request_id,
-        )
-    ).first()
-
-
-def _reconcile_fact_decomp_save(
-    receipt: FactDecompSaveReceipt,
-    request_hash: str,
-) -> FactDecompSaveReceiptResponse:
-    if receipt.request_hash != request_hash:
-        _raise_authoring_conflict(
-            code="fact_save_request_conflict",
-            message="request_id was already used for a different fact save.",
-            item_id=receipt.item_id,
-            request_id=receipt.request_id,
-        )
-    return _fact_decomp_save_receipt_response(receipt, replayed=True)
-
-
-def _fact_decomp_save_receipt_response(
-    receipt: FactDecompSaveReceipt,
-    *,
-    replayed: bool,
-) -> FactDecompSaveReceiptResponse:
-    if receipt.command == "draft":
-        command = "draft"
-    elif receipt.command == "submit":
-        command = "submit"
-    else:
-        raise RuntimeError(f"Unsupported fact save command: {receipt.command}")
-    return FactDecompSaveReceiptResponse(
-        request_id=receipt.request_id,
-        request_hash=receipt.request_hash,
-        command=command,
-        request=CreateFactDecompDraftSubmit.model_validate(receipt.request_payload),
-        response=FactDecompCreateResponse.model_validate(receipt.response_payload),
-        replayed=replayed,
-    )
-
-
-def _commit_fact_decomp_save(session: SessionDep) -> None:
-    """Commit the authored item and its recovery receipt as one transaction."""
-
-    session.commit()
-
-
-def _ensure_batch_prompts_are_distinct(items: list[EvalItem]) -> None:
-    prompts = [item.prompt_text for item in items]
-    if len(prompts) != len(set(prompts)):
-        _raise_validation_flags(
-            [
-                {
-                    "level": "error",
-                    "message": "A retrieval batch cannot contain duplicate prompts.",
-                }
-            ]
-        )
+    authoring_retrieval.persist_retrieval_batch(session, receipt, items)
 
 
 def _create_or_update_fact_decomp_item(
@@ -675,34 +372,39 @@ def _create_or_update_fact_decomp_item(
     request = CreateFactDecompDraftSubmit.model_validate(
         body.model_dump(exclude={"request_id"})
     )
-    request_hash = _canonical_fact_save_hash(request, command=command)
-    existing_receipt = _read_fact_decomp_save_receipt(
+    request_hash = authoring_fact_decomp.canonical_fact_save_hash(
+        request, command=command
+    )
+    existing_receipt = authoring_fact_decomp.read_fact_decomp_save_receipt(
         session, current_user.id, body.request_id
     )
     if existing_receipt is not None:
-        return _reconcile_fact_decomp_save(existing_receipt, request_hash).response
+        return authoring_fact_decomp.reconcile_fact_decomp_save(
+            existing_receipt, request_hash
+        ).response
 
-    _ensure_fact_decomp_dataset(session, body.dataset_id)
+    authoring_fact_decomp.ensure_fact_decomp_dataset(session, body.dataset_id)
     if status == ItemStatus.SUBMITTED and body.item_id is None:
-        _raise_authoring_conflict(
+        raise_authoring_conflict(
             code="draft_identity_required",
             message="Submit the saved draft by supplying item_id and expected_item_revision.",
         )
-    existing = _read_owned_fact_item(session, body, current_user)
-    document = _ensure_optional_source_document(
+    existing = authoring_fact_decomp.read_owned_fact_item(session, body, current_user)
+    document = authoring_fact_decomp.ensure_optional_source_document(
         session, body.dataset_id, body.document_id
     )
     try:
-        _validate_fact_provenance(session, body, document)
+        authoring_fact_decomp.validate_fact_provenance(session, body, document)
     except EvidenceSpanValidationError as exc:
-        _raise_evidence_error(exc)
-    preview = _preview_fact_decomp_validation(session, body)
+        raise_evidence_error(exc)
+    preview = authoring_fact_decomp.preview_fact_decomp_validation(session, body)
     if status == ItemStatus.SUBMITTED and not preview.ok:
-        _raise_validation_error(preview)
+        raise_validation_error(preview)
 
     if existing is None:
         # New submissions begin as drafts in this transaction before the route
         # applies the server-owned submitted transition below.
+        provenance = authoring_fact_decomp.fact_provenance_dicts(body.facts)
         item = EvalItem(
             dataset_id=body.dataset_id,
             eval_type=EvalType.FACT_DECOMP,
@@ -711,8 +413,8 @@ def _create_or_update_fact_decomp_item(
             author_kind=AuthorKind.HUMAN_LAY,
             author_user_id=current_user.id,
             prompt_text=body.source_text,
-            evidence_spans=_fact_provenance_dicts(body.facts),
-            item_metadata={"fact_provenance": _fact_provenance_dicts(body.facts)},
+            evidence_spans=provenance,
+            item_metadata={"fact_provenance": provenance},
             status=ItemStatus.DRAFT,
             validation_flags=preview.flags,
         )
@@ -734,7 +436,7 @@ def _create_or_update_fact_decomp_item(
 
     assert item.id is not None
     item_id = item.id
-    for fact in _fact_models(item_id, body.facts):
+    for fact in authoring_fact_decomp.fact_models(item_id, body.facts):
         session.add(fact)
     session.flush()
     session.expire(item)
@@ -746,7 +448,7 @@ def _create_or_update_fact_decomp_item(
         status=item.status,
         prompt_text=item.prompt_text,
         document_id=item.document_id,
-        facts=_ordered_facts(body.facts),
+        facts=authoring_fact_decomp.ordered_facts(body.facts),
         item_revision=item.revision,
         validation=preview,
     )
@@ -764,11 +466,13 @@ def _create_or_update_fact_decomp_item(
         _commit_fact_decomp_save(session)
     except IntegrityError:
         session.rollback()
-        raced_receipt = _read_fact_decomp_save_receipt(
+        raced_receipt = authoring_fact_decomp.read_fact_decomp_save_receipt(
             session, current_user.id, body.request_id
         )
         if raced_receipt is not None:
-            return _reconcile_fact_decomp_save(raced_receipt, request_hash).response
+            return authoring_fact_decomp.reconcile_fact_decomp_save(
+                raced_receipt, request_hash
+            ).response
         raise
     except Exception as exc:
         session.rollback()
@@ -777,31 +481,6 @@ def _create_or_update_fact_decomp_item(
             detail="Fact-decomposition save could not be committed.",
         ) from exc
     return response
-
-
-def _read_owned_fact_item(
-    session: SessionDep,
-    body: CreateFactDecompDraftSubmit,
-    current_user: CurrentUser,
-) -> EvalItem | None:
-    if body.item_id is None:
-        return None
-    item = session.get(EvalItem, body.item_id)
-    if (
-        item is None
-        or item.author_user_id != current_user.id
-        or item.eval_type != EvalType.FACT_DECOMP
-    ):
-        raise HTTPException(
-            status_code=404, detail="Fact-decomposition draft not found"
-        )
-    if item.dataset_id != body.dataset_id:
-        _raise_authoring_conflict(
-            code="item_dataset_conflict",
-            message="A draft cannot be moved to a different dataset.",
-            item_id=body.item_id,
-        )
-    return item
 
 
 def _claim_fact_draft_update(
@@ -813,218 +492,19 @@ def _claim_fact_draft_update(
     validation: ValidationPreview,
     status: ItemStatus,
 ) -> EvalItem:
-    """Claim an exact draft revision before replacing its facts.
+    """Keep the route-level revision-claim seam used by concurrency tests."""
 
-    The predicate is the concurrency boundary: a second request with the same
-    expected revision observes no returned row and cannot overwrite the first.
-    """
-
-    assert body.item_id is not None
-    assert body.expected_item_revision is not None
-    provenance = _fact_provenance_dicts(body.facts)
-    updated_item_id = session.exec(
-        update(EvalItem)
-        .where(
-            col(EvalItem.id) == body.item_id,
-            col(EvalItem.author_user_id) == current_user.id,
-            col(EvalItem.eval_type) == EvalType.FACT_DECOMP,
-            col(EvalItem.dataset_id) == body.dataset_id,
-            col(EvalItem.status) == ItemStatus.DRAFT,
-            col(EvalItem.revision) == body.expected_item_revision,
-        )
-        .values(
-            document_id=document.id if document is not None else None,
-            prompt_text=body.source_text,
-            evidence_spans=provenance,
-            item_metadata={"fact_provenance": provenance},
-            validation_flags=validation.flags,
-            status=status,
-            revision=col(EvalItem.revision) + 1,
-            updated_at=get_datetime_utc(),
-        )
-        .returning(col(EvalItem.id))
-    ).first()
-    if updated_item_id is not None:
-        item = session.get(EvalItem, updated_item_id)
-        assert item is not None
-        return item
-
-    session.expire_all()
-    current = session.get(EvalItem, body.item_id)
-    if (
-        current is None
-        or current.author_user_id != current_user.id
-        or current.eval_type != EvalType.FACT_DECOMP
-    ):
-        raise HTTPException(
-            status_code=404, detail="Fact-decomposition draft not found"
-        )
-    if current.status != ItemStatus.DRAFT:
-        _raise_authoring_conflict(
-            code="item_not_editable",
-            message="Only a draft can be saved or submitted.",
-            item_id=body.item_id,
-            expected_item_revision=body.expected_item_revision,
-            actual_item_revision=current.revision,
-        )
-    _raise_authoring_conflict(
-        code="item_revision_conflict",
-        message="The draft was changed by another save; reload its current revision.",
-        item_id=body.item_id,
-        expected_item_revision=body.expected_item_revision,
-        actual_item_revision=current.revision,
-    )
-    raise AssertionError("authoring conflict should have raised")
-
-
-def _preview_fact_decomp_validation(
-    session: SessionDep, body: CreateFactDecompDraftSubmit
-) -> ValidationPreview:
-    dataset_error = _fact_decomp_dataset_error(session, body.dataset_id)
-    if dataset_error is not None:
-        return _invalid_preview(dataset_error)
-    document = _read_optional_source_document(
-        session, body.dataset_id, body.document_id
-    )
-    if body.document_id is not None and document is None:
-        return _invalid_preview("Source document is unavailable.")
-    try:
-        _validate_fact_provenance(session, body, document)
-    except EvidenceSpanValidationError as exc:
-        return ValidationPreview(
-            ok=False,
-            flags=[{"level": "error", "message": message} for message in exc.messages],
-        )
-    item = EvalItem(
-        dataset_id=body.dataset_id,
-        eval_type=EvalType.FACT_DECOMP,
-        source=ItemSource.HUMAN,
-        prompt_text=body.source_text,
-        status=ItemStatus.DRAFT,
-        id=body.item_id,
-    )
-    result = validate_item(session, item, facts=_fact_models(0, body.facts))
-    return ValidationPreview(ok=result.ok, flags=result.as_flags())
-
-
-def _fact_decomp_dataset_error(session: SessionDep, dataset_id: int) -> str | None:
-    dataset = session.get(Dataset, dataset_id)
-    if dataset is None or not dataset.is_active:
-        return "Dataset is not active or does not exist."
-    if dataset.eval_type != EvalType.FACT_DECOMP:
-        return "Dataset is not a fact-decomposition dataset."
-    return None
-
-
-def _ensure_fact_decomp_dataset(session: SessionDep, dataset_id: int) -> None:
-    error = _fact_decomp_dataset_error(session, dataset_id)
-    if error is not None:
-        _raise_validation_flags([{"level": "error", "message": error}])
-
-
-def _read_optional_source_document(
-    session: SessionDep, dataset_id: int, document_id: int | None
-) -> Document | None:
-    if document_id is None:
-        return None
-    return session.exec(
-        select(Document).where(
-            col(Document.id) == document_id,
-            col(Document.dataset_id) == dataset_id,
-            col(Document.is_active) == True,  # noqa: E712
-        )
-    ).first()
-
-
-def _ensure_optional_source_document(
-    session: SessionDep, dataset_id: int, document_id: int | None
-) -> Document | None:
-    document = _read_optional_source_document(session, dataset_id, document_id)
-    if document_id is not None and document is None:
-        _raise_validation_flags(
-            [{"level": "error", "message": "Source document is unavailable."}]
-        )
-    return document
-
-
-def _validate_fact_provenance(
-    session: SessionDep,
-    body: CreateFactDecompDraftSubmit,
-    document: Document | None,
-) -> None:
-    spans = [span for fact in body.facts for span in fact.provenance_spans]
-    if not spans:
-        return
-    validate_evidence_spans(
+    return authoring_fact_decomp.claim_fact_draft_update(
         session,
-        dataset_id=body.dataset_id,
-        spans=spans,
-        allowed_document_ids=(
-            {document.id} if document is not None and document.id is not None else None
-        ),
+        body,
+        current_user,
+        document=document,
+        validation=validation,
+        status=status,
     )
 
 
-def _fact_models(item_id: int, facts: list[FactDraft]) -> list[EvalFact]:
-    return [
-        EvalFact(
-            item_id=item_id,
-            fact_uuid=fact.fact_uuid,
-            fact_text=fact.fact_text,
-            polarity=fact.polarity,
-            position=fact.position,
-        )
-        for fact in sorted(facts, key=lambda fact: fact.position)
-    ]
+def _commit_fact_decomp_save(session: SessionDep) -> None:
+    """Keep the route-level commit seam used by rollback tests."""
 
-
-def _ordered_facts(facts: list[FactDraft]) -> list[FactDraft]:
-    return sorted(facts, key=lambda fact: fact.position)
-
-
-def _fact_provenance_dicts(facts: list[FactDraft]) -> list[dict]:
-    rows: list[dict] = []
-    for fact in _ordered_facts(facts):
-        for span in fact.provenance_spans:
-            row = span.model_dump()
-            row["fact_uuid"] = fact.fact_uuid
-            rows.append(row)
-    return rows
-
-
-def _invalid_preview(message: str) -> ValidationPreview:
-    return ValidationPreview(ok=False, flags=[{"level": "error", "message": message}])
-
-
-def _raise_evidence_error(error: EvidenceSpanValidationError) -> None:
-    _raise_validation_flags(
-        [{"level": "error", "message": message} for message in error.messages]
-    )
-
-
-def _raise_validation_error(preview: ValidationPreview) -> None:
-    _raise_validation_flags(preview.flags)
-
-
-def _raise_validation_flags(flags: list[dict[str, str]]) -> None:
-    raise HTTPException(status_code=400, detail=flags)
-
-
-def _raise_authoring_conflict(
-    *,
-    code: str,
-    message: str,
-    item_id: int | None = None,
-    expected_item_revision: int | None = None,
-    actual_item_revision: int | None = None,
-    request_id: str | None = None,
-) -> None:
-    detail = AuthoringConflict(
-        code=code,
-        message=message,
-        item_id=item_id,
-        expected_item_revision=expected_item_revision,
-        actual_item_revision=actual_item_revision,
-        request_id=request_id,
-    )
-    raise HTTPException(status_code=409, detail=detail.model_dump(exclude_none=True))
+    authoring_fact_decomp.commit_fact_decomp_save(session)
