@@ -65,5 +65,5 @@ cd "${ROOT_DIR}/backend"
 uv run alembic upgrade head
 uv run python -m app.initial_data
 echo "Backend dev: http://${BACKEND_BIND_HOST}:${BACKEND_PORT}"
-echo "Login:       ${FIRST_SUPERUSER} / ${FIRST_SUPERUSER_PASSWORD}"
+echo "Login:       ${FIRST_SUPERUSER}"
 exec uv run fastapi dev app/main.py --host "${BACKEND_BIND_HOST}" --port "${BACKEND_PORT}"

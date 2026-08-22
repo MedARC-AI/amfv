@@ -226,7 +226,7 @@ def test_update_password_me(
 ) -> None:
     new_password = random_lower_string()
     data = {
-        "current_password": settings.FIRST_SUPERUSER_PASSWORD,
+        "current_password": settings.FIRST_SUPERUSER_PASSWORD.get_secret_value(),
         "new_password": new_password,
     }
     r = client.patch(
@@ -248,7 +248,7 @@ def test_update_password_me(
     # Revert to the old password to keep consistency in test
     old_data = {
         "current_password": new_password,
-        "new_password": settings.FIRST_SUPERUSER_PASSWORD,
+        "new_password": settings.FIRST_SUPERUSER_PASSWORD.get_secret_value(),
     }
     r = client.patch(
         f"{settings.API_V1_STR}/users/me/password",
@@ -259,7 +259,7 @@ def test_update_password_me(
 
     assert r.status_code == 200
     verified, _ = verify_password(
-        settings.FIRST_SUPERUSER_PASSWORD, user_db.hashed_password
+        settings.FIRST_SUPERUSER_PASSWORD.get_secret_value(), user_db.hashed_password
     )
     assert verified
 
@@ -301,8 +301,8 @@ def test_update_password_me_same_password_error(
     client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:
     data = {
-        "current_password": settings.FIRST_SUPERUSER_PASSWORD,
-        "new_password": settings.FIRST_SUPERUSER_PASSWORD,
+        "current_password": settings.FIRST_SUPERUSER_PASSWORD.get_secret_value(),
+        "new_password": settings.FIRST_SUPERUSER_PASSWORD.get_secret_value(),
     }
     r = client.patch(
         f"{settings.API_V1_STR}/users/me/password",
