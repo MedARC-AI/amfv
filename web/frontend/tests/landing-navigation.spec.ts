@@ -7,7 +7,7 @@ test("review and create landings expose workflow links and live counters", async
   const reviewContent = page.locator("main").last()
 
   await expect(
-    reviewContent.getByRole("heading", { name: "Review" }),
+    page.getByRole("heading", { name: "Review", exact: true }),
   ).toBeVisible()
   await expect(reviewContent.getByText("Retrieval")).toBeVisible()
   await expect(reviewContent.getByText("Fact Decomposition")).toBeVisible()
@@ -26,7 +26,7 @@ test("review and create landings expose workflow links and live counters", async
   const createContent = page.locator("main").last()
 
   await expect(
-    createContent.getByRole("heading", { name: "Create" }),
+    page.getByRole("heading", { name: "Create", exact: true }),
   ).toBeVisible()
   await expect(createContent.getByText("Drafts")).toBeVisible()
   await expect(createContent.getByText("Submitted")).toBeVisible()

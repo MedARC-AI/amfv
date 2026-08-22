@@ -59,6 +59,28 @@ test("admin-issued invite is scrubbed before body-only token requests", async ({
         return originalFetch(input, init)
       },
     })
+
+    const requestUrls = new WeakMap<XMLHttpRequest, string>()
+    const originalOpen = XMLHttpRequest.prototype.open
+    Object.defineProperty(XMLHttpRequest.prototype, "open", {
+      configurable: true,
+      value: function (...args: unknown[]) {
+        const [, url] = args as [string, string | URL]
+        requestUrls.set(this as XMLHttpRequest, String(url))
+        return Reflect.apply(originalOpen, this, args)
+      },
+    })
+    const originalSend = XMLHttpRequest.prototype.send
+    Object.defineProperty(XMLHttpRequest.prototype, "send", {
+      configurable: true,
+      value: function (...args: unknown[]) {
+        audit.requestStarts.push({
+          at: performance.now(),
+          url: requestUrls.get(this as XMLHttpRequest) ?? "",
+        })
+        return Reflect.apply(originalSend, this, args)
+      },
+    })
   })
 
   await signupPage.goto(inviteLink)

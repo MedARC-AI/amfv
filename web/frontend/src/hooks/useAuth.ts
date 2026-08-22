@@ -13,7 +13,7 @@ import {
   currentUserQueryOptions,
   homeSummaryQueryKey,
 } from "@/lib/queries"
-import { handleError } from "@/utils"
+import { handleError, hasApiErrorStatus, ProductMessageError } from "@/utils"
 import useCustomToast from "./useCustomToast"
 
 const useAuth = () => {
@@ -41,10 +41,17 @@ const useAuth = () => {
   })
 
   const login = async (data: AccessToken) => {
-    const response = await LoginService.loginAccessToken({
-      formData: data,
-    })
-    setAccessToken(response.access_token)
+    try {
+      const response = await LoginService.loginAccessToken({
+        formData: data,
+      })
+      setAccessToken(response.access_token)
+    } catch (error) {
+      if (hasApiErrorStatus(error, 400)) {
+        throw new ProductMessageError("Incorrect email or password")
+      }
+      throw error
+    }
   }
 
   const loginMutation = useMutation({
