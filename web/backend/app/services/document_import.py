@@ -81,7 +81,7 @@ def import_source_document(
         dry_run: Whether to perform checks without writes.
 
     Raises:
-        DocumentImportRowError: If the row would overwrite changed source text.
+        DocumentImportRowError: If the identity would overwrite changed text or provenance.
     """
     _validate_target_dataset(dataset)
     assert dataset.id is not None
