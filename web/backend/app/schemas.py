@@ -265,13 +265,19 @@ class RetrievalReviewSubmit(SQLModel):
         if self.skipped:
             if self.skip_reason is None or not self.skip_reason.strip():
                 raise ValueError("Skipped reviews require a skip_reason")
-            if self.accept_as_gold is not None or any(score is not None for score in scores):
-                raise ValueError("Skipped reviews cannot include rubric scores or a verdict")
+            if self.accept_as_gold is not None or any(
+                score is not None for score in scores
+            ):
+                raise ValueError(
+                    "Skipped reviews cannot include rubric scores or a verdict"
+                )
             return self
         if self.skip_reason is not None:
             raise ValueError("Non-skipped reviews cannot include a skip_reason")
         if self.accept_as_gold is None or any(score is None for score in scores):
-            raise ValueError("Non-skipped reviews require every rubric score and accept_as_gold")
+            raise ValueError(
+                "Non-skipped reviews require every rubric score and accept_as_gold"
+            )
         return self
 
 
@@ -346,6 +352,16 @@ class CreateFactDecompDraftSubmit(SQLModel):
     source_text: str = Field(min_length=1)
     facts: list[FactDraft]
     status: ItemStatus = ItemStatus.DRAFT
+    item_id: int | None = Field(default=None, gt=0)
+    expected_item_revision: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def _validate_draft_identity(self) -> CreateFactDecompDraftSubmit:
+        if (self.item_id is None) != (self.expected_item_revision is None):
+            raise ValueError(
+                "item_id and expected_item_revision must be supplied together"
+            )
+        return self
 
 
 class ValidationPreview(SQLModel):
@@ -378,6 +394,44 @@ class FactDecompCreateResponse(SQLModel):
     facts: list[FactDraft] = Field(default_factory=list)
     item_revision: int
     validation: ValidationPreview
+
+
+class RetrievalSubmissionBatchSubmit(SQLModel):
+    request_id: str = Field(min_length=1, max_length=128)
+    items: list[CreateRetrievalDraftSubmit] = Field(min_length=1)
+
+
+class RetrievalSubmissionBatchResponse(SQLModel):
+    request_id: str
+    item_ids: list[int]
+    replayed: bool
+
+
+class AuthoringItemState(SQLModel):
+    """The durable state used to reconcile an uncertain authoring response."""
+
+    id: int
+    dataset_id: int
+    eval_type: EvalType
+    status: ItemStatus
+    item_revision: int
+
+
+class AuthoringConflict(SQLModel):
+    """Structured conflict returned for stale drafts or reused idempotency keys."""
+
+    code: str
+    message: str
+    item_id: int | None = None
+    expected_item_revision: int | None = None
+    actual_item_revision: int | None = None
+    request_id: str | None = None
+
+
+class AuthoringConflictResponse(SQLModel):
+    """FastAPI's HTTPException envelope for an authoring conflict."""
+
+    detail: AuthoringConflict
 
 
 class AdminModerationAction(SQLModel):

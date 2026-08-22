@@ -282,7 +282,9 @@ class Dataset(TimestampMixin, table=True):
 
 class Document(TimestampMixin, table=True):
     __table_args__ = (
-        UniqueConstraint("dataset_id", "external_id", name="uq_document_dataset_external"),
+        UniqueConstraint(
+            "dataset_id", "external_id", name="uq_document_dataset_external"
+        ),
     )
 
     id: int | None = Field(default=None, primary_key=True)
@@ -290,7 +292,9 @@ class Document(TimestampMixin, table=True):
     external_id: str = Field(nullable=False, index=True)
     title: str = Field(nullable=False)
     content: str = Field(nullable=False)
-    paragraphs: list[dict] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    paragraphs: list[dict] = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False)
+    )
     doc_metadata: dict | None = Field(default=None, sa_column=Column("metadata", JSON))
     is_active: bool = Field(default=True, nullable=False)
 
@@ -311,7 +315,9 @@ class Chunk(TimestampMixin, table=True):
 class EvalItem(TimestampMixin, table=True):
     __tablename__ = "eval_item"
     __table_args__ = (
-        UniqueConstraint("dataset_id", "external_id", name="uq_eval_item_dataset_external"),
+        UniqueConstraint(
+            "dataset_id", "external_id", name="uq_eval_item_dataset_external"
+        ),
         Index("ix_eval_item_dataset_status_type", "dataset_id", "status", "eval_type"),
     )
 
@@ -320,10 +326,14 @@ class EvalItem(TimestampMixin, table=True):
     external_id: str | None = Field(default=None, index=True)
     eval_type: EvalType = Field(nullable=False, max_length=32)
     category: RetrievalCategory | None = Field(default=None, max_length=32)
-    document_id: int | None = Field(default=None, foreign_key="document.id", nullable=True, index=True)
+    document_id: int | None = Field(
+        default=None, foreign_key="document.id", nullable=True, index=True
+    )
     source: ItemSource = Field(nullable=False, max_length=32)
     author_kind: AuthorKind | None = Field(default=None, max_length=32)
-    author_user_id: uuid.UUID | None = Field(default=None, foreign_key="user.id", nullable=True, index=True)
+    author_user_id: uuid.UUID | None = Field(
+        default=None, foreign_key="user.id", nullable=True, index=True
+    )
     generator_name: str | None = Field(default=None)
     prompt_text: str = Field(nullable=False)
     lazy_query: str | None = Field(default=None)
@@ -347,6 +357,27 @@ class EvalItem(TimestampMixin, table=True):
     is_active: bool = Field(default=True, nullable=False)
 
 
+class RetrievalSubmissionBatch(TimestampMixin, table=True):
+    """Durable idempotency receipt for an authoring retrieval batch."""
+
+    __tablename__ = "retrieval_submission_batch"
+    __table_args__ = (
+        UniqueConstraint(
+            "author_user_id",
+            "request_id",
+            name="uq_retrieval_submission_batch_author_request",
+        ),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    author_user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
+    request_id: str = Field(nullable=False, max_length=128)
+    request_hash: str = Field(nullable=False, max_length=64)
+    created_item_ids: list[int] = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False)
+    )
+
+
 class EvalFact(TimestampMixin, table=True):
     __tablename__ = "eval_fact"
 
@@ -362,7 +393,13 @@ class ReviewTask(TimestampMixin, table=True):
     __tablename__ = "review_task"
     __table_args__ = (
         UniqueConstraint("item_a_id", name="uq_review_task_item"),
-        Index("ix_review_task_priority", "dataset_id", "is_active", "labels_count", "priority_score"),
+        Index(
+            "ix_review_task_priority",
+            "dataset_id",
+            "is_active",
+            "labels_count",
+            "priority_score",
+        ),
     )
 
     id: int | None = Field(default=None, primary_key=True)
@@ -376,14 +413,18 @@ class ReviewTask(TimestampMixin, table=True):
 
 class FactDecompReview(TimestampMixin, table=True):
     __tablename__ = "fact_decomp_review"
-    __table_args__ = (UniqueConstraint("task_id", "user_id", name="uq_fact_decomp_review_task_user"),)
+    __table_args__ = (
+        UniqueConstraint("task_id", "user_id", name="uq_fact_decomp_review_task_user"),
+    )
 
     id: int | None = Field(default=None, primary_key=True)
     task_id: int = Field(foreign_key="review_task.id", nullable=False, index=True)
     user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
     item_revision: int = Field(nullable=False)
     ratings: dict | None = Field(default=None, sa_column=Column(JSON))
-    reviewer_kind: ReviewerKind = Field(default=ReviewerKind.human, nullable=False, max_length=32)
+    reviewer_kind: ReviewerKind = Field(
+        default=ReviewerKind.human, nullable=False, max_length=32
+    )
     comment: str | None = Field(default=None)
     flags: dict | None = Field(default=None, sa_column=Column(JSON))
     source: str = Field(default="web", nullable=False)
@@ -412,7 +453,9 @@ class PooledCandidate(TimestampMixin, table=True):
     dataset_id: int = Field(foreign_key="dataset.id", nullable=False, index=True)
     item_id: int = Field(foreign_key="eval_item.id", nullable=False, index=True)
     chunk_id: int = Field(foreign_key="chunk.id", nullable=False, index=True)
-    systems: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    systems: list[str] = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False)
+    )
     ranks: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     is_calibration: bool = Field(default=False, nullable=False)
     is_trap: bool = Field(default=False, nullable=False)
@@ -448,7 +491,9 @@ class Assignment(TimestampMixin, table=True):
     mode: AssignmentMode = Field(nullable=False, max_length=32)
     target_id: int = Field(nullable=False, index=True)
     user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
-    kind: AssignmentKind = Field(default=AssignmentKind.REGULAR, nullable=False, max_length=32)
+    kind: AssignmentKind = Field(
+        default=AssignmentKind.REGULAR, nullable=False, max_length=32
+    )
     assigned_at: datetime = Field(default_factory=get_datetime_utc, nullable=False)
     completed_at: datetime | None = Field(default=None, nullable=True, index=True)
     released_at: datetime | None = Field(
@@ -532,11 +577,15 @@ class RetrievalQAReview(TimestampMixin, table=True):
 
 class RelevanceJudgment(TimestampMixin, table=True):
     __tablename__ = "relevance_judgment"
-    __table_args__ = (UniqueConstraint("assignment_id", name="uq_relevance_judgment_assignment"),)
+    __table_args__ = (
+        UniqueConstraint("assignment_id", name="uq_relevance_judgment_assignment"),
+    )
 
     id: int | None = Field(default=None, primary_key=True)
     assignment_id: int = Field(foreign_key="assignment.id", nullable=False, index=True)
-    candidate_id: int = Field(foreign_key="pooled_candidate.id", nullable=False, index=True)
+    candidate_id: int = Field(
+        foreign_key="pooled_candidate.id", nullable=False, index=True
+    )
     user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
     grade: int | None = Field(default=None)
     confidence: JudgmentConfidence | None = Field(default=None, max_length=32)
@@ -548,7 +597,9 @@ class RelevanceJudgment(TimestampMixin, table=True):
 
 class Adjudication(TimestampMixin, table=True):
     __table_args__ = (
-        UniqueConstraint("mode", "target_id", "resolved_at", name="uq_open_adjudication_mode_target"),
+        UniqueConstraint(
+            "mode", "target_id", "resolved_at", name="uq_open_adjudication_mode_target"
+        ),
         Index("ix_adjudication_dataset_mode", "dataset_id", "mode", "resolved_at"),
     )
 
@@ -556,8 +607,12 @@ class Adjudication(TimestampMixin, table=True):
     dataset_id: int = Field(foreign_key="dataset.id", nullable=False, index=True)
     mode: AssignmentMode = Field(nullable=False, max_length=32)
     target_id: int = Field(nullable=False, index=True)
-    judgment_ids: list[int] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
-    adjudicator_user_id: uuid.UUID | None = Field(default=None, foreign_key="user.id", nullable=True, index=True)
+    judgment_ids: list[int] = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False)
+    )
+    adjudicator_user_id: uuid.UUID | None = Field(
+        default=None, foreign_key="user.id", nullable=True, index=True
+    )
     final: dict | None = Field(default=None, sa_column=Column(JSON))
     resolved_at: datetime | None = Field(default=None, nullable=True, index=True)
 
@@ -609,7 +664,9 @@ class NiceImportJob(TimestampMixin, table=True):
 class NiceImportItem(TimestampMixin, table=True):
     __tablename__ = "nice_import_item"
     __table_args__ = (
-        UniqueConstraint("job_id", "reference", name="uq_nice_import_item_job_reference"),
+        UniqueConstraint(
+            "job_id", "reference", name="uq_nice_import_item_job_reference"
+        ),
         Index(
             "ix_nice_import_item_pending",
             "job_id",

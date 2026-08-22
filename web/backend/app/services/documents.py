@@ -5,7 +5,7 @@ from collections.abc import Iterable, Sequence
 
 from sqlmodel import Session, col, select
 
-from app.models import Chunk, Document, EvalItem, EvalType, ItemStatus
+from app.models import Chunk, Dataset, Document, EvalItem, EvalType, ItemStatus
 from app.schemas import EvidenceSpan
 
 
@@ -34,7 +34,9 @@ def create_document_with_chunks(
     if chunk_texts is None:
         paragraphs = [{"idx": 0, "text": content}]
     else:
-        paragraphs = [{"idx": idx, "text": text} for idx, text in enumerate(chunk_texts)]
+        paragraphs = [
+            {"idx": idx, "text": text} for idx, text in enumerate(chunk_texts)
+        ]
     document = Document(
         dataset_id=dataset_id,
         external_id=document_external_id,
@@ -70,6 +72,11 @@ def validate_evidence_spans(
 ) -> list[Chunk]:
     messages: list[str] = []
     chunks: list[Chunk] = []
+    dataset = session.get(Dataset, dataset_id)
+    if dataset is None or not dataset.is_active:
+        raise EvidenceSpanValidationError(
+            ["Target dataset is not active or does not exist."]
+        )
     for index, span in enumerate(spans, start=1):
         chunk = session.get(Chunk, span.chunk_id)
         if chunk is None:
@@ -77,15 +84,35 @@ def validate_evidence_spans(
             continue
         chunks.append(chunk)
         if chunk.dataset_id != dataset_id:
-            messages.append(f"Evidence span {index} references a chunk from another dataset.")
+            messages.append(
+                f"Evidence span {index} references a chunk from another dataset."
+            )
             continue
-        if allowed_document_ids is not None and chunk.document_id not in allowed_document_ids:
-            messages.append(f"Evidence span {index} references a chunk outside the selected documents.")
+        document = session.get(Document, chunk.document_id)
+        if document is None or not document.is_active:
+            messages.append(
+                f"Evidence span {index} references a chunk from an inactive or missing document."
+            )
+            continue
+        if document.dataset_id != dataset_id:
+            messages.append(
+                f"Evidence span {index} references a document from another dataset."
+            )
+            continue
+        if (
+            allowed_document_ids is not None
+            and chunk.document_id not in allowed_document_ids
+        ):
+            messages.append(
+                f"Evidence span {index} references a chunk outside the selected documents."
+            )
         if span.end > len(chunk.text):
             messages.append(f"Evidence span {index} ends past the chunk text.")
             continue
         if chunk.text[span.start : span.end] != span.text:
-            messages.append(f"Evidence span {index} text does not match the current chunk text.")
+            messages.append(
+                f"Evidence span {index} text does not match the current chunk text."
+            )
 
     if messages:
         raise EvidenceSpanValidationError(messages)
@@ -134,7 +161,9 @@ def documents_for_chunks(session: Session, chunks: Iterable[Chunk]) -> list[Docu
     document_ids = {chunk.document_id for chunk in chunks}
     if not document_ids:
         return []
-    return list(session.exec(select(Document).where(col(Document.id).in_(document_ids))).all())
+    return list(
+        session.exec(select(Document).where(col(Document.id).in_(document_ids))).all()
+    )
 
 
 def used_retrieval_document_ids(
@@ -152,9 +181,7 @@ def used_retrieval_document_ids(
         )
     ).all()
 
-    document_ids = {
-        item.document_id for item in items if item.document_id is not None
-    }
+    document_ids = {item.document_id for item in items if item.document_id is not None}
     chunks = [
         chunk
         for item in items

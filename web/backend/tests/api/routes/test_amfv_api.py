@@ -170,7 +170,9 @@ def test_home_summary_prefers_existing_incomplete_assignment(
     )
     reviewer = crud.get_user_by_email(session=db, email=reviewer_email)
     assert reviewer is not None
-    author = User(email=f"home-existing-author-{uuid4()}@example.com", hashed_password="x")
+    author = User(
+        email=f"home-existing-author-{uuid4()}@example.com", hashed_password="x"
+    )
     dataset = Dataset(
         name=f"home-existing-retrieval-{uuid4()}",
         display_name="Home Existing Retrieval",
@@ -499,7 +501,10 @@ def test_retrieval_get_next_is_read_only_and_claim_is_idempotent(
     recommendation = first.json()
     assert recommendation["kind"] == "retrieval_audit"
     assert recommendation["reservation_state"] == "created"
-    assert recommendation["review_url"] == f"/review/retrieval/{recommendation['assignment_id']}"
+    assert (
+        recommendation["review_url"]
+        == f"/review/retrieval/{recommendation['assignment_id']}"
+    )
 
     second = client.get(
         f"{settings.API_V1_STR}/review/next?eval_type=RETRIEVAL",
@@ -508,7 +513,9 @@ def test_retrieval_get_next_is_read_only_and_claim_is_idempotent(
     assert second.status_code == 200
     assert second.json()["assignment_id"] == recommendation["assignment_id"]
     assert second.json()["reservation_state"] == "existing"
-    assert db.exec(select(func.count(Assignment.id))).one() == assignment_count_before + 1
+    assert (
+        db.exec(select(func.count(Assignment.id))).one() == assignment_count_before + 1
+    )
 
     payload = client.get(
         f"{settings.API_V1_STR}/review/retrieval/{recommendation['assignment_id']}",
@@ -789,7 +796,9 @@ def test_retrieval_review_submit_persists_judgment_and_completes_assignment(
     assert body["item_id"] == item.id
 
     judgment = db.exec(
-        select(RetrievalQAReview).where(RetrievalQAReview.assignment_id == assignment.id)
+        select(RetrievalQAReview).where(
+            RetrievalQAReview.assignment_id == assignment.id
+        )
     ).first()
     assert judgment is not None
     assert judgment.verdict == ItemVerdict.ACCEPT
@@ -828,7 +837,9 @@ def test_retrieval_review_submit_rejects_invalid_rubric_score(
 
     reviewer = crud.get_user_by_email(session=db, email=settings.EMAIL_TEST_USER)
     assert reviewer is not None
-    author = User(email="retrieval-submit-invalid-author@example.com", hashed_password="x")
+    author = User(
+        email="retrieval-submit-invalid-author@example.com", hashed_password="x"
+    )
     dataset = Dataset(
         name="review-retrieval-submit-invalid",
         display_name="Review Retrieval Submit Invalid",
@@ -879,9 +890,14 @@ def test_retrieval_review_submit_rejects_invalid_rubric_score(
         },
     )
     assert response.status_code == 422
-    assert db.exec(
-        select(RetrievalQAReview).where(RetrievalQAReview.assignment_id == assignment.id)
-    ).first() is None
+    assert (
+        db.exec(
+            select(RetrievalQAReview).where(
+                RetrievalQAReview.assignment_id == assignment.id
+            )
+        ).first()
+        is None
+    )
 
 
 def test_fact_decomp_next_selects_task_without_placeholder_review(
@@ -944,7 +960,12 @@ def test_fact_decomp_next_selects_task_without_placeholder_review(
     assert recommendation["kind"] == "fact_decomp"
     assert recommendation["reservation_state"] == "selected"
     assert recommendation["task_id"] == task.id
-    assert db.exec(select(FactDecompReview).where(FactDecompReview.task_id == task.id)).first() is None
+    assert (
+        db.exec(
+            select(FactDecompReview).where(FactDecompReview.task_id == task.id)
+        ).first()
+        is None
+    )
 
     payload = client.get(
         f"{settings.API_V1_STR}/review/fact-decomp/{task.id}",
@@ -1153,7 +1174,9 @@ def test_fact_decomp_review_submit_persists_review_and_updates_labels(
     assert body["labels_count"] == 2
 
     review = db.exec(
-        select(FactDecompReview).where(FactDecompReview.task_id == task.id, FactDecompReview.user_id == reviewer.id)
+        select(FactDecompReview).where(
+            FactDecompReview.task_id == task.id, FactDecompReview.user_id == reviewer.id
+        )
     ).first()
     assert review is not None
     assert review.comment == "Ready."
@@ -1478,7 +1501,9 @@ def test_relevance_review_submit_persists_judgment_and_completes_assignment(
     )
     db.add(item)
     db.flush()
-    candidate = PooledCandidate(dataset_id=dataset.id, item_id=item.id, chunk_id=chunk.id)
+    candidate = PooledCandidate(
+        dataset_id=dataset.id, item_id=item.id, chunk_id=chunk.id
+    )
     db.add(candidate)
     db.flush()
     assignment = Assignment(
@@ -1503,7 +1528,9 @@ def test_relevance_review_submit_persists_judgment_and_completes_assignment(
     assert body["item_id"] == item.id
 
     judgment = db.exec(
-        select(RelevanceJudgment).where(RelevanceJudgment.assignment_id == assignment.id)
+        select(RelevanceJudgment).where(
+            RelevanceJudgment.assignment_id == assignment.id
+        )
     ).first()
     assert judgment is not None
     assert judgment.candidate_id == candidate.id
@@ -1529,7 +1556,9 @@ def test_relevance_review_submit_rejects_stale_revision_and_invalid_grade(
 
     reviewer = crud.get_user_by_email(session=db, email=settings.EMAIL_TEST_USER)
     assert reviewer is not None
-    author = User(email="relevance-submit-stale-author@example.com", hashed_password="x")
+    author = User(
+        email="relevance-submit-stale-author@example.com", hashed_password="x"
+    )
     dataset = Dataset(
         name="review-relevance-submit-stale",
         display_name="Review Relevance Submit Stale",
@@ -1558,7 +1587,9 @@ def test_relevance_review_submit_rejects_stale_revision_and_invalid_grade(
     )
     db.add(item)
     db.flush()
-    candidate = PooledCandidate(dataset_id=dataset.id, item_id=item.id, chunk_id=chunk.id)
+    candidate = PooledCandidate(
+        dataset_id=dataset.id, item_id=item.id, chunk_id=chunk.id
+    )
     db.add(candidate)
     db.flush()
     assignment = Assignment(
@@ -1577,9 +1608,14 @@ def test_relevance_review_submit_rejects_stale_revision_and_invalid_grade(
         json={"grade": 2, "item_revision": 1},
     )
     assert stale.status_code == 409
-    assert db.exec(
-        select(RelevanceJudgment).where(RelevanceJudgment.assignment_id == assignment.id)
-    ).first() is None
+    assert (
+        db.exec(
+            select(RelevanceJudgment).where(
+                RelevanceJudgment.assignment_id == assignment.id
+            )
+        ).first()
+        is None
+    )
 
     invalid_grade = client.post(
         f"{settings.API_V1_STR}/review/relevance/{assignment.id}",
@@ -1966,7 +2002,10 @@ def test_admin_moderation_keeps_retrieval_task_generation_empty_and_exports_evid
     )
     assert generated.status_code == 200
     assert generated.json()["created"] == 0
-    assert db.exec(select(ReviewTask).where(ReviewTask.item_a_id == item.id)).first() is None
+    assert (
+        db.exec(select(ReviewTask).where(ReviewTask.item_a_id == item.id)).first()
+        is None
+    )
 
     regenerated = client.post(
         f"{settings.API_V1_STR}/admin/datasets/{dataset.id}/generate-tasks",
@@ -2229,7 +2268,9 @@ def test_admin_user_metrics_count_dataset_activity(
         headers=superuser_token_headers,
     )
     assert metrics.status_code == 200
-    row = next(row for row in metrics.json() if row["email"] == "metrics-user@example.com")
+    row = next(
+        row for row in metrics.json() if row["email"] == "metrics-user@example.com"
+    )
     assert row["authored_items"] == 1
     assert row["fact_decomp_reviews"] == 1
 
@@ -2304,7 +2345,10 @@ def test_retrieval_creation_validates_and_persists_spans(
     )
     assert missing_evidence_preview.status_code == 200
     assert missing_evidence_preview.json()["ok"] is False
-    assert "highlighted answer text" in missing_evidence_preview.json()["flags"][0]["message"]
+    assert (
+        "highlighted answer text"
+        in missing_evidence_preview.json()["flags"][0]["message"]
+    )
 
     missing_evidence_submit = client.post(
         f"{settings.API_V1_STR}/create/retrieval/submit",
@@ -2344,13 +2388,13 @@ def test_retrieval_creation_validates_and_persists_spans(
     )
     assert created.status_code == 200
     data = created.json()
-    assert data["status"] == "ACTIVE"
+    assert data["status"] == "SUBMITTED"
     assert data["evidence_spans"][0]["text"] == "Baker"
     assert data["validation"]["ok"] is True
 
     item = db.get(EvalItem, data["id"])
     assert item is not None
-    assert item.status == ItemStatus.ACTIVE
+    assert item.status == ItemStatus.SUBMITTED
     assert item.gold_chunk_ids == [chunk.id]
     assert item.evidence_spans[0]["kind"] == "gold"
 
@@ -2424,7 +2468,9 @@ def test_retrieval_draft_rejects_non_retrieval_dataset(
     )
 
     assert rejected.status_code == 400
-    assert rejected.json()["detail"][0]["message"] == "Dataset is not a retrieval dataset."
+    assert (
+        rejected.json()["detail"][0]["message"] == "Dataset is not a retrieval dataset."
+    )
     persisted = db.exec(
         select(EvalItem).where(
             EvalItem.dataset_id == dataset.id,
@@ -2549,10 +2595,21 @@ def test_fact_decomp_creation_persists_ordered_facts_and_provenance(
     assert preview.status_code == 200
     assert preview.json()["ok"] is True
 
+    draft = client.post(
+        f"{settings.API_V1_STR}/create/fact-decomp/draft",
+        headers=normal_user_token_headers,
+        json=payload,
+    )
+    assert draft.status_code == 200
+    draft_data = draft.json()
     created = client.post(
         f"{settings.API_V1_STR}/create/fact-decomp/submit",
         headers=normal_user_token_headers,
-        json=payload,
+        json={
+            **payload,
+            "item_id": draft_data["id"],
+            "expected_item_revision": draft_data["item_revision"],
+        },
     )
     assert created.status_code == 200
     data = created.json()
@@ -2584,21 +2641,32 @@ def test_fact_decomp_submit_rejects_missing_unwanted_fact(
     db.add(dataset)
     db.commit()
 
+    payload = {
+        "dataset_id": dataset.id,
+        "source_text": "Aspirin reduced fever.",
+        "facts": [
+            {
+                "fact_uuid": "fact-a",
+                "fact_text": "Aspirin reduced fever.",
+                "polarity": "SHOULD_LIST",
+                "position": 0,
+                "provenance_spans": [],
+            }
+        ],
+    }
+    draft = client.post(
+        f"{settings.API_V1_STR}/create/fact-decomp/draft",
+        headers=normal_user_token_headers,
+        json=payload,
+    )
+    assert draft.status_code == 200
     rejected = client.post(
         f"{settings.API_V1_STR}/create/fact-decomp/submit",
         headers=normal_user_token_headers,
         json={
-            "dataset_id": dataset.id,
-            "source_text": "Aspirin reduced fever.",
-            "facts": [
-                {
-                    "fact_uuid": "fact-a",
-                    "fact_text": "Aspirin reduced fever.",
-                    "polarity": "SHOULD_LIST",
-                    "position": 0,
-                    "provenance_spans": [],
-                }
-            ],
+            **payload,
+            "item_id": draft.json()["id"],
+            "expected_item_revision": draft.json()["item_revision"],
         },
     )
 
@@ -2619,33 +2687,46 @@ def test_fact_decomp_submit_rejects_duplicate_fact_uuid(
     db.add(dataset)
     db.commit()
 
+    payload = {
+        "dataset_id": dataset.id,
+        "source_text": "Aspirin reduced fever.",
+        "facts": [
+            {
+                "fact_uuid": "fact-a",
+                "fact_text": "Aspirin reduced fever.",
+                "polarity": "SHOULD_LIST",
+                "position": 0,
+                "provenance_spans": [],
+            },
+            {
+                "fact_uuid": "fact-a",
+                "fact_text": "Noise fact.",
+                "polarity": "SHOULD_NOT_LIST",
+                "position": 1,
+                "provenance_spans": [],
+            },
+        ],
+    }
+    draft = client.post(
+        f"{settings.API_V1_STR}/create/fact-decomp/draft",
+        headers=normal_user_token_headers,
+        json=payload,
+    )
+    assert draft.status_code == 200
     rejected = client.post(
         f"{settings.API_V1_STR}/create/fact-decomp/submit",
         headers=normal_user_token_headers,
         json={
-            "dataset_id": dataset.id,
-            "source_text": "Aspirin reduced fever.",
-            "facts": [
-                {
-                    "fact_uuid": "fact-a",
-                    "fact_text": "Aspirin reduced fever.",
-                    "polarity": "SHOULD_LIST",
-                    "position": 0,
-                    "provenance_spans": [],
-                },
-                {
-                    "fact_uuid": "fact-a",
-                    "fact_text": "Noise fact.",
-                    "polarity": "SHOULD_NOT_LIST",
-                    "position": 1,
-                    "provenance_spans": [],
-                },
-            ],
+            **payload,
+            "item_id": draft.json()["id"],
+            "expected_item_revision": draft.json()["item_revision"],
         },
     )
 
     assert rejected.status_code == 400
-    assert any("UUIDs must be unique" in row["message"] for row in rejected.json()["detail"])
+    assert any(
+        "UUIDs must be unique" in row["message"] for row in rejected.json()["detail"]
+    )
 
 
 def test_fact_decomp_draft_rejects_retrieval_dataset(
