@@ -174,12 +174,19 @@ jobs:
           bash web/scripts/generate-client.sh
           git diff --exit-code -- web/frontend/openapi.json web/frontend/src/client
 
-      - name: Validate Compose configuration
+      - name: Build and smoke-test Compose deployment
         working-directory: web
         run: |
           cp .env.example .env
-          AMFV_DOCKER_UID=1000 AMFV_DOCKER_GID=1000 docker compose -f compose.yml -f compose.dev.yml config --quiet
-          AMFV_DOCKER_UID=1000 AMFV_DOCKER_GID=1000 docker compose -f compose.yml -f compose.dev.yml build prestart backend frontend playwright
+          export AMFV_DOCKER_UID="$(id -u)"
+          export AMFV_DOCKER_GID="$(id -g)"
+          mkdir -p data
+          docker compose -f compose.yml -f compose.dev.yml config --quiet
+          docker compose -f compose.yml build prestart backend frontend
+          docker compose -f compose.yml -f compose.dev.yml build playwright
+          trap 'docker compose -f compose.yml down --volumes' EXIT
+          docker compose -f compose.yml up --detach --wait backend frontend
+          curl --fail --silent --show-error http://127.0.0.1:21783/api/v1/utils/health-check/
 
       - name: Install Chromium system dependencies
         working-directory: web/frontend
