@@ -3,10 +3,14 @@
 # touches the dev database (data/app.db). This must run before any app module
 # imports `settings`, since os.environ overrides the .env value.
 import os
+import shutil
+import sqlite3
 import tempfile
 from pathlib import Path
 
-_TEST_DB_PATH = os.path.join(tempfile.gettempdir(), "amfv_test_app.db")
+_TEST_DB_DIRECTORY = Path(tempfile.mkdtemp(prefix=f"amfv-pytest-{os.getpid()}-"))
+_TEST_DB_PATH = _TEST_DB_DIRECTORY / "test.db"
+_TEST_DB_TEMPLATE_PATH = _TEST_DB_DIRECTORY / "template.db"
 _BACKEND_ROOT = Path(__file__).resolve().parents[1]
 os.environ["SQLITE_DATABASE_URL"] = f"sqlite:///{_TEST_DB_PATH}"
 os.environ["PROJECT_NAME"] = "AMFV Web Tests"
@@ -30,33 +34,50 @@ from tests.utils.user import authentication_token_from_email
 from tests.utils.utils import get_superuser_token_headers
 
 
-@pytest.fixture(scope="session", autouse=True)
-def db() -> Generator[Session, None, None]:
-    # Start each run from a clean throwaway database.
-    if os.path.exists(_TEST_DB_PATH):
-        os.remove(_TEST_DB_PATH)
-
+@pytest.fixture(scope="session")
+def _database_template() -> Generator[Path, None, None]:
+    """Build one migrated template for this pytest process."""
     alembic_cfg = Config(str(_BACKEND_ROOT / "alembic.ini"))
     command.upgrade(alembic_cfg, "head")
-
     with Session(engine) as session:
         init_db(session)
+
+    engine.dispose()
+    with sqlite3.connect(_TEST_DB_PATH) as connection:
+        connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    shutil.copyfile(_TEST_DB_PATH, _TEST_DB_TEMPLATE_PATH)
+    yield _TEST_DB_TEMPLATE_PATH
+    engine.dispose()
+    shutil.rmtree(_TEST_DB_DIRECTORY)
+
+
+@pytest.fixture(autouse=True)
+def db(_database_template: Path) -> Generator[Session, None, None]:
+    """Give every test a fresh database and direct session."""
+    engine.dispose()
+    for suffix in ("", "-shm", "-wal"):
+        Path(f"{_TEST_DB_PATH}{suffix}").unlink(missing_ok=True)
+    shutil.copyfile(_database_template, _TEST_DB_PATH)
+
+    with Session(engine) as session:
         yield session
         session.rollback()
+    engine.dispose()
 
 
-@pytest.fixture(scope="module")
-def client() -> Generator[TestClient, None, None]:
+@pytest.fixture
+def client(db: Session) -> Generator[TestClient, None, None]:
+    _ = db
     with TestClient(app) as c:
         yield c
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def superuser_token_headers(client: TestClient) -> dict[str, str]:
     return get_superuser_token_headers(client)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def normal_user_token_headers(client: TestClient, db: Session) -> dict[str, str]:
     return authentication_token_from_email(
         client=client, email=settings.EMAIL_TEST_USER, db=db
