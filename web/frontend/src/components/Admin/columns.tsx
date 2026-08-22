@@ -80,9 +80,12 @@ export const columns: ColumnDef<UserTableData>[] = [
     header: "Role",
     cell: ({ row }) => {
       const role = row.original.role ?? "user"
+      const roleLabel = row.original.is_superuser
+        ? "Superuser"
+        : (roleLabels[role] ?? role)
       return (
         <Badge variant={row.original.is_superuser ? "default" : "secondary"}>
-          {roleLabels[role] ?? role}
+          {roleLabel}
         </Badge>
       )
     },

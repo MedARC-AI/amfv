@@ -35,7 +35,7 @@ test.describe("Admin user management", () => {
 
     await page.getByRole("button", { name: "Add User" }).click()
 
-    await page.getByPlaceholder("Email").fill(email)
+    await page.getByRole("textbox", { name: "Email" }).fill(email)
     await page.getByPlaceholder("Full name").fill(fullName)
     await page.getByPlaceholder("Password").first().fill(password)
     await page.getByPlaceholder("Password").last().fill(password)
@@ -59,7 +59,7 @@ test.describe("Admin user management", () => {
 
     await page.getByRole("button", { name: "Add User" }).click()
 
-    await page.getByPlaceholder("Email").fill(email)
+    await page.getByRole("textbox", { name: "Email" }).fill(email)
     await page.getByPlaceholder("Password").first().fill(password)
     await page.getByPlaceholder("Password").last().fill(password)
     await selectProfession(page)
@@ -86,7 +86,7 @@ test.describe("Admin user management", () => {
     const discordHandle = "updated-user"
 
     await page.getByRole("button", { name: "Add User" }).click()
-    await page.getByPlaceholder("Email").fill(email)
+    await page.getByRole("textbox", { name: "Email" }).fill(email)
     await page.getByPlaceholder("Full name").fill(originalName)
     await page.getByPlaceholder("Password").first().fill(password)
     await page.getByPlaceholder("Password").last().fill(password)
@@ -128,7 +128,7 @@ test.describe("Admin user management", () => {
     const newPassword = randomPassword()
 
     await page.getByRole("button", { name: "Add User" }).click()
-    await page.getByPlaceholder("Email").fill(email)
+    await page.getByRole("textbox", { name: "Email" }).fill(email)
     await page.getByPlaceholder("Password").first().fill(password)
     await page.getByPlaceholder("Password").last().fill(password)
     await selectProfession(page)
@@ -157,7 +157,7 @@ test.describe("Admin user management", () => {
     const password = randomPassword()
 
     await page.getByRole("button", { name: "Add User" }).click()
-    await page.getByPlaceholder("Email").fill(email)
+    await page.getByRole("textbox", { name: "Email" }).fill(email)
     await page.getByPlaceholder("Password").first().fill(password)
     await page.getByPlaceholder("Password").last().fill(password)
     await selectProfession(page)
@@ -182,7 +182,7 @@ test.describe("Admin user management", () => {
     await page.goto("/admin")
 
     await page.getByRole("button", { name: "Add User" }).click()
-    await page.getByPlaceholder("Email").fill("test@example.com")
+    await page.getByRole("textbox", { name: "Email" }).fill("test@example.com")
 
     await page.getByRole("button", { name: "Cancel" }).click()
 
@@ -194,8 +194,8 @@ test.describe("Admin user management", () => {
 
     await page.getByRole("button", { name: "Add User" }).click()
 
-    await page.getByPlaceholder("Email").fill("invalid-email")
-    await page.getByPlaceholder("Email").blur()
+    await page.getByRole("textbox", { name: "Email" }).fill("invalid-email")
+    await page.getByRole("textbox", { name: "Email" }).blur()
 
     await expect(page.getByText("Invalid email address")).toBeVisible()
   })
@@ -205,7 +205,7 @@ test.describe("Admin user management", () => {
 
     await page.getByRole("button", { name: "Add User" }).click()
 
-    await page.getByPlaceholder("Email").fill(randomEmail())
+    await page.getByRole("textbox", { name: "Email" }).fill(randomEmail())
     await page.getByPlaceholder("Password").first().fill("short")
     await page.getByPlaceholder("Password").last().fill("short")
     await page.getByRole("button", { name: "Save" }).click()
@@ -220,7 +220,7 @@ test.describe("Admin user management", () => {
 
     await page.getByRole("button", { name: "Add User" }).click()
 
-    await page.getByPlaceholder("Email").fill(randomEmail())
+    await page.getByRole("textbox", { name: "Email" }).fill(randomEmail())
     await page.getByPlaceholder("Password").first().fill(randomPassword())
     await page.getByPlaceholder("Password").last().fill("different12345")
     await page.getByPlaceholder("Password").last().blur()

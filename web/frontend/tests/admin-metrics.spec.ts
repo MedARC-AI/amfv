@@ -11,7 +11,9 @@ test("admin can inspect user metrics and agreement sections", async ({
   await expect(
     page.getByRole("heading", { name: "Metrics", exact: true }),
   ).toBeVisible()
-  await expect(page.getByText(firstSuperuser)).toBeVisible()
+  await expect(
+    page.getByRole("cell", { name: firstSuperuser, exact: true }),
+  ).toBeVisible()
   await expect(
     page.getByRole("heading", { name: "User metrics", exact: true }),
   ).toBeVisible()
@@ -32,7 +34,9 @@ test("admin can inspect user metrics and agreement sections", async ({
 
   await page.getByTestId("admin-metrics-dataset").click()
   await page.getByRole("option", { name: "E2E Retrieval" }).click()
-  await expect(page.getByText(firstSuperuser)).toBeVisible()
+  await expect(
+    page.getByRole("cell", { name: firstSuperuser, exact: true }),
+  ).toBeVisible()
 
   await page.getByTestId("admin-metrics-reviewer-kind").click()
   await page.getByRole("option", { name: "Human" }).click()
