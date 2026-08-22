@@ -58,8 +58,6 @@ export type AdminUserMetric = {
     authored_items: number;
     email: string;
     fact_decomp_reviews: number;
-    kappa_overlap?: number;
-    mean_kappa?: (number | null);
     relevance_judgments: number;
     retrieval_qa_reviews: number;
     reviewer_kind: string;
@@ -90,6 +88,22 @@ export type AssignmentReleaseResponse = {
     id: number;
     release_reason: string;
     released?: boolean;
+};
+
+/**
+ * Structured conflict returned when an assignment has a terminal state.
+ */
+export type AssignmentTerminalConflict = {
+    assignment_id: number;
+    code?: "assignment_terminal_conflict";
+    message: string;
+};
+
+/**
+ * FastAPI's HTTPException envelope for a terminal assignment conflict.
+ */
+export type AssignmentTerminalConflictResponse = {
+    detail: AssignmentTerminalConflict;
 };
 
 /**
@@ -157,7 +171,6 @@ export type CreateFactDecompDraftSubmit = {
     facts: Array<FactDraft>;
     item_id?: (number | null);
     source_text: string;
-    status?: ItemStatus;
 };
 
 export type CreateRetrievalDraftSubmit = {
@@ -167,7 +180,6 @@ export type CreateRetrievalDraftSubmit = {
     expected_answer?: (string | null);
     gold_evidence_spans?: Array<EvidenceSpan>;
     question: string;
-    status?: ItemStatus;
     trap_evidence_spans?: Array<EvidenceSpan>;
     unanswerable?: boolean;
     why_not_answerable?: (string | null);
@@ -294,6 +306,30 @@ export type FactDecompReviewSubmit = {
         [key: string]: (string);
     };
 };
+
+/**
+ * A durable fact save command identified by a client-generated key.
+ */
+export type FactDecompSaveCommand = {
+    dataset_id: number;
+    document_id?: (number | null);
+    expected_item_revision?: (number | null);
+    facts: Array<FactDraft>;
+    item_id?: (number | null);
+    request_id: string;
+    source_text: string;
+};
+
+export type FactDecompSaveReceiptResponse = {
+    command: 'draft' | 'submit';
+    replayed: boolean;
+    request: CreateFactDecompDraftSubmit;
+    request_hash: string;
+    request_id: string;
+    response: FactDecompCreateResponse;
+};
+
+export type command = 'draft' | 'submit';
 
 export type FactDraft = {
     fact_text: string;
@@ -732,6 +768,7 @@ export type AdminRejectAdminItemResponse = (AdminItemSummary);
 
 export type AdminReadAgreementMetricsData = {
     datasetId?: (number | null);
+    maxJudgments?: number;
     reviewerKind?: (ReviewerKind | null);
 };
 
@@ -739,7 +776,10 @@ export type AdminReadAgreementMetricsResponse = (Array<AdminAgreementMetric>);
 
 export type AdminReadInterUserAgreementData = {
     datasetId?: (number | null);
+    leftUserId: string;
+    maxJudgments?: number;
     minOverlap?: number;
+    rightUserId: string;
 };
 
 export type AdminReadInterUserAgreementResponse = (Array<AdminInterUserAgreementMetric>);
@@ -793,7 +833,7 @@ export type AuthInviteSignupData = {
 export type AuthInviteSignupResponse = (Token);
 
 export type CreateCreateFactDecompDraftData = {
-    requestBody: CreateFactDecompDraftSubmit;
+    requestBody: FactDecompSaveCommand;
 };
 
 export type CreateCreateFactDecompDraftResponse = (FactDecompCreateResponse);
@@ -804,8 +844,14 @@ export type CreatePreviewFactDecompCreationData = {
 
 export type CreatePreviewFactDecompCreationResponse = (ValidationPreview);
 
+export type CreateReadFactDecompSaveReceiptData = {
+    requestId: string;
+};
+
+export type CreateReadFactDecompSaveReceiptResponse = (FactDecompSaveReceiptResponse);
+
 export type CreateSubmitFactDecompDraftData = {
-    requestBody: CreateFactDecompDraftSubmit;
+    requestBody: FactDecompSaveCommand;
 };
 
 export type CreateSubmitFactDecompDraftResponse = (FactDecompCreateResponse);

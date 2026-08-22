@@ -237,22 +237,6 @@ export const AdminUserMetricSchema = {
             title: 'Fact Decomp Reviews',
             type: 'integer'
         },
-        kappa_overlap: {
-            default: 0,
-            title: 'Kappa Overlap',
-            type: 'integer'
-        },
-        mean_kappa: {
-            anyOf: [
-                {
-                    type: 'number'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Mean Kappa'
-        },
         relevance_judgments: {
             title: 'Relevance Judgments',
             type: 'integer'
@@ -362,6 +346,41 @@ export const AssignmentReleaseResponseSchema = {
     },
     required: ['id', 'release_reason'],
     title: 'AssignmentReleaseResponse',
+    type: 'object'
+} as const;
+
+export const AssignmentTerminalConflictSchema = {
+    description: 'Structured conflict returned when an assignment has a terminal state.',
+    properties: {
+        assignment_id: {
+            title: 'Assignment Id',
+            type: 'integer'
+        },
+        code: {
+            const: 'assignment_terminal_conflict',
+            default: 'assignment_terminal_conflict',
+            title: 'Code',
+            type: 'string'
+        },
+        message: {
+            title: 'Message',
+            type: 'string'
+        }
+    },
+    required: ['message', 'assignment_id'],
+    title: 'AssignmentTerminalConflict',
+    type: 'object'
+} as const;
+
+export const AssignmentTerminalConflictResponseSchema = {
+    description: "FastAPI's HTTPException envelope for a terminal assignment conflict.",
+    properties: {
+        detail: {
+            '$ref': '#/components/schemas/AssignmentTerminalConflict'
+        }
+    },
+    required: ['detail'],
+    title: 'AssignmentTerminalConflictResponse',
     type: 'object'
 } as const;
 
@@ -590,6 +609,7 @@ export const ChunkSummarySchema = {
 } as const;
 
 export const CreateFactDecompDraftSubmitSchema = {
+    additionalProperties: false,
     properties: {
         dataset_id: {
             title: 'Dataset Id',
@@ -641,10 +661,6 @@ export const CreateFactDecompDraftSubmitSchema = {
             minLength: 1,
             title: 'Source Text',
             type: 'string'
-        },
-        status: {
-            '$ref': '#/components/schemas/ItemStatus',
-            default: 'DRAFT'
         }
     },
     required: ['dataset_id', 'source_text', 'facts'],
@@ -653,6 +669,7 @@ export const CreateFactDecompDraftSubmitSchema = {
 } as const;
 
 export const CreateRetrievalDraftSubmitSchema = {
+    additionalProperties: false,
     properties: {
         category: {
             '$ref': '#/components/schemas/RetrievalCategory'
@@ -690,10 +707,6 @@ export const CreateRetrievalDraftSubmitSchema = {
             minLength: 1,
             title: 'Question',
             type: 'string'
-        },
-        status: {
-            '$ref': '#/components/schemas/ItemStatus',
-            default: 'DRAFT'
         },
         trap_evidence_spans: {
             items: {
@@ -1201,6 +1214,104 @@ export const FactDecompReviewSubmitSchema = {
     },
     required: ['fact_calls', 'values', 'item_revision'],
     title: 'FactDecompReviewSubmit',
+    type: 'object'
+} as const;
+
+export const FactDecompSaveCommandSchema = {
+    additionalProperties: false,
+    description: 'A durable fact save command identified by a client-generated key.',
+    properties: {
+        dataset_id: {
+            title: 'Dataset Id',
+            type: 'integer'
+        },
+        document_id: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Document Id'
+        },
+        expected_item_revision: {
+            anyOf: [
+                {
+                    minimum: 1,
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Expected Item Revision'
+        },
+        facts: {
+            items: {
+                '$ref': '#/components/schemas/FactDraft'
+            },
+            title: 'Facts',
+            type: 'array'
+        },
+        item_id: {
+            anyOf: [
+                {
+                    exclusiveMinimum: 0,
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Item Id'
+        },
+        request_id: {
+            maxLength: 128,
+            minLength: 1,
+            title: 'Request Id',
+            type: 'string'
+        },
+        source_text: {
+            minLength: 1,
+            title: 'Source Text',
+            type: 'string'
+        }
+    },
+    required: ['dataset_id', 'source_text', 'facts', 'request_id'],
+    title: 'FactDecompSaveCommand',
+    type: 'object'
+} as const;
+
+export const FactDecompSaveReceiptResponseSchema = {
+    properties: {
+        command: {
+            enum: ['draft', 'submit'],
+            title: 'Command',
+            type: 'string'
+        },
+        replayed: {
+            title: 'Replayed',
+            type: 'boolean'
+        },
+        request: {
+            '$ref': '#/components/schemas/CreateFactDecompDraftSubmit'
+        },
+        request_hash: {
+            title: 'Request Hash',
+            type: 'string'
+        },
+        request_id: {
+            title: 'Request Id',
+            type: 'string'
+        },
+        response: {
+            '$ref': '#/components/schemas/FactDecompCreateResponse'
+        }
+    },
+    required: ['request_id', 'request_hash', 'command', 'request', 'response', 'replayed'],
+    title: 'FactDecompSaveReceiptResponse',
     type: 'object'
 } as const;
 
