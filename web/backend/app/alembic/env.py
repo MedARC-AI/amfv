@@ -1,8 +1,9 @@
 import os
 from logging.config import fileConfig
+from typing import Any
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import Enum, String, engine_from_config, pool
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -19,8 +20,8 @@ fileConfig(config.config_file_name)
 # target_metadata = mymodel.Base.metadata
 # target_metadata = None
 
-from app.models import SQLModel  # noqa
-from app.core.config import settings # noqa
+from app.core.config import settings  # noqa: E402
+from app.models import SQLModel  # noqa: E402
 
 target_metadata = SQLModel.metadata
 
@@ -32,6 +33,28 @@ target_metadata = SQLModel.metadata
 
 def get_url():
     return str(settings.SQLALCHEMY_DATABASE_URI)
+
+
+def _compare_storage_types(
+    migration_context: Any,
+    _inspected_column: Any,
+    _metadata_column: Any,
+    inspected_type: Any,
+    metadata_type: Any,
+) -> bool | None:
+    """Treat SQLite's VARCHAR enum storage as equivalent to ORM enums.
+
+    SQLite has no native enum type, so the migrations deliberately persist
+    enum values as bounded VARCHAR columns. Keep normal Alembic type comparison
+    enabled for every other type and dialect.
+    """
+    if (
+        migration_context.dialect.name == "sqlite"
+        and isinstance(metadata_type, Enum)
+        and isinstance(inspected_type, String)
+    ):
+        return False
+    return None
 
 
 def run_migrations_offline():
@@ -51,7 +74,7 @@ def run_migrations_offline():
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
-        compare_type=True,
+        compare_type=_compare_storage_types,
         render_as_batch=True,
     )
 
@@ -79,7 +102,7 @@ def run_migrations_online():
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            compare_type=True,
+            compare_type=_compare_storage_types,
             render_as_batch=True,
         )
 

@@ -9,6 +9,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     Index,
+    Text,
     UniqueConstraint,
     text,
 )
@@ -403,7 +404,9 @@ class FactDecompReview(TimestampMixin, table=True):
     item_revision: int = Field(nullable=False)
     ratings: dict | None = Field(default=None, sa_column=Column(JSON))
     reviewer_kind: ReviewerKind = Field(
-        default=ReviewerKind.human, nullable=False, max_length=32
+        default=ReviewerKind.human,
+        nullable=False,
+        max_length=32,
     )
     comment: str | None = Field(default=None)
     flags: dict | None = Field(default=None, sa_column=Column(JSON))
@@ -430,8 +433,8 @@ class PooledCandidate(TimestampMixin, table=True):
     )
 
     id: int | None = Field(default=None, primary_key=True)
-    dataset_id: int = Field(foreign_key="dataset.id", nullable=False, index=True)
-    item_id: int = Field(foreign_key="eval_item.id", nullable=False, index=True)
+    dataset_id: int = Field(foreign_key="dataset.id", nullable=False)
+    item_id: int = Field(foreign_key="eval_item.id", nullable=False)
     chunk_id: int = Field(foreign_key="chunk.id", nullable=False, index=True)
     systems: list[str] = Field(
         default_factory=list, sa_column=Column(JSON, nullable=False)
@@ -467,15 +470,17 @@ class Assignment(TimestampMixin, table=True):
     )
 
     id: int | None = Field(default=None, primary_key=True)
-    dataset_id: int = Field(foreign_key="dataset.id", nullable=False, index=True)
+    dataset_id: int = Field(foreign_key="dataset.id", nullable=False)
     mode: AssignmentMode = Field(nullable=False, max_length=32)
     target_id: int = Field(nullable=False, index=True)
     user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
     kind: AssignmentKind = Field(
-        default=AssignmentKind.REGULAR, nullable=False, max_length=32
+        default=AssignmentKind.REGULAR,
+        nullable=False,
+        max_length=32,
     )
     assigned_at: datetime = Field(default_factory=get_datetime_utc, nullable=False)
-    completed_at: datetime | None = Field(default=None, nullable=True, index=True)
+    completed_at: datetime | None = Field(default=None, nullable=True)
     released_at: datetime | None = Field(
         default=None,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -544,7 +549,7 @@ class RetrievalQAReview(TimestampMixin, table=True):
     evidence_quality: int | None = Field(default=None, ge=1, le=4)
     answer_correctness: int | None = Field(default=None, ge=1, le=4)
     answer_faithfulness: int | None = Field(default=None, ge=1, le=4)
-    notes: str | None = Field(default=None)
+    notes: str | None = Field(default=None, sa_type=Text)
     span: dict | None = Field(default=None, sa_column=Column(JSON))
     span_overlap: float | None = Field(default=None)
     confidence: JudgmentConfidence | None = Field(default=None, max_length=32)
@@ -584,7 +589,7 @@ class Adjudication(TimestampMixin, table=True):
     )
 
     id: int | None = Field(default=None, primary_key=True)
-    dataset_id: int = Field(foreign_key="dataset.id", nullable=False, index=True)
+    dataset_id: int = Field(foreign_key="dataset.id", nullable=False)
     mode: AssignmentMode = Field(nullable=False, max_length=32)
     target_id: int = Field(nullable=False, index=True)
     judgment_ids: list[int] = Field(
@@ -594,7 +599,7 @@ class Adjudication(TimestampMixin, table=True):
         default=None, foreign_key="user.id", nullable=True, index=True
     )
     final: dict | None = Field(default=None, sa_column=Column(JSON))
-    resolved_at: datetime | None = Field(default=None, nullable=True, index=True)
+    resolved_at: datetime | None = Field(default=None, nullable=True)
 
 
 # Generic message
