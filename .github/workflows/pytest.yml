@@ -178,6 +178,11 @@ jobs:
         working-directory: web
         run: |
           cp .env.example .env
+          compose_secret_key="$(openssl rand -hex 32)"
+          compose_admin_password="$(openssl rand -hex 24)"
+          sed -i "s|^SECRET_KEY=.*|SECRET_KEY=${compose_secret_key}|" .env
+          sed -i "s|^FIRST_SUPERUSER_PASSWORD=.*|FIRST_SUPERUSER_PASSWORD=${compose_admin_password}|" .env
+          unset compose_secret_key compose_admin_password
           export AMFV_DOCKER_UID="$(id -u)"
           export AMFV_DOCKER_GID="$(id -g)"
           mkdir -p data
