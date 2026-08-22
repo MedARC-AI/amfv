@@ -43,19 +43,22 @@ async function selectEvidenceText(page: Page, selectedText: string) {
   }, selectedText)
 }
 
-test("creates a fact-decomposition draft with ordered facts and provenance", async ({
+test("saves one fact-decomposition draft twice, then submits that same item", async ({
   page,
 }) => {
+  const runSuffix = `${Date.now()}`
   await chooseDataset(page)
-
-  await page.getByRole("button", { name: "Validate" }).click()
-  await expect(page.getByText("Validation Error")).toBeVisible()
 
   await chooseSourceDocument(page)
   await page.getByRole("button", { name: "Use document text" }).click()
   await expect(page.getByLabel("Source text")).toHaveValue(
     /Baker appears in the E2E source\./,
   )
+  await page
+    .getByLabel("Source text")
+    .fill(
+      `Baker appears in the E2E source. Café and emoji 😀 are available for offset checks. Run ${runSuffix}.`,
+    )
 
   await page.getByLabel("Fact 1").fill("Baker appears in the E2E source.")
   await page
@@ -68,5 +71,23 @@ test("creates a fact-decomposition draft with ordered facts and provenance", asy
   ).toBeVisible()
 
   await page.getByRole("button", { name: "Save draft" }).click()
-  await expect(page.getByText(/Draft saved as item \d+\./)).toBeVisible()
+  const firstSave = page.getByText(/Draft saved as item \d+ \(revision 1\)\./)
+  await expect(firstSave).toBeVisible()
+  const firstItemId = (await firstSave.textContent())?.match(/item (\d+)/)?.[1]
+  expect(firstItemId).toBeTruthy()
+
+  await page
+    .getByLabel("Fact 1")
+    .fill("Baker is retained in the revised source.")
+  await page.getByRole("button", { name: "Save draft" }).click()
+  await expect(
+    page.getByText(
+      new RegExp(`Draft saved as item ${firstItemId} \\(revision 2\\)\\.`),
+    ),
+  ).toBeVisible()
+
+  await page.getByRole("button", { name: "Submit" }).click()
+  await expect(
+    page.getByText(new RegExp(`Submitted item ${firstItemId}\\.`)),
+  ).toBeVisible()
 })

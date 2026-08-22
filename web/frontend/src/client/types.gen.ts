@@ -80,6 +80,36 @@ export type AssignmentReleaseResponse = {
     released?: boolean;
 };
 
+/**
+ * Structured conflict returned for stale drafts or reused idempotency keys.
+ */
+export type AuthoringConflict = {
+    actual_item_revision?: (number | null);
+    code: string;
+    expected_item_revision?: (number | null);
+    item_id?: (number | null);
+    message: string;
+    request_id?: (string | null);
+};
+
+/**
+ * FastAPI's HTTPException envelope for an authoring conflict.
+ */
+export type AuthoringConflictResponse = {
+    detail: AuthoringConflict;
+};
+
+/**
+ * The durable state used to reconcile an uncertain authoring response.
+ */
+export type AuthoringItemState = {
+    dataset_id: number;
+    eval_type: EvalType;
+    id: number;
+    item_revision: number;
+    status: ItemStatus;
+};
+
 export type Body_auth_preview_invite = {
     token: string;
 };
@@ -105,7 +135,9 @@ export type ChunkSummary = {
 export type CreateFactDecompDraftSubmit = {
     dataset_id: number;
     document_id?: (number | null);
+    expected_item_revision?: (number | null);
     facts: Array<FactDraft>;
+    item_id?: (number | null);
     source_text: string;
     status?: ItemStatus;
 };
@@ -444,6 +476,17 @@ export type RetrievalReviewSubmit = {
     skipped?: boolean;
 };
 
+export type RetrievalSubmissionBatchResponse = {
+    item_ids: Array<(number)>;
+    replayed: boolean;
+    request_id: string;
+};
+
+export type RetrievalSubmissionBatchSubmit = {
+    items: Array<CreateRetrievalDraftSubmit>;
+    request_id: string;
+};
+
 /**
  * Request one review claim in a selected evaluation dataset.
  */
@@ -768,19 +811,49 @@ export type CreateCreateFactDecompDraftData = {
 
 export type CreateCreateFactDecompDraftResponse = (FactDecompCreateResponse);
 
+export type CreatePreviewFactDecompCreationData = {
+    requestBody: CreateFactDecompDraftSubmit;
+};
+
+export type CreatePreviewFactDecompCreationResponse = (ValidationPreview);
+
 export type CreateSubmitFactDecompDraftData = {
     requestBody: CreateFactDecompDraftSubmit;
 };
 
 export type CreateSubmitFactDecompDraftResponse = (FactDecompCreateResponse);
 
+export type CreateReadAuthoringItemData = {
+    itemId: number;
+};
+
+export type CreateReadAuthoringItemResponse = (AuthoringItemState);
+
 export type CreateReadCreateOptionsResponse = (Array<DatasetSummary>);
+
+export type CreateSubmitRetrievalBatchData = {
+    requestBody: RetrievalSubmissionBatchSubmit;
+};
+
+export type CreateSubmitRetrievalBatchResponse = (RetrievalSubmissionBatchResponse);
+
+export type CreateReadRetrievalBatchData = {
+    requestId: string;
+};
+
+export type CreateReadRetrievalBatchResponse = (RetrievalSubmissionBatchResponse);
 
 export type CreateCreateRetrievalDraftData = {
     requestBody: CreateRetrievalDraftSubmit;
 };
 
 export type CreateCreateRetrievalDraftResponse = (RetrievalCreateResponse);
+
+export type CreatePreviewRetrievalCreationData = {
+    requestBody: CreateRetrievalDraftSubmit;
+};
+
+export type CreatePreviewRetrievalCreationResponse = (ValidationPreview);
 
 export type CreateSubmitRetrievalDraftData = {
     requestBody: CreateRetrievalDraftSubmit;

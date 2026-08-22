@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { AdminReadAdminDatasetsResponse, AdminCreateAdminDatasetData, AdminCreateAdminDatasetResponse, AdminReadAdminDatasetData, AdminReadAdminDatasetResponse, AdminGenerateDatasetTasksData, AdminGenerateDatasetTasksResponse, AdminReadAdminDocumentsResponse, AdminCreateAdminDocumentData, AdminCreateAdminDocumentResponse, AdminReadAdminDocumentData, AdminReadAdminDocumentResponse, AdminToggleAdminDocumentData, AdminToggleAdminDocumentResponse, AdminExportDatasetData, AdminExportDatasetResponse, AdminIngestDatasetResponse, AdminReadAdminItemsData, AdminReadAdminItemsResponse, AdminApproveAdminItemData, AdminApproveAdminItemResponse, AdminRejectAdminItemData, AdminRejectAdminItemResponse, AdminReadAgreementMetricsData, AdminReadAgreementMetricsResponse, AdminReadInterUserAgreementData, AdminReadInterUserAgreementResponse, AdminReadUserMetricsData, AdminReadUserMetricsResponse, AdminStartNiceImportData, AdminStartNiceImportResponse, AdminReadCurrentNiceImportResponse, AdminCancelNiceImportData, AdminCancelNiceImportResponse, AdminReadAdminUsersResponse, AdminUpdateAdminUserData, AdminUpdateAdminUserResponse, AdminReadAdminUserReviewsData, AdminReadAdminUserReviewsResponse, AuthListInvitesResponse, AuthCreateInviteData, AuthCreateInviteResponse, AuthPreviewInviteData, AuthPreviewInviteResponse, AuthDisableInviteData, AuthDisableInviteResponse, AuthInviteSignupData, AuthInviteSignupResponse, CreateCreateFactDecompDraftData, CreateCreateFactDecompDraftResponse, CreateSubmitFactDecompDraftData, CreateSubmitFactDecompDraftResponse, CreateReadCreateOptionsResponse, CreateCreateRetrievalDraftData, CreateCreateRetrievalDraftResponse, CreateSubmitRetrievalDraftData, CreateSubmitRetrievalDraftResponse, CreateReadSourceDocumentsData, CreateReadSourceDocumentsResponse, CreateReadSourceDocumentDetailData, CreateReadSourceDocumentDetailResponse, CreateValidateCreationRequestData, CreateValidateCreationRequestResponse, HomeReadHomeSummaryResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, NiceListNiceDownloadsResponse, NiceFetchNiceRecommendationByUrlData, NiceFetchNiceRecommendationByUrlResponse, ReviewReleaseReviewAssignmentData, ReviewReleaseReviewAssignmentResponse, ReviewClaimNextReviewTaskData, ReviewClaimNextReviewTaskResponse, ReviewReadFactDecompReviewData, ReviewReadFactDecompReviewResponse, ReviewSubmitFactDecompReviewData, ReviewSubmitFactDecompReviewResponse, ReviewReadNextReviewTaskData, ReviewReadNextReviewTaskResponse, ReviewReadRelevanceReviewData, ReviewReadRelevanceReviewResponse, ReviewSubmitRelevanceReviewData, ReviewSubmitRelevanceReviewResponse, ReviewReadRetrievalReviewData, ReviewReadRetrievalReviewResponse, ReviewSubmitRetrievalReviewData, ReviewSubmitRetrievalReviewResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UtilsHealthCheckResponse, UtilsTestEmailData, UtilsTestEmailResponse } from './types.gen';
+import type { AdminReadAdminDatasetsResponse, AdminCreateAdminDatasetData, AdminCreateAdminDatasetResponse, AdminReadAdminDatasetData, AdminReadAdminDatasetResponse, AdminGenerateDatasetTasksData, AdminGenerateDatasetTasksResponse, AdminReadAdminDocumentsResponse, AdminCreateAdminDocumentData, AdminCreateAdminDocumentResponse, AdminReadAdminDocumentData, AdminReadAdminDocumentResponse, AdminToggleAdminDocumentData, AdminToggleAdminDocumentResponse, AdminExportDatasetData, AdminExportDatasetResponse, AdminIngestDatasetResponse, AdminReadAdminItemsData, AdminReadAdminItemsResponse, AdminApproveAdminItemData, AdminApproveAdminItemResponse, AdminRejectAdminItemData, AdminRejectAdminItemResponse, AdminReadAgreementMetricsData, AdminReadAgreementMetricsResponse, AdminReadInterUserAgreementData, AdminReadInterUserAgreementResponse, AdminReadUserMetricsData, AdminReadUserMetricsResponse, AdminStartNiceImportData, AdminStartNiceImportResponse, AdminReadCurrentNiceImportResponse, AdminCancelNiceImportData, AdminCancelNiceImportResponse, AdminReadAdminUsersResponse, AdminUpdateAdminUserData, AdminUpdateAdminUserResponse, AdminReadAdminUserReviewsData, AdminReadAdminUserReviewsResponse, AuthListInvitesResponse, AuthCreateInviteData, AuthCreateInviteResponse, AuthPreviewInviteData, AuthPreviewInviteResponse, AuthDisableInviteData, AuthDisableInviteResponse, AuthInviteSignupData, AuthInviteSignupResponse, CreateCreateFactDecompDraftData, CreateCreateFactDecompDraftResponse, CreatePreviewFactDecompCreationData, CreatePreviewFactDecompCreationResponse, CreateSubmitFactDecompDraftData, CreateSubmitFactDecompDraftResponse, CreateReadAuthoringItemData, CreateReadAuthoringItemResponse, CreateReadCreateOptionsResponse, CreateSubmitRetrievalBatchData, CreateSubmitRetrievalBatchResponse, CreateReadRetrievalBatchData, CreateReadRetrievalBatchResponse, CreateCreateRetrievalDraftData, CreateCreateRetrievalDraftResponse, CreatePreviewRetrievalCreationData, CreatePreviewRetrievalCreationResponse, CreateSubmitRetrievalDraftData, CreateSubmitRetrievalDraftResponse, CreateReadSourceDocumentsData, CreateReadSourceDocumentsResponse, CreateReadSourceDocumentDetailData, CreateReadSourceDocumentDetailResponse, CreateValidateCreationRequestData, CreateValidateCreationRequestResponse, HomeReadHomeSummaryResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, NiceListNiceDownloadsResponse, NiceFetchNiceRecommendationByUrlData, NiceFetchNiceRecommendationByUrlResponse, ReviewReleaseReviewAssignmentData, ReviewReleaseReviewAssignmentResponse, ReviewClaimNextReviewTaskData, ReviewClaimNextReviewTaskResponse, ReviewReadFactDecompReviewData, ReviewReadFactDecompReviewResponse, ReviewSubmitFactDecompReviewData, ReviewSubmitFactDecompReviewResponse, ReviewReadNextReviewTaskData, ReviewReadNextReviewTaskResponse, ReviewReadRelevanceReviewData, ReviewReadRelevanceReviewResponse, ReviewSubmitRelevanceReviewData, ReviewSubmitRelevanceReviewResponse, ReviewReadRetrievalReviewData, ReviewReadRetrievalReviewResponse, ReviewSubmitRetrievalReviewData, ReviewSubmitRetrievalReviewResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UtilsHealthCheckResponse, UtilsTestEmailData, UtilsTestEmailResponse } from './types.gen';
 
 export class AdminService {
     /**
@@ -533,6 +533,25 @@ export class CreateService {
     }
 
     /**
+     * Preview Fact Decomp Creation
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns ValidationPreview Successful Response
+     * @throws ApiError
+     */
+    public static previewFactDecompCreation(data: CreatePreviewFactDecompCreationData): CancelablePromise<CreatePreviewFactDecompCreationResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/create/fact-decomp/preview',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+
+    /**
      * Submit Fact Decomp Draft
      * @param data The data for the request.
      * @param data.requestBody
@@ -545,6 +564,27 @@ export class CreateService {
             url: '/api/v1/create/fact-decomp/submit',
             body: data.requestBody,
             mediaType: 'application/json',
+            errors: {
+                409: 'Conflict',
+                422: 'Validation Error'
+            }
+        });
+    }
+
+    /**
+     * Read Authoring Item
+     * @param data The data for the request.
+     * @param data.itemId
+     * @returns AuthoringItemState Successful Response
+     * @throws ApiError
+     */
+    public static readAuthoringItem(data: CreateReadAuthoringItemData): CancelablePromise<CreateReadAuthoringItemResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/create/items/{item_id}',
+            path: {
+                item_id: data.itemId
+            },
             errors: {
                 422: 'Validation Error'
             }
@@ -564,6 +604,46 @@ export class CreateService {
     }
 
     /**
+     * Submit Retrieval Batch
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns RetrievalSubmissionBatchResponse Successful Response
+     * @throws ApiError
+     */
+    public static submitRetrievalBatch(data: CreateSubmitRetrievalBatchData): CancelablePromise<CreateSubmitRetrievalBatchResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/create/retrieval/batch',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                409: 'Conflict',
+                422: 'Validation Error'
+            }
+        });
+    }
+
+    /**
+     * Read Retrieval Batch
+     * @param data The data for the request.
+     * @param data.requestId
+     * @returns RetrievalSubmissionBatchResponse Successful Response
+     * @throws ApiError
+     */
+    public static readRetrievalBatch(data: CreateReadRetrievalBatchData): CancelablePromise<CreateReadRetrievalBatchResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/create/retrieval/batches/{request_id}',
+            path: {
+                request_id: data.requestId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+
+    /**
      * Create Retrieval Draft
      * @param data The data for the request.
      * @param data.requestBody
@@ -574,6 +654,25 @@ export class CreateService {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/v1/create/retrieval/draft',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+
+    /**
+     * Preview Retrieval Creation
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns ValidationPreview Successful Response
+     * @throws ApiError
+     */
+    public static previewRetrievalCreation(data: CreatePreviewRetrievalCreationData): CancelablePromise<CreatePreviewRetrievalCreationResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/create/retrieval/preview',
             body: data.requestBody,
             mediaType: 'application/json',
             errors: {
@@ -653,6 +752,7 @@ export class CreateService {
 
     /**
      * Validate Creation Request
+     * Compatibility preview endpoint backed by the same type-specific owners.
      * @param data The data for the request.
      * @param data.requestBody
      * @returns ValidationPreview Successful Response

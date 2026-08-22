@@ -14,12 +14,14 @@ import * as React from "react"
 import { toast } from "sonner"
 
 import {
+  ApiError,
   type CreateRetrievalDraftSubmit,
   CreateService,
   type DocumentDetail,
   type DocumentSummary,
   type EvidenceSpan,
   type RetrievalCategory,
+  type RetrievalSubmissionBatchResponse,
   type ValidationPreview,
 } from "@/client"
 import { CopyDocumentMarkdownButton } from "@/components/annotation/CopyDocumentMarkdownButton"
@@ -101,6 +103,13 @@ type AddedRetrievalEvalItem = RetrievalFormValues & {
   trapSpans: RetrievalEvidenceSpan[]
 }
 
+class PreviewRejectedError extends Error {
+  constructor(readonly preview: ValidationPreview) {
+    super("Server validation rejected one or more retrieval items.")
+    this.name = "PreviewRejectedError"
+  }
+}
+
 const EMPTY_EVIDENCE_SPANS: EvidenceSpan[] = []
 const EMPTY_COMMITTED_SPANS_BY_CHUNK = new Map<
   number,
@@ -108,6 +117,13 @@ const EMPTY_COMMITTED_SPANS_BY_CHUNK = new Map<
 >()
 const CONFIRMED_EVIDENCE_MARK_CLASS = "bg-primary/10 ring-primary/15"
 const CONFIRMED_EVIDENCE_BLOCK_CLASS = "border-primary/20 bg-primary/5"
+
+function newClientRequestId(): string {
+  return (
+    globalThis.crypto?.randomUUID?.() ??
+    `retrieval-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+  )
+}
 
 function evidenceForSubmit(spans: EvidenceTraySpan[]): EvidenceSpan[] {
   return spans.map(({ chunk_id, start, end, text }) => ({
@@ -165,19 +181,6 @@ function maxEvidenceSelections(
     return 1
   }
   return null
-}
-
-function tooManyEvidenceMessage(
-  category: RetrievalCategory,
-  tray: "gold" | "trap",
-): string {
-  if (tray === "trap") {
-    return "Adversarial items use exactly one trap evidence paragraph."
-  }
-  if (category === "VERBATIM") {
-    return "Word-for-word items use exactly one highlighted answer span."
-  }
-  return "Paragraph-derived items use exactly one evidence paragraph."
 }
 
 function retrievalCategoryLabel(category: RetrievalCategory): string {
@@ -369,6 +372,7 @@ type RetrievalControlPanelProps = {
   onNiceCreated: (document: NiceDocument) => void
   onShowUsedDocumentsChange: (showUsed: boolean) => void
   onLocateEvidenceSpan: (span: EvidenceSpan) => void
+  onPreview: () => void
   onRemoveGoldSpan: (id: string) => void
   onRemoveTrapSpan: (id: string) => void
   onSelectDocument: (documentId: number) => void
@@ -405,6 +409,7 @@ function RetrievalControlPanel({
   onDatasetChange,
   onEditEvalItem,
   onLocateEvidenceSpan,
+  onPreview,
   onMoveGoldSpan,
   onMoveTrapSpan,
   onNiceCreated,
@@ -728,6 +733,14 @@ function RetrievalControlPanel({
 
       <div className="flex flex-wrap gap-2">
         <Button
+          disabled={datasetId === null || isBusy || addedEvalItems.length === 0}
+          onClick={onPreview}
+          type="button"
+          variant="outline"
+        >
+          Validate batch
+        </Button>
+        <Button
           disabled={datasetId === null || isBusy}
           onClick={() => onSubmit(formValues())}
           type="button"
@@ -958,6 +971,7 @@ function RetrievalCreate() {
   >([])
   const [resultMessage, setResultMessage] = React.useState<string | null>(null)
   const blockedSelectionToastRef = React.useRef<string | null>(null)
+  const batchRequestIdRef = React.useRef<string | null>(null)
   const isAdversarial = category === "ADVERSARIAL"
   const selectionMode = category === "VERBATIM" ? "exact" : "block"
   const selectionInstruction =
@@ -1108,105 +1122,80 @@ function RetrievalCreate() {
     status,
   })
 
-  const requiredItemFlags = React.useCallback(
-    (
-      values: RetrievalFormValues,
-      options?: {
-        category?: RetrievalCategory
-        goldSpans?: RetrievalEvidenceSpan[]
-        trapSpans?: RetrievalEvidenceSpan[]
-      },
-    ) => {
-      const itemCategory = options?.category ?? category
-      const itemGoldSpans = options?.goldSpans ?? goldSpans
-      const itemTrapSpans = options?.trapSpans ?? trapSpans
-      const itemIsAdversarial = itemCategory === "ADVERSARIAL"
-      if (values.question.trim().length === 0) {
-        return [{ level: "error", message: "Enter a question." }]
-      }
-      if (!itemIsAdversarial && values.expectedAnswer.trim().length === 0) {
-        return [{ level: "error", message: "Enter an expected answer." }]
-      }
-      const goldMaximum = maxEvidenceSelections(itemCategory, "gold")
-      const trapMaximum = maxEvidenceSelections(itemCategory, "trap")
-      if (goldMaximum !== null && itemGoldSpans.length > goldMaximum) {
-        return [
-          {
-            level: "error",
-            message: tooManyEvidenceMessage(itemCategory, "gold"),
-          },
-        ]
-      }
-      if (trapMaximum !== null && itemTrapSpans.length > trapMaximum) {
-        return [
-          {
-            level: "error",
-            message: tooManyEvidenceMessage(itemCategory, "trap"),
-          },
-        ]
-      }
-      if (itemCategory === "VERBATIM" && itemGoldSpans.length === 0) {
-        return [
-          {
-            level: "error",
-            message: "Highlight the exact answer text in the source document.",
-          },
-        ]
-      }
-      if (itemIsAdversarial && itemTrapSpans.length === 0) {
-        return [
-          {
-            level: "error",
-            message: "Select at least one trap evidence paragraph.",
-          },
-        ]
-      }
-      if (
-        itemCategory === "PARAPHRASE" ||
-        itemCategory === "MULTI_CHUNK" ||
-        itemCategory === "MULTI_DOCUMENT"
-      ) {
-        const minimum = itemCategory === "PARAPHRASE" ? 1 : 2
-        if (itemGoldSpans.length < minimum) {
-          return [
-            {
-              level: "error",
-              message:
-                minimum === 1
-                  ? "Select the evidence paragraph that supports the answer."
-                  : "Select at least two evidence paragraphs.",
-            },
-          ]
-        }
-      }
-      return []
+  const previewRetrievalItems = async (
+    items: AddedRetrievalEvalItem[],
+  ): Promise<ValidationPreview[]> =>
+    Promise.all(
+      items.map((item) =>
+        CreateService.previewRetrievalCreation({
+          requestBody: requestBody("DRAFT", item, item),
+        }),
+      ),
+    )
+
+  const previewMutation = useMutation({
+    mutationFn: previewRetrievalItems,
+    onSuccess: (previews) => {
+      setLocalValidationFlags([])
+      setValidation(previews[previews.length - 1] ?? null)
+      setResultMessage("Server validation completed.")
     },
-    [category, goldSpans, trapSpans],
-  )
+    onError: (error) => setResultMessage(apiErrorMessage(error)),
+  })
 
   const submitMutation = useMutation({
     mutationFn: async (items: AddedRetrievalEvalItem[]) => {
-      const responses = []
-      for (const item of items) {
-        responses.push(
-          await CreateService.submitRetrievalDraft({
-            requestBody: requestBody("SUBMITTED", item, item),
-          }),
-        )
+      const previews = await previewRetrievalItems(items)
+      const rejected = previews.find((preview) => !preview.ok)
+      if (rejected) {
+        throw new PreviewRejectedError(rejected)
       }
-      return responses
+      const requestId = batchRequestIdRef.current ?? newClientRequestId()
+      batchRequestIdRef.current = requestId
+      try {
+        const receipt = await CreateService.submitRetrievalBatch({
+          requestBody: {
+            request_id: requestId,
+            items: items.map((item) => requestBody("SUBMITTED", item, item)),
+          },
+        })
+        return { previews, receipt, reconciled: false }
+      } catch (error) {
+        if (error instanceof ApiError) {
+          throw error
+        }
+        try {
+          const receipt: RetrievalSubmissionBatchResponse =
+            await CreateService.readRetrievalBatch({ requestId })
+          return { previews, receipt, reconciled: true }
+        } catch (_reconciliationError) {
+          throw new Error(
+            "Submission outcome is unknown. It was not retried automatically; reconcile the saved receipt before sending another batch.",
+          )
+        }
+      }
     },
-    onSuccess: (responses) => {
+    onSuccess: ({ previews, receipt, reconciled }) => {
       setLocalValidationFlags([])
-      setValidation(responses[responses.length - 1]?.validation ?? null)
+      setValidation(previews[previews.length - 1] ?? null)
       setAddedEvalItems([])
+      batchRequestIdRef.current = null
       setResultMessage(
-        responses.length === 1
-          ? `Submitted item ${responses[0].id}.`
-          : `Submitted ${responses.length} items.`,
+        reconciled
+          ? `Recovered submission receipt for ${receipt.item_ids.length} item${receipt.item_ids.length === 1 ? "" : "s"}.`
+          : `Submitted ${receipt.item_ids.length} item${receipt.item_ids.length === 1 ? "" : "s"}.`,
       )
     },
-    onError: (error) => setResultMessage(apiErrorMessage(error)),
+    onError: (error) => {
+      if (error instanceof PreviewRejectedError) {
+        setValidation(error.preview)
+        setResultMessage(
+          "Server validation must pass before this batch can submit.",
+        )
+        return
+      }
+      setResultMessage(apiErrorMessage(error))
+    },
   })
 
   const resetDocumentState = (nextDatasetId: number) => {
@@ -1220,6 +1209,7 @@ function RetrievalCreate() {
     setValidation(null)
     setLocalValidationFlags([])
     setResultMessage(null)
+    batchRequestIdRef.current = null
   }
 
   const setRetrievalCategory = (nextCategory: RetrievalCategory) => {
@@ -1334,12 +1324,10 @@ function RetrievalCreate() {
 
   const addCurrentEvalItem = React.useCallback(
     (values: RetrievalFormValues) => {
-      const flags = requiredItemFlags(values)
-      setLocalValidationFlags(flags)
+      // These local controls keep selection pleasant, but the preview endpoint
+      // is the sole authority for category and evidence acceptance.
+      setLocalValidationFlags([])
       setValidation(null)
-      if (flags.length > 0) {
-        return false
-      }
       setAddedEvalItems((current) => [
         ...current,
         {
@@ -1355,16 +1343,10 @@ function RetrievalCreate() {
       setTrapSpans([])
       setUndoStack([])
       setResultMessage(null)
+      batchRequestIdRef.current = null
       return true
     },
-    [
-      category,
-      goldSpans,
-      isAdversarial,
-      requiredItemFlags,
-      selectedDocumentIds,
-      trapSpans,
-    ],
+    [category, goldSpans, isAdversarial, selectedDocumentIds, trapSpans],
   )
 
   const deleteEvalItem = React.useCallback((itemId: string) => {
@@ -1372,6 +1354,7 @@ function RetrievalCreate() {
     setValidation(null)
     setLocalValidationFlags([])
     setResultMessage(null)
+    batchRequestIdRef.current = null
   }, [])
 
   const editEvalItem = React.useCallback(
@@ -1393,6 +1376,7 @@ function RetrievalCreate() {
       setValidation(null)
       setLocalValidationFlags([])
       setResultMessage(null)
+      batchRequestIdRef.current = null
     },
     [addedEvalItems],
   )
@@ -1613,7 +1597,19 @@ function RetrievalCreate() {
     [addEvidenceSpan, category, materializeEvidenceSpan, targetTray],
   )
 
-  const isBusy = submitMutation.isPending
+  const isBusy = submitMutation.isPending || previewMutation.isPending
+
+  const handlePreview = () => {
+    if (addedEvalItems.length === 0) {
+      setLocalValidationFlags([
+        { level: "error", message: "Add at least one eval item to validate." },
+      ])
+      setValidation(null)
+      return
+    }
+    setLocalValidationFlags([])
+    previewMutation.mutate(addedEvalItems)
+  }
 
   const handleSubmit = (values: RetrievalFormValues) => {
     const hasCurrentEvalItemDraft =
@@ -1662,6 +1658,7 @@ function RetrievalCreate() {
           onDatasetChange={resetDocumentState}
           onEditEvalItem={editEvalItem}
           onLocateEvidenceSpan={locateEvidenceSpan}
+          onPreview={handlePreview}
           onMoveGoldSpan={(id, direction) =>
             setGoldSpans((current) => moveSpan(current, id, direction))
           }

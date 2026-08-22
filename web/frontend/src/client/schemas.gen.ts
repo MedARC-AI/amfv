@@ -303,6 +303,106 @@ export const AssignmentReleaseResponseSchema = {
     type: 'object'
 } as const;
 
+export const AuthoringConflictSchema = {
+    description: 'Structured conflict returned for stale drafts or reused idempotency keys.',
+    properties: {
+        actual_item_revision: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Actual Item Revision'
+        },
+        code: {
+            title: 'Code',
+            type: 'string'
+        },
+        expected_item_revision: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Expected Item Revision'
+        },
+        item_id: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Item Id'
+        },
+        message: {
+            title: 'Message',
+            type: 'string'
+        },
+        request_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Request Id'
+        }
+    },
+    required: ['code', 'message'],
+    title: 'AuthoringConflict',
+    type: 'object'
+} as const;
+
+export const AuthoringConflictResponseSchema = {
+    description: "FastAPI's HTTPException envelope for an authoring conflict.",
+    properties: {
+        detail: {
+            '$ref': '#/components/schemas/AuthoringConflict'
+        }
+    },
+    required: ['detail'],
+    title: 'AuthoringConflictResponse',
+    type: 'object'
+} as const;
+
+export const AuthoringItemStateSchema = {
+    description: 'The durable state used to reconcile an uncertain authoring response.',
+    properties: {
+        dataset_id: {
+            title: 'Dataset Id',
+            type: 'integer'
+        },
+        eval_type: {
+            '$ref': '#/components/schemas/EvalType'
+        },
+        id: {
+            title: 'Id',
+            type: 'integer'
+        },
+        item_revision: {
+            title: 'Item Revision',
+            type: 'integer'
+        },
+        status: {
+            '$ref': '#/components/schemas/ItemStatus'
+        }
+    },
+    required: ['id', 'dataset_id', 'eval_type', 'status', 'item_revision'],
+    title: 'AuthoringItemState',
+    type: 'object'
+} as const;
+
 export const Body_auth_preview_inviteSchema = {
     properties: {
         token: {
@@ -422,12 +522,36 @@ export const CreateFactDecompDraftSubmitSchema = {
             ],
             title: 'Document Id'
         },
+        expected_item_revision: {
+            anyOf: [
+                {
+                    minimum: 1,
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Expected Item Revision'
+        },
         facts: {
             items: {
                 '$ref': '#/components/schemas/FactDraft'
             },
             title: 'Facts',
             type: 'array'
+        },
+        item_id: {
+            anyOf: [
+                {
+                    exclusiveMinimum: 0,
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Item Id'
         },
         source_text: {
             minLength: 1,
@@ -1945,6 +2069,51 @@ export const RetrievalReviewSubmitSchema = {
         }
     },
     title: 'RetrievalReviewSubmit',
+    type: 'object'
+} as const;
+
+export const RetrievalSubmissionBatchResponseSchema = {
+    properties: {
+        item_ids: {
+            items: {
+                type: 'integer'
+            },
+            title: 'Item Ids',
+            type: 'array'
+        },
+        replayed: {
+            title: 'Replayed',
+            type: 'boolean'
+        },
+        request_id: {
+            title: 'Request Id',
+            type: 'string'
+        }
+    },
+    required: ['request_id', 'item_ids', 'replayed'],
+    title: 'RetrievalSubmissionBatchResponse',
+    type: 'object'
+} as const;
+
+export const RetrievalSubmissionBatchSubmitSchema = {
+    properties: {
+        items: {
+            items: {
+                '$ref': '#/components/schemas/CreateRetrievalDraftSubmit'
+            },
+            minItems: 1,
+            title: 'Items',
+            type: 'array'
+        },
+        request_id: {
+            maxLength: 128,
+            minLength: 1,
+            title: 'Request Id',
+            type: 'string'
+        }
+    },
+    required: ['request_id', 'items'],
+    title: 'RetrievalSubmissionBatchSubmit',
     type: 'object'
 } as const;
 

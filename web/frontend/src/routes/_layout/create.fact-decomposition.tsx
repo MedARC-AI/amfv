@@ -4,9 +4,12 @@ import { Loader2 } from "lucide-react"
 import * as React from "react"
 
 import {
+  ApiError,
+  type AuthoringItemState,
   type CreateFactDecompDraftSubmit,
   CreateService,
   type EvidenceSpan,
+  type FactDecompCreateResponse,
   type FactDraft,
   type ValidationPreview,
 } from "@/client"
@@ -26,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { apiErrorMessage } from "@/utils"
 
 export const Route = createFileRoute("/_layout/create/fact-decomposition")({
   component: FactDecompositionCreate,
@@ -39,6 +43,18 @@ export const Route = createFileRoute("/_layout/create/fact-decomposition")({
 })
 
 const noDocumentValue = "none"
+
+type DraftIdentity = {
+  id: number
+  revision: number
+  status: AuthoringItemState["status"]
+}
+
+type FactMutationResult = {
+  response?: FactDecompCreateResponse
+  state: AuthoringItemState
+  reconciled: boolean
+}
 
 function newFact(position: number, polarity: FactDraft["polarity"]): FactDraft {
   return {
@@ -90,13 +106,6 @@ function moveSpan(
   return nextSpans
 }
 
-function apiMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message
-  }
-  return "Request failed"
-}
-
 function factEvidenceTraySpans(
   fact: FactDraft | undefined,
 ): EvidenceTraySpan[] {
@@ -121,6 +130,8 @@ function FactDecompositionCreate() {
     null,
   )
   const [resultMessage, setResultMessage] = React.useState<string | null>(null)
+  const [draftIdentity, setDraftIdentity] =
+    React.useState<DraftIdentity | null>(null)
 
   const selectedFact =
     facts.find((fact) => fact.fact_uuid === selectedFactUuid) ?? facts[0]
@@ -181,39 +192,125 @@ function FactDecompositionCreate() {
     source_text: sourceText,
     facts: normalizeFacts(facts),
     status,
+    ...(draftIdentity
+      ? {
+          item_id: draftIdentity.id,
+          expected_item_revision: draftIdentity.revision,
+        }
+      : {}),
   })
 
   const validateMutation = useMutation({
     mutationFn: () =>
-      CreateService.validateCreationRequest({
+      CreateService.previewFactDecompCreation({
         requestBody: requestBody("DRAFT"),
       }),
     onSuccess: setValidation,
-    onError: (error) => setResultMessage(apiMessage(error)),
+    onError: (error) => setResultMessage(apiErrorMessage(error)),
   })
 
   const draftMutation = useMutation({
-    mutationFn: () =>
-      CreateService.createFactDecompDraft({
-        requestBody: requestBody("DRAFT"),
-      }),
-    onSuccess: (response) => {
-      setValidation(response.validation)
-      setResultMessage(`Draft saved as item ${response.id}.`)
+    mutationFn: async (): Promise<FactMutationResult> => {
+      try {
+        const response = await CreateService.createFactDecompDraft({
+          requestBody: requestBody("DRAFT"),
+        })
+        return {
+          response,
+          state: {
+            id: response.id,
+            dataset_id: response.dataset_id,
+            eval_type: response.eval_type,
+            status: response.status,
+            item_revision: response.item_revision,
+          },
+          reconciled: false,
+        }
+      } catch (error) {
+        if (error instanceof ApiError || !draftIdentity) {
+          throw error
+        }
+        const state = await CreateService.readAuthoringItem({
+          itemId: draftIdentity.id,
+        })
+        return { state, reconciled: true }
+      }
     },
-    onError: (error) => setResultMessage(apiMessage(error)),
+    onSuccess: (response) => {
+      setDraftIdentity({
+        id: response.state.id,
+        revision: response.state.item_revision,
+        status: response.state.status,
+      })
+      if (response.response) {
+        setValidation(response.response.validation)
+      }
+      setResultMessage(
+        response.reconciled
+          ? `Draft ${response.state.id} was recovered at revision ${response.state.item_revision}.`
+          : `Draft saved as item ${response.state.id} (revision ${response.state.item_revision}).`,
+      )
+    },
+    onError: (error) => {
+      setResultMessage(
+        !(error instanceof ApiError)
+          ? "Draft save outcome is unknown. It was not retried automatically; reload the saved draft state."
+          : apiErrorMessage(error),
+      )
+    },
   })
 
   const submitMutation = useMutation({
-    mutationFn: () =>
-      CreateService.submitFactDecompDraft({
-        requestBody: requestBody("SUBMITTED"),
-      }),
-    onSuccess: (response) => {
-      setValidation(response.validation)
-      setResultMessage(`Submitted item ${response.id}.`)
+    mutationFn: async (): Promise<FactMutationResult> => {
+      if (!draftIdentity) {
+        throw new Error("Save this draft before submitting it for moderation.")
+      }
+      try {
+        const response = await CreateService.submitFactDecompDraft({
+          requestBody: requestBody("SUBMITTED"),
+        })
+        return {
+          response,
+          state: {
+            id: response.id,
+            dataset_id: response.dataset_id,
+            eval_type: response.eval_type,
+            status: response.status,
+            item_revision: response.item_revision,
+          },
+          reconciled: false,
+        }
+      } catch (error) {
+        if (error instanceof ApiError) {
+          throw error
+        }
+        const state = await CreateService.readAuthoringItem({
+          itemId: draftIdentity.id,
+        })
+        if (state.status !== "SUBMITTED") {
+          throw new Error(
+            "Submission was not recorded. It was not retried automatically.",
+          )
+        }
+        return { state, reconciled: true }
+      }
     },
-    onError: (error) => setResultMessage(apiMessage(error)),
+    onSuccess: (response) => {
+      setDraftIdentity({
+        id: response.state.id,
+        revision: response.state.item_revision,
+        status: response.state.status,
+      })
+      if (response.response) {
+        setValidation(response.response.validation)
+      }
+      setResultMessage(
+        response.reconciled
+          ? `Submission of item ${response.state.id} was recovered.`
+          : `Submitted item ${response.state.id}.`,
+      )
+    },
+    onError: (error) => setResultMessage(apiErrorMessage(error)),
   })
 
   const resetDataset = (nextDatasetId: number) => {
@@ -224,6 +321,7 @@ function FactDecompositionCreate() {
     setSelectedFactUuid(null)
     setValidation(null)
     setResultMessage(null)
+    setDraftIdentity(null)
   }
 
   const selectDocument = (value: string) => {
@@ -281,6 +379,7 @@ function FactDecompositionCreate() {
     validateMutation.isPending ||
     draftMutation.isPending ||
     submitMutation.isPending
+  const isSubmitted = draftIdentity?.status === "SUBMITTED"
 
   return (
     <div className="flex flex-col gap-6">
@@ -454,7 +553,7 @@ function FactDecompositionCreate() {
               Validate
             </Button>
             <Button
-              disabled={datasetId === null || isBusy}
+              disabled={datasetId === null || isBusy || isSubmitted}
               onClick={() => draftMutation.mutate()}
               type="button"
               variant="outline"
@@ -462,7 +561,12 @@ function FactDecompositionCreate() {
               Save draft
             </Button>
             <Button
-              disabled={datasetId === null || isBusy}
+              disabled={
+                datasetId === null ||
+                isBusy ||
+                isSubmitted ||
+                draftIdentity === null
+              }
               onClick={() => submitMutation.mutate()}
               type="button"
             >
