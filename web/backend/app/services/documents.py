@@ -29,6 +29,10 @@ def create_document_with_chunks(
     external_id: str | None = None,
     is_active: bool = True,
     chunk_texts: Sequence[str] | None = None,
+    source: str | None = None,
+    source_url: str | None = None,
+    source_metadata: dict | None = None,
+    source_content_hash: str | None = None,
 ) -> Document:
     document_external_id = normalize_external_id(external_id)
     if chunk_texts is None:
@@ -43,6 +47,10 @@ def create_document_with_chunks(
         title=title,
         content=content,
         paragraphs=paragraphs,
+        source=source,
+        source_url=source_url,
+        source_metadata=source_metadata,
+        source_content_hash=source_content_hash,
         is_active=is_active,
     )
     session.add(document)

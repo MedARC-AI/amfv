@@ -88,30 +88,6 @@ class ItemVerdict(str, Enum):
     REJECT = "REJECT"
 
 
-class NiceImportJobStatus(str, Enum):
-    pending = "pending"
-    running = "running"
-    completed = "completed"
-    failed = "failed"
-    cancelled = "cancelled"
-
-
-class NiceImportLimit(str, Enum):
-    ten = "10"
-    twenty = "20"
-    fifty = "50"
-    all = "all"
-
-
-class NiceImportItemStatus(str, Enum):
-    pending = "pending"
-    in_progress = "in_progress"
-    completed = "completed"
-    retry_pending = "retry_pending"
-    failed = "failed"
-    skipped = "skipped"
-
-
 # Shared properties
 class UserBase(SQLModel):
     email: EmailStr = Field(unique=True, index=True, max_length=255)
@@ -296,6 +272,10 @@ class Document(TimestampMixin, table=True):
         default_factory=list, sa_column=Column(JSON, nullable=False)
     )
     doc_metadata: dict | None = Field(default=None, sa_column=Column("metadata", JSON))
+    source: str | None = Field(default=None, nullable=True)
+    source_url: str | None = Field(default=None, nullable=True)
+    source_metadata: dict | None = Field(default=None, sa_column=Column(JSON))
+    source_content_hash: str | None = Field(default=None, nullable=True, max_length=64)
     is_active: bool = Field(default=True, nullable=False)
 
 
@@ -615,81 +595,6 @@ class Adjudication(TimestampMixin, table=True):
     )
     final: dict | None = Field(default=None, sa_column=Column(JSON))
     resolved_at: datetime | None = Field(default=None, nullable=True, index=True)
-
-
-class NiceDownload(TimestampMixin, table=True):
-    __tablename__ = "nice_download"
-
-    id: int | None = Field(default=None, primary_key=True)
-    reference: str = Field(index=True, unique=True, nullable=False)
-    slug: str = Field(nullable=False)
-    title: str = Field(nullable=False)
-    page_url: str = Field(nullable=False)
-    pdf_url: str = Field(nullable=False)
-    page_count: int = Field(default=0, nullable=False)
-    char_count: int = Field(default=0, nullable=False)
-    content: str = Field(nullable=False)
-    requested_by_user_id: uuid.UUID | None = Field(
-        default=None, foreign_key="user.id", nullable=True, index=True
-    )
-
-
-class NiceImportJob(TimestampMixin, table=True):
-    __tablename__ = "nice_import_job"
-    __table_args__ = (
-        Index("ix_nice_import_job_active_slot", "active_slot", unique=True),
-        Index("ix_nice_import_job_status", "status"),
-    )
-
-    id: int | None = Field(default=None, primary_key=True)
-    status: NiceImportJobStatus = Field(
-        default=NiceImportJobStatus.pending, nullable=False, max_length=32
-    )
-    requested_limit: NiceImportLimit = Field(nullable=False, max_length=16)
-    target_count: int | None = Field(default=None, nullable=True)
-    completed_count: int = Field(default=0, nullable=False)
-    failed_count: int = Field(default=0, nullable=False)
-    started_by_user_id: uuid.UUID = Field(
-        foreign_key="user.id", nullable=False, index=True
-    )
-    started_at: datetime | None = Field(default=None, nullable=True)
-    finished_at: datetime | None = Field(default=None, nullable=True)
-    last_error: str | None = Field(default=None, nullable=True)
-    lease_owner: str | None = Field(default=None, nullable=True, max_length=128)
-    lease_expires_at: datetime | None = Field(default=None, nullable=True, index=True)
-    heartbeat_at: datetime | None = Field(default=None, nullable=True)
-    active_slot: int | None = Field(default=1, nullable=True)
-
-
-class NiceImportItem(TimestampMixin, table=True):
-    __tablename__ = "nice_import_item"
-    __table_args__ = (
-        UniqueConstraint(
-            "job_id", "reference", name="uq_nice_import_item_job_reference"
-        ),
-        Index(
-            "ix_nice_import_item_pending",
-            "job_id",
-            "status",
-            "next_attempt_at",
-            "lease_expires_at",
-        ),
-    )
-
-    id: int | None = Field(default=None, primary_key=True)
-    job_id: int = Field(foreign_key="nice_import_job.id", nullable=False, index=True)
-    reference: str = Field(nullable=False, max_length=32)
-    slug: str = Field(nullable=False)
-    title: str = Field(nullable=False)
-    page_url: str = Field(nullable=False)
-    status: NiceImportItemStatus = Field(
-        default=NiceImportItemStatus.pending, nullable=False, max_length=32
-    )
-    attempt_count: int = Field(default=0, nullable=False)
-    last_attempt_at: datetime | None = Field(default=None, nullable=True)
-    next_attempt_at: datetime | None = Field(default=None, nullable=True, index=True)
-    last_error: str | None = Field(default=None, nullable=True)
-    lease_expires_at: datetime | None = Field(default=None, nullable=True, index=True)
 
 
 # Generic message

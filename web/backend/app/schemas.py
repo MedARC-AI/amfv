@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
+from urllib.parse import urlparse
 
-from pydantic import model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from sqlmodel import Field, SQLModel
 
 from app.models import (
@@ -13,8 +14,6 @@ from app.models import (
     ItemStatus,
     ItemVerdict,
     JudgmentConfidence,
-    NiceImportJobStatus,
-    NiceImportLimit,
     PooledCandidate,
     RetrievalCategory,
     UserPublic,
@@ -73,6 +72,7 @@ class DocumentSummary(SQLModel):
     dataset_id: int
     external_id: str
     title: str
+    source_url: str | None = None
     is_active: bool
 
 
@@ -81,24 +81,6 @@ class DocumentCreate(SQLModel):
     title: str = Field(min_length=1)
     content: str = Field(min_length=1)
     external_id: str | None = None
-
-
-class NiceImportStart(SQLModel):
-    limit: Literal[10, 20, 50, "all"]
-
-
-class NiceImportJobStatusResponse(SQLModel):
-    id: int
-    status: NiceImportJobStatus
-    requested_limit: NiceImportLimit
-    target_count: int | None = None
-    completed_count: int
-    failed_count: int
-    started_by_user_id: str
-    started_at: str | None = None
-    finished_at: str | None = None
-    last_error: str | None = None
-    heartbeat_at: str | None = None
 
 
 class DocumentDetail(DocumentSummary):
@@ -114,6 +96,55 @@ class ChunkSummary(SQLModel):
     external_id: str
     text: str
     position: int
+
+
+class ScrapedDocumentImportRow(BaseModel):
+    """One versioned source-document row accepted by the generic importer."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    schema_version: Literal[1]
+    source: str = Field(min_length=1)
+    external_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    url: str = Field(min_length=1)
+    content: str = Field(min_length=1)
+    section_count: int = Field(ge=1)
+    metadata: dict[str, Any]
+
+    @field_validator("source", "external_id", "title", "content")
+    @classmethod
+    def validate_nonempty_text(cls, value: str) -> str:
+        """Reject whitespace-only identity and content fields."""
+        if not value.strip():
+            raise ValueError("must not be blank")
+        return value
+
+    @field_validator("url")
+    @classmethod
+    def validate_source_url(cls, value: str) -> str:
+        """Require the producer's canonical source URL to be absolute HTTP(S)."""
+        parsed = urlparse(value)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("must be an absolute http(s) URL")
+        return value
+
+
+class DocumentImportError(SQLModel):
+    """One bounded, line-local document import failure."""
+
+    line: int = Field(ge=1)
+    message: str
+
+
+class DocumentImportSummary(SQLModel):
+    """Counts and bounded errors produced by a document JSONL import."""
+
+    created: int
+    unchanged: int
+    rejected: int
+    errors: list[DocumentImportError]
+    dry_run: bool
 
 
 class ReviewTaskPayload(SQLModel):

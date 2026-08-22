@@ -1764,6 +1764,7 @@ def test_create_source_document_detail_returns_chunks_and_enforces_scope(
         title="Detail Doc",
         content="First paragraph.\n\nSecond paragraph with emoji 😀.",
         external_id="detail-doc",
+        source_url="https://www.nice.org.uk/guidance/ng235/advice/why-this-is-important",
     )
     inactive_document = create_document_with_chunks(
         db,
@@ -1793,6 +1794,7 @@ def test_create_source_document_detail_returns_chunks_and_enforces_scope(
     assert detail.status_code == 200
     body = detail.json()
     assert body["external_id"] == "detail-doc"
+    assert body["source_url"] == "https://www.nice.org.uk/guidance/ng235/advice/why-this-is-important"
     assert body["content"] == "First paragraph.\n\nSecond paragraph with emoji 😀."
     assert [chunk["position"] for chunk in body["chunks"]] == [0]
     assert body["chunks"][0]["text"] == body["content"]

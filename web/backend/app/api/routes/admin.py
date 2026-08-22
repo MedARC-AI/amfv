@@ -1,8 +1,10 @@
+import json
 import uuid
+from collections.abc import AsyncIterator
 from itertools import combinations
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlmodel import col, func, select
 
 from app.api.deps import (
@@ -10,6 +12,7 @@ from app.api.deps import (
     get_current_active_superuser,
     get_current_data_user,
 )
+from app.core.config import settings
 from app.models import (
     Chunk,
     Dataset,
@@ -39,11 +42,11 @@ from app.schemas import (
     DatasetSummary,
     DocumentCreate,
     DocumentDetail,
+    DocumentImportError,
+    DocumentImportSummary,
     DocumentSummary,
-    NiceImportJobStatusResponse,
-    NiceImportStart,
 )
-from app.services import nice_import, nice_import_scheduler
+from app.services import document_import
 from app.services.agreement import (
     cohen_kappa,
     dataset_agreement,
@@ -61,6 +64,14 @@ router = APIRouter(
     tags=["admin"],
     dependencies=[Depends(get_current_data_user)],
 )
+
+IMPORT_READ_CHUNK_BYTES = 64 * 1024
+MAX_IMPORT_ERROR_DETAILS = 100
+MAX_IMPORT_ERROR_MESSAGE_CHARS = 1_024
+
+
+class ImportArtifactTooLargeError(ValueError):
+    """Raised when an upload crosses the configured artifact-size ceiling."""
 
 
 @router.get("/datasets", response_model=list[DatasetSummary])
@@ -92,7 +103,9 @@ def read_admin_dataset(session: SessionDep, dataset_id: int) -> Any:
     return DatasetSummary.model_validate(dataset)
 
 
-@router.post("/datasets/{dataset_id}/generate-tasks", response_model=AdminTaskGenerationResult)
+@router.post(
+    "/datasets/{dataset_id}/generate-tasks", response_model=AdminTaskGenerationResult
+)
 def generate_dataset_tasks(session: SessionDep, dataset_id: int) -> Any:
     dataset = _get_dataset_or_404(session, dataset_id)
     assert dataset.id is not None
@@ -117,7 +130,9 @@ def generate_dataset_tasks(session: SessionDep, dataset_id: int) -> Any:
     ).all()
     existing_item_ids = set(
         session.exec(
-            select(col(ReviewTask.item_a_id)).where(col(ReviewTask.dataset_id) == dataset.id)
+            select(col(ReviewTask.item_a_id)).where(
+                col(ReviewTask.dataset_id) == dataset.id
+            )
         ).all()
     )
     created = 0
@@ -157,6 +172,74 @@ def create_admin_document(session: SessionDep, body: DocumentCreate) -> Any:
     return _document_detail(session, document)
 
 
+@router.post("/documents/import", response_model=DocumentImportSummary)
+async def import_admin_documents(
+    session: SessionDep,
+    dataset_id: int = Form(...),
+    file: UploadFile = File(...),
+    dry_run: bool = Form(False),
+    current_user: User = Depends(get_current_active_superuser),
+) -> DocumentImportSummary:
+    """Import a bounded stream of v1 source-document JSONL rows.
+
+    Valid rows use nested transactions so one bad source document does not
+    discard earlier valid rows. ``dry_run`` follows the same write and
+    duplicate paths, then rolls the request transaction back before returning.
+    """
+    _ = current_user
+    dataset = _get_dataset_or_404(session, dataset_id)
+    if not dataset.is_active or dataset.eval_type != EvalType.RETRIEVAL:
+        raise HTTPException(
+            status_code=404, detail="Active retrieval dataset not found"
+        )
+
+    summary = DocumentImportSummary(
+        created=0,
+        unchanged=0,
+        rejected=0,
+        errors=[],
+        dry_run=dry_run,
+    )
+    try:
+        _ensure_import_transaction(session)
+        async for line_number, raw_line in _iter_jsonl_lines(file):
+            if not raw_line.strip():
+                continue
+            try:
+                payload = _decode_jsonl_object(raw_line)
+                row = document_import.parse_scraped_document_row(
+                    payload,
+                    max_content_bytes=settings.DOCUMENT_IMPORT_MAX_CONTENT_BYTES,
+                    max_serialized_metadata_bytes=settings.DOCUMENT_IMPORT_MAX_METADATA_BYTES,
+                )
+                result = document_import.import_scraped_document(
+                    session,
+                    dataset=dataset,
+                    row=row,
+                    dry_run=False,
+                )
+            except (UnicodeDecodeError, document_import.DocumentImportRowError) as exc:
+                _record_import_error(summary, line_number, str(exc))
+                continue
+            if result.status == "created":
+                summary.created += 1
+            else:
+                summary.unchanged += 1
+        if dry_run:
+            session.rollback()
+        else:
+            session.commit()
+    except ImportArtifactTooLargeError as exc:
+        session.rollback()
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        await file.close()
+    return summary
+
+
 @router.get("/documents/{document_id}", response_model=DocumentDetail)
 def read_admin_document(session: SessionDep, document_id: int) -> Any:
     document = session.get(Document, document_id)
@@ -177,51 +260,6 @@ def toggle_admin_document(session: SessionDep, document_id: int) -> Any:
     return DocumentSummary.model_validate(document)
 
 
-@router.post("/nice-imports", response_model=NiceImportJobStatusResponse)
-def start_nice_import(
-    session: SessionDep,
-    body: NiceImportStart,
-    current_user: User = Depends(get_current_active_superuser),
-) -> Any:
-    try:
-        job = nice_import.create_import_job(
-            session, limit=body.limit, started_by=current_user
-        )
-    except nice_import.NiceImportAlreadyRunningError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    nice_import_scheduler.ensure_started()
-    return _nice_import_status(job)
-
-
-@router.get("/nice-imports/current", response_model=NiceImportJobStatusResponse | None)
-def read_current_nice_import(
-    session: SessionDep,
-    current_user: User = Depends(get_current_active_superuser),
-) -> Any:
-    _ = current_user
-    job = nice_import.get_current_or_recent_job(session)
-    if job is not None and job.active_slot == 1:
-        nice_import_scheduler.nudge_if_unfinished(session)
-    return _nice_import_status(job) if job is not None else None
-
-
-@router.post(
-    "/nice-imports/{job_id}/cancel",
-    response_model=NiceImportJobStatusResponse,
-)
-def cancel_nice_import(
-    session: SessionDep,
-    job_id: int,
-    current_user: User = Depends(get_current_active_superuser),
-) -> Any:
-    _ = current_user
-    try:
-        job = nice_import.cancel_job(session, job_id=job_id)
-    except nice_import.NiceImportNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return _nice_import_status(job)
-
-
 @router.get("/items", response_model=list[AdminItemSummary])
 def read_admin_items(
     session: SessionDep,
@@ -238,33 +276,45 @@ def read_admin_items(
 
 
 @router.post("/items/{item_id}/approve", response_model=AdminItemSummary)
-def approve_admin_item(session: SessionDep, item_id: int, body: AdminModerationAction) -> Any:
+def approve_admin_item(
+    session: SessionDep, item_id: int, body: AdminModerationAction
+) -> Any:
     item = _moderate_item(session, item_id, body, ItemStatus.ACTIVE)
     return _admin_item_summary(item)
 
 
 @router.post("/items/{item_id}/reject", response_model=AdminItemSummary)
-def reject_admin_item(session: SessionDep, item_id: int, body: AdminModerationAction) -> Any:
-    status = ItemStatus.DRAFT if body.action == "return_to_draft" else ItemStatus.REJECTED
+def reject_admin_item(
+    session: SessionDep, item_id: int, body: AdminModerationAction
+) -> Any:
+    status = (
+        ItemStatus.DRAFT if body.action == "return_to_draft" else ItemStatus.REJECTED
+    )
     item = _moderate_item(session, item_id, body, status)
     return _admin_item_summary(item)
 
 
 @router.get("/users")
 def read_admin_users() -> Any:
-    raise HTTPException(status_code=501, detail="Admin users API is not implemented yet")
+    raise HTTPException(
+        status_code=501, detail="Admin users API is not implemented yet"
+    )
 
 
 @router.patch("/users/{user_id}")
 def update_admin_user(user_id: uuid.UUID) -> Any:
     _ = user_id
-    raise HTTPException(status_code=501, detail="Admin user updates are not implemented yet")
+    raise HTTPException(
+        status_code=501, detail="Admin user updates are not implemented yet"
+    )
 
 
 @router.get("/users/{user_id}/reviews")
 def read_admin_user_reviews(user_id: uuid.UUID) -> Any:
     _ = user_id
-    raise HTTPException(status_code=501, detail="User review history is not implemented yet")
+    raise HTTPException(
+        status_code=501, detail="User review history is not implemented yet"
+    )
 
 
 @router.get("/metrics/agreement", response_model=list[AdminAgreementMetric])
@@ -279,7 +329,9 @@ def read_agreement_metrics(
         for current_dataset_id in datasets:
             assert current_dataset_id is not None
             summaries.extend(
-                dataset_agreement(session, current_dataset_id, reviewer_kind=reviewer_kind)
+                dataset_agreement(
+                    session, current_dataset_id, reviewer_kind=reviewer_kind
+                )
             )
     else:
         _get_dataset_or_404(session, dataset_id)
@@ -315,11 +367,7 @@ def read_inter_user_agreement(
     rows: list[AdminInterUserAgreementMetric] = []
     for dimension, judgments in sorted(by_dimension.items()):
         users = sorted(
-            {
-                user_id
-                for labels in judgments.values()
-                for user_id in labels
-            },
+            {user_id for labels in judgments.values() for user_id in labels},
             key=str,
         )
         for left_user_id, right_user_id in combinations(users, 2):
@@ -373,37 +421,88 @@ def _get_dataset_or_404(session: SessionDep, dataset_id: int) -> Dataset:
     return dataset
 
 
+def _ensure_import_transaction(session: SessionDep) -> None:
+    """Start a physical SQLite transaction before row savepoints are released.
+
+    SQLite does not begin a database transaction for a preceding ``SELECT``.
+    Without this explicit ``BEGIN``, releasing the first row savepoint commits
+    it, defeating artifact rollback and dry-run rollback semantics.
+    """
+    connection = session.connection()
+    if connection.dialect.name == "sqlite":
+        driver_connection = connection.connection.driver_connection
+        if not bool(getattr(driver_connection, "in_transaction", False)):
+            connection.exec_driver_sql("BEGIN")
+
+
+async def _iter_jsonl_lines(file: UploadFile) -> AsyncIterator[tuple[int, bytes]]:
+    """Yield raw JSONL lines while enforcing the configured upload byte limit."""
+    buffered = bytearray()
+    artifact_bytes = 0
+    line_number = 0
+    while chunk := await file.read(IMPORT_READ_CHUNK_BYTES):
+        artifact_bytes += len(chunk)
+        if artifact_bytes > settings.DOCUMENT_IMPORT_MAX_ARTIFACT_BYTES:
+            raise ImportArtifactTooLargeError(
+                "artifact exceeds the "
+                f"{settings.DOCUMENT_IMPORT_MAX_ARTIFACT_BYTES} byte limit"
+            )
+        buffered.extend(chunk)
+        while (newline := buffered.find(b"\n")) >= 0:
+            raw_line = bytes(buffered[:newline])
+            del buffered[: newline + 1]
+            line_number += 1
+            yield line_number, raw_line
+    if buffered:
+        yield line_number + 1, bytes(buffered)
+
+
+def _decode_jsonl_object(raw_line: bytes) -> object:
+    """Decode one UTF-8 JSONL line into the value validated by the service."""
+    try:
+        return json.loads(raw_line.decode("utf-8"))
+    except json.JSONDecodeError as exc:
+        raise document_import.DocumentImportRowError(
+            f"invalid JSON: {exc.msg}"
+        ) from exc
+
+
+def _record_import_error(
+    summary: DocumentImportSummary,
+    line_number: int,
+    message: str,
+) -> None:
+    """Record a line rejection without allowing unbounded error response bodies."""
+    summary.rejected += 1
+    if len(summary.errors) < MAX_IMPORT_ERROR_DETAILS:
+        summary.errors.append(
+            DocumentImportError(
+                line=line_number,
+                message=(message or "invalid document row")[
+                    :MAX_IMPORT_ERROR_MESSAGE_CHARS
+                ],
+            )
+        )
+
+
 def _document_detail(session: SessionDep, document: Document) -> DocumentDetail:
     assert document.id is not None
     assert document.dataset_id is not None
     chunks = session.exec(
-        select(Chunk).where(col(Chunk.document_id) == document.id).order_by(col(Chunk.position))
+        select(Chunk)
+        .where(col(Chunk.document_id) == document.id)
+        .order_by(col(Chunk.position))
     ).all()
     return DocumentDetail(
         id=document.id,
         dataset_id=document.dataset_id,
         external_id=document.external_id,
         title=document.title,
+        source_url=document.source_url,
         is_active=document.is_active,
         content=document.content,
         paragraphs=document.paragraphs,
         chunks=[ChunkSummary.model_validate(chunk) for chunk in chunks],
-    )
-
-
-def _nice_import_status(job) -> NiceImportJobStatusResponse:
-    return NiceImportJobStatusResponse(
-        id=job.id or 0,
-        status=job.status,
-        requested_limit=job.requested_limit,
-        target_count=job.target_count,
-        completed_count=job.completed_count,
-        failed_count=job.failed_count,
-        started_by_user_id=str(job.started_by_user_id),
-        started_at=job.started_at.isoformat() if job.started_at else None,
-        finished_at=job.finished_at.isoformat() if job.finished_at else None,
-        last_error=job.last_error,
-        heartbeat_at=job.heartbeat_at.isoformat() if job.heartbeat_at else None,
     )
 
 
@@ -445,7 +544,9 @@ def _moderate_item(
         raise HTTPException(status_code=400, detail="Moderation action/status mismatch")
     item.status = status
     item.revision += 1
-    item.rejection_reason = body.reason if status in {ItemStatus.REJECTED, ItemStatus.DRAFT} else None
+    item.rejection_reason = (
+        body.reason if status in {ItemStatus.REJECTED, ItemStatus.DRAFT} else None
+    )
     session.add(item)
     session.commit()
     session.refresh(item)
@@ -454,12 +555,16 @@ def _moderate_item(
 
 def _export_item(session: SessionDep, item: EvalItem) -> dict:
     facts = session.exec(
-        select(EvalFact).where(col(EvalFact.item_id) == item.id).order_by(col(EvalFact.position))
+        select(EvalFact)
+        .where(col(EvalFact.item_id) == item.id)
+        .order_by(col(EvalFact.position))
     ).all()
     chunks = resolve_item_chunks(session, item)
     documents = documents_for_chunks(session, chunks)
     review_task_count = session.exec(
-        select(func.count(col(ReviewTask.id))).where(col(ReviewTask.item_a_id) == item.id)
+        select(func.count(col(ReviewTask.id))).where(
+            col(ReviewTask.item_a_id) == item.id
+        )
     ).one()
     retrieval_reviews = session.exec(
         select(RetrievalQAReview)
@@ -542,7 +647,9 @@ def _user_metric(
     )
     if dataset_id is not None:
         _get_dataset_or_404(session, dataset_id)
-        authored_statement = authored_statement.where(col(EvalItem.dataset_id) == dataset_id)
+        authored_statement = authored_statement.where(
+            col(EvalItem.dataset_id) == dataset_id
+        )
         fact_decomp_review_statement = fact_decomp_review_statement.join(
             ReviewTask, col(FactDecompReview.task_id) == col(ReviewTask.id)
         ).where(col(ReviewTask.dataset_id) == dataset_id)
@@ -550,7 +657,8 @@ def _user_metric(
             EvalItem, col(RetrievalQAReview.item_id) == col(EvalItem.id)
         ).where(col(EvalItem.dataset_id) == dataset_id)
         relevance_statement = relevance_statement.join(
-            PooledCandidate, col(RelevanceJudgment.candidate_id) == col(PooledCandidate.id)
+            PooledCandidate,
+            col(RelevanceJudgment.candidate_id) == col(PooledCandidate.id),
         ).where(col(PooledCandidate.dataset_id) == dataset_id)
     mean_kappa, overlap = reviewer_mean_kappa(
         session, user.id, min_overlap=1, dataset_id=dataset_id

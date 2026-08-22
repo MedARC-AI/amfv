@@ -18,7 +18,6 @@ dependencies = [
     "sentry-sdk[fastapi]>=2.0.0,<3.0.0",
     "pyjwt<3.0.0,>=2.13.0",
     "pwdlib[argon2,bcrypt]>=0.3.0",
-    "lxml>=5.0.0",
 ]
 
 [dependency-groups]

@@ -131,6 +131,7 @@ def read_source_document_detail(
         dataset_id=document.dataset_id,
         external_id=document.external_id,
         title=document.title,
+        source_url=document.source_url,
         is_active=document.is_active,
         content=document.content,
         paragraphs=document.paragraphs,

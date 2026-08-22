@@ -102,6 +102,9 @@ class Settings(BaseSettings):
     AUTH_RATE_LIMIT_IDENTITY_MAX_LENGTH: int = Field(default=256, ge=32)
     AUTH_RATE_LIMIT_TRUSTED_PROXY_IPS: str = "127.0.0.1,::1"
     AUTH_RATE_LIMIT_CLIENT_IP_HEADER: str = ""
+    DOCUMENT_IMPORT_MAX_ARTIFACT_BYTES: int = Field(default=512 * 1024 * 1024, ge=1)
+    DOCUMENT_IMPORT_MAX_CONTENT_BYTES: int = Field(default=16 * 1024 * 1024, ge=1)
+    DOCUMENT_IMPORT_MAX_METADATA_BYTES: int = Field(default=16 * 1024, ge=1)
 
     def _check_example_secret(
         self,

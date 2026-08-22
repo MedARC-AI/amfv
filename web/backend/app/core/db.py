@@ -44,8 +44,4 @@ def init_db(session: Session) -> None:
         )
         user = crud.create_user(session=session, user_create=user_in)
 
-    # Prepopulate the shared dataset that NICE webscrape documents land in.
-    from app.services.nice import get_or_create_nice_dataset
-
-    get_or_create_nice_dataset(session)
     session.commit()
