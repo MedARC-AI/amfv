@@ -21,14 +21,16 @@ from app.models import (
     EvalFact,
     EvalItem,
     EvalType,
+    FactDecompSaveReceipt,
     ItemStatus,
     RetrievalSubmissionBatch,
     ReviewTask,
     User,
 )
-from app.schemas import CreateFactDecompDraftSubmit
+from app.schemas import FactDecompSaveCommand
 from app.services.assignment import available_item_audit_targets
 from app.services.documents import create_document_with_chunks
+from tests.utils.user import authentication_token_from_email
 
 
 def _retrieval_source(db: Session) -> tuple[Dataset, Chunk]:
@@ -195,6 +197,10 @@ def _fact_payload(dataset: Dataset, source_text: str) -> dict:
     }
 
 
+def _fact_command(payload: dict, *, request_id: str | None = None) -> dict:
+    return {**payload, "request_id": request_id or f"fact-save-{uuid4()}"}
+
+
 def _fact_dataset(db: Session) -> Dataset:
     dataset = Dataset(
         name=f"recoverable-fact-{uuid4()}",
@@ -231,10 +237,18 @@ def test_retrieval_preview_and_submit_share_server_rules_and_stay_submitted(
     assert submit.status_code == 400
     assert submit.json()["detail"] == preview.json()["flags"]
 
-    created = client.post(
+    rejected_status_override = client.post(
         f"{settings.API_V1_STR}/create/retrieval/submit",
         headers=normal_user_token_headers,
         json={**payload, "status": "ACTIVE"},
+    )
+    assert rejected_status_override.status_code == 422
+    assert rejected_status_override.json()["detail"][0]["loc"] == ["body", "status"]
+
+    created = client.post(
+        f"{settings.API_V1_STR}/create/retrieval/submit",
+        headers=normal_user_token_headers,
+        json=payload,
     )
     assert created.status_code == 200
     assert created.json()["status"] == "SUBMITTED"
@@ -334,10 +348,18 @@ def test_fact_draft_save_submit_and_authoritative_read_preserve_one_identity(
     dataset = _fact_dataset(db)
     first_payload = _fact_payload(dataset, "Baker is in the initial source.")
 
+    rejected_status_override = client.post(
+        f"{settings.API_V1_STR}/create/fact-decomp/draft",
+        headers=normal_user_token_headers,
+        json=_fact_command({**first_payload, "status": "SUBMITTED"}),
+    )
+    assert rejected_status_override.status_code == 422
+    assert rejected_status_override.json()["detail"][0]["loc"] == ["body", "status"]
+
     first_save = client.post(
         f"{settings.API_V1_STR}/create/fact-decomp/draft",
         headers=normal_user_token_headers,
-        json=first_payload,
+        json=_fact_command(first_payload),
     )
     assert first_save.status_code == 200
     first = first_save.json()
@@ -348,11 +370,13 @@ def test_fact_draft_save_submit_and_authoritative_read_preserve_one_identity(
     second_save = client.post(
         f"{settings.API_V1_STR}/create/fact-decomp/draft",
         headers=normal_user_token_headers,
-        json={
-            **second_payload,
-            "item_id": first["id"],
-            "expected_item_revision": first["item_revision"],
-        },
+        json=_fact_command(
+            {
+                **second_payload,
+                "item_id": first["id"],
+                "expected_item_revision": first["item_revision"],
+            }
+        ),
     )
     assert second_save.status_code == 200
     second = second_save.json()
@@ -365,11 +389,13 @@ def test_fact_draft_save_submit_and_authoritative_read_preserve_one_identity(
     stale = client.post(
         f"{settings.API_V1_STR}/create/fact-decomp/draft",
         headers=normal_user_token_headers,
-        json={
-            **second_payload,
-            "item_id": first["id"],
-            "expected_item_revision": first["item_revision"],
-        },
+        json=_fact_command(
+            {
+                **second_payload,
+                "item_id": first["id"],
+                "expected_item_revision": first["item_revision"],
+            }
+        ),
     )
     assert stale.status_code == 409
     assert stale.json()["detail"] == {
@@ -383,7 +409,7 @@ def test_fact_draft_save_submit_and_authoritative_read_preserve_one_identity(
     missing_identity = client.post(
         f"{settings.API_V1_STR}/create/fact-decomp/submit",
         headers=normal_user_token_headers,
-        json=second_payload,
+        json=_fact_command(second_payload),
     )
     assert missing_identity.status_code == 409
     assert missing_identity.json()["detail"]["code"] == "draft_identity_required"
@@ -391,11 +417,13 @@ def test_fact_draft_save_submit_and_authoritative_read_preserve_one_identity(
     submitted = client.post(
         f"{settings.API_V1_STR}/create/fact-decomp/submit",
         headers=normal_user_token_headers,
-        json={
-            **second_payload,
-            "item_id": first["id"],
-            "expected_item_revision": second["item_revision"],
-        },
+        json=_fact_command(
+            {
+                **second_payload,
+                "item_id": first["id"],
+                "expected_item_revision": second["item_revision"],
+            }
+        ),
     )
     assert submitted.status_code == 200
     assert submitted.json()["id"] == first["id"]
@@ -422,8 +450,8 @@ def test_concurrent_fact_saves_with_the_same_revision_have_one_winner(
     author_id = author.id
     initial = create_routes._create_or_update_fact_decomp_item(
         db,
-        CreateFactDecompDraftSubmit.model_validate(
-            _fact_payload(dataset, "Initial concurrent draft.")
+        FactDecompSaveCommand.model_validate(
+            _fact_command(_fact_payload(dataset, "Initial concurrent draft."))
         ),
         author,
         status=ItemStatus.DRAFT,
@@ -441,12 +469,14 @@ def test_concurrent_fact_saves_with_the_same_revision_have_one_winner(
         with Session(engine) as session:
             current_author = session.get(User, author_id)
             assert current_author is not None
-            body = CreateFactDecompDraftSubmit.model_validate(
-                {
-                    **_fact_payload(dataset, source_text),
-                    "item_id": initial.id,
-                    "expected_item_revision": initial.item_revision,
-                }
+            body = FactDecompSaveCommand.model_validate(
+                _fact_command(
+                    {
+                        **_fact_payload(dataset, source_text),
+                        "item_id": initial.id,
+                        "expected_item_revision": initial.item_revision,
+                    }
+                )
             )
             try:
                 response = create_routes._create_or_update_fact_decomp_item(
@@ -481,6 +511,139 @@ def test_concurrent_fact_saves_with_the_same_revision_have_one_winner(
     assert item is not None
     assert item.prompt_text in sources
     assert item.revision == initial.item_revision + 1
+
+
+def test_fact_save_receipts_recover_first_and_later_commits_and_reject_reuse(
+    client: TestClient,
+    normal_user_token_headers: dict[str, str],
+    db: Session,
+) -> None:
+    dataset = _fact_dataset(db)
+    first_request_id = f"first-save-{uuid4()}"
+    first_body = _fact_command(
+        _fact_payload(dataset, "Receipt first source."),
+        request_id=first_request_id,
+    )
+    first_save = client.post(
+        f"{settings.API_V1_STR}/create/fact-decomp/draft",
+        headers=normal_user_token_headers,
+        json=first_body,
+    )
+    assert first_save.status_code == 200
+
+    first_receipt = client.get(
+        f"{settings.API_V1_STR}/create/fact-decomp/receipts/{first_request_id}",
+        headers=normal_user_token_headers,
+    )
+    assert first_receipt.status_code == 200
+    assert first_receipt.json()["request"] == FactDecompSaveCommand.model_validate(
+        first_body
+    ).model_dump(mode="json", exclude={"request_id"})
+    assert first_receipt.json()["response"] == first_save.json()
+    assert first_receipt.json()["command"] == "draft"
+    assert first_receipt.json()["replayed"] is True
+
+    replay = client.post(
+        f"{settings.API_V1_STR}/create/fact-decomp/draft",
+        headers=normal_user_token_headers,
+        json=first_body,
+    )
+    assert replay.status_code == 200
+    assert replay.json() == first_save.json()
+
+    mismatch = client.post(
+        f"{settings.API_V1_STR}/create/fact-decomp/draft",
+        headers=normal_user_token_headers,
+        json={
+            **first_body,
+            "source_text": "This must not replace the committed request.",
+        },
+    )
+    assert mismatch.status_code == 409
+    assert mismatch.json()["detail"]["code"] == "fact_save_request_conflict"
+
+    second_request_id = f"later-save-{uuid4()}"
+    second_body = _fact_command(
+        {
+            **_fact_payload(dataset, "Receipt later source."),
+            "item_id": first_save.json()["id"],
+            "expected_item_revision": first_save.json()["item_revision"],
+        },
+        request_id=second_request_id,
+    )
+    second_save = client.post(
+        f"{settings.API_V1_STR}/create/fact-decomp/draft",
+        headers=normal_user_token_headers,
+        json=second_body,
+    )
+    assert second_save.status_code == 200
+    assert second_save.json()["item_revision"] == 2
+    later_receipt = client.get(
+        f"{settings.API_V1_STR}/create/fact-decomp/receipts/{second_request_id}",
+        headers=normal_user_token_headers,
+    )
+    assert later_receipt.status_code == 200
+    assert later_receipt.json()["response"]["prompt_text"] == "Receipt later source."
+    assert later_receipt.json()["response"]["item_revision"] == 2
+
+    other_headers = authentication_token_from_email(
+        client=client,
+        email=f"other-receipt-user-{uuid4()}@example.com",
+        db=db,
+    )
+    hidden = client.get(
+        f"{settings.API_V1_STR}/create/fact-decomp/receipts/{second_request_id}",
+        headers=other_headers,
+    )
+    assert hidden.status_code == 404
+    assert db.exec(select(FactDecompSaveReceipt)).all()
+
+
+def test_fact_save_failure_before_commit_leaves_no_item_or_receipt(
+    client: TestClient,
+    normal_user_token_headers: dict[str, str],
+    db: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dataset = _fact_dataset(db)
+    request_id = f"failed-save-{uuid4()}"
+    source_text = f"Uncommitted fact source {uuid4()}"
+
+    def fail_before_commit(session: Session) -> None:
+        _ = session
+        raise RuntimeError("forced failure before commit")
+
+    monkeypatch.setattr(create_routes, "_commit_fact_decomp_save", fail_before_commit)
+    failed = client.post(
+        f"{settings.API_V1_STR}/create/fact-decomp/draft",
+        headers=normal_user_token_headers,
+        json=_fact_command(
+            _fact_payload(dataset, source_text),
+            request_id=request_id,
+        ),
+    )
+    assert failed.status_code == 500
+
+    missing = client.get(
+        f"{settings.API_V1_STR}/create/fact-decomp/receipts/{request_id}",
+        headers=normal_user_token_headers,
+    )
+    assert missing.status_code == 404
+    db.expire_all()
+    assert (
+        db.exec(
+            select(EvalItem).where(col(EvalItem.prompt_text) == source_text)
+        ).first()
+        is None
+    )
+    assert (
+        db.exec(
+            select(FactDecompSaveReceipt).where(
+                col(FactDecompSaveReceipt.request_id) == request_id
+            )
+        ).first()
+        is None
+    )
 
 
 def test_retrieval_batch_rolls_back_second_row_and_replays_committed_receipt(
@@ -565,7 +728,7 @@ def test_retrieval_batch_rolls_back_second_row_and_replays_committed_receipt(
         headers=normal_user_token_headers,
         json={
             "request_id": replay_request_id,
-            "items": [{**item, "status": "ACTIVE"} for item in replay_items],
+            "items": replay_items,
         },
     )
     assert replayed.status_code == 200
@@ -627,17 +790,19 @@ def test_submitted_authoring_items_require_moderation_before_becoming_eligible(
     fact_draft = client.post(
         f"{settings.API_V1_STR}/create/fact-decomp/draft",
         headers=normal_user_token_headers,
-        json=_fact_payload(fact_dataset, "Fact moderation source."),
+        json=_fact_command(_fact_payload(fact_dataset, "Fact moderation source.")),
     )
     assert fact_draft.status_code == 200
     fact_submitted = client.post(
         f"{settings.API_V1_STR}/create/fact-decomp/submit",
         headers=normal_user_token_headers,
-        json={
-            **_fact_payload(fact_dataset, "Fact moderation source."),
-            "item_id": fact_draft.json()["id"],
-            "expected_item_revision": fact_draft.json()["item_revision"],
-        },
+        json=_fact_command(
+            {
+                **_fact_payload(fact_dataset, "Fact moderation source."),
+                "item_id": fact_draft.json()["id"],
+                "expected_item_revision": fact_draft.json()["item_revision"],
+            }
+        ),
     )
     assert fact_submitted.status_code == 200
     generated_before = client.post(

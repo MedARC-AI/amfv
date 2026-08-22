@@ -359,6 +359,32 @@ class RetrievalSubmissionBatch(TimestampMixin, table=True):
     )
 
 
+class FactDecompSaveReceipt(TimestampMixin, table=True):
+    """Durable idempotency and recovery receipt for one fact authoring command."""
+
+    __tablename__ = "fact_decomp_save_receipt"
+    __table_args__ = (
+        UniqueConstraint(
+            "author_user_id",
+            "request_id",
+            name="uq_fact_decomp_save_receipt_author_request",
+        ),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    author_user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
+    request_id: str = Field(nullable=False, max_length=128)
+    request_hash: str = Field(nullable=False, max_length=64)
+    command: str = Field(nullable=False, max_length=16)
+    item_id: int = Field(foreign_key="eval_item.id", nullable=False, index=True)
+    request_payload: dict = Field(
+        default_factory=dict, sa_column=Column(JSON, nullable=False)
+    )
+    response_payload: dict = Field(
+        default_factory=dict, sa_column=Column(JSON, nullable=False)
+    )
+
+
 class EvalFact(TimestampMixin, table=True):
     __tablename__ = "eval_fact"
 
@@ -467,6 +493,10 @@ class Assignment(TimestampMixin, table=True):
             postgresql_where=text("released_at IS NULL"),
         ),
         CheckConstraint("slot >= 0", name="ck_assignment_slot_nonnegative"),
+        CheckConstraint(
+            "completed_at IS NULL OR released_at IS NULL",
+            name="ck_assignment_single_terminal_state",
+        ),
     )
 
     id: int | None = Field(default=None, primary_key=True)

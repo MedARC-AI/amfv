@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from sqlmodel import Field, SQLModel
+from sqlmodel.main import SQLModelConfig
 
 from app.models import (
     AssignmentKind,
@@ -237,6 +238,20 @@ class AssignmentReleaseResponse(SQLModel):
     release_reason: str
 
 
+class AssignmentTerminalConflict(SQLModel):
+    """Structured conflict returned when an assignment has a terminal state."""
+
+    code: Literal["assignment_terminal_conflict"] = "assignment_terminal_conflict"
+    message: str
+    assignment_id: int
+
+
+class AssignmentTerminalConflictResponse(SQLModel):
+    """FastAPI's HTTPException envelope for a terminal assignment conflict."""
+
+    detail: AssignmentTerminalConflict
+
+
 class RetrievalReviewPayload(SQLModel):
     kind: Literal["retrieval_audit"] = "retrieval_audit"
     dataset: ReviewDataset
@@ -363,6 +378,8 @@ class FactDecompReviewSubmit(SQLModel):
 
 
 class CreateRetrievalDraftSubmit(SQLModel):
+    model_config = SQLModelConfig(extra="forbid")
+
     dataset_id: int
     document_ids: list[int] = Field(default_factory=list)
     category: RetrievalCategory
@@ -372,7 +389,6 @@ class CreateRetrievalDraftSubmit(SQLModel):
     gold_evidence_spans: list[EvidenceSpan] = Field(default_factory=list)
     trap_evidence_spans: list[EvidenceSpan] = Field(default_factory=list)
     why_not_answerable: str | None = None
-    status: ItemStatus = ItemStatus.DRAFT
 
 
 class FactDraft(SQLModel):
@@ -384,11 +400,12 @@ class FactDraft(SQLModel):
 
 
 class CreateFactDecompDraftSubmit(SQLModel):
+    model_config = SQLModelConfig(extra="forbid")
+
     dataset_id: int
     document_id: int | None = None
     source_text: str = Field(min_length=1)
     facts: list[FactDraft]
-    status: ItemStatus = ItemStatus.DRAFT
     item_id: int | None = Field(default=None, gt=0)
     expected_item_revision: int | None = Field(default=None, ge=1)
 
@@ -399,6 +416,12 @@ class CreateFactDecompDraftSubmit(SQLModel):
                 "item_id and expected_item_revision must be supplied together"
             )
         return self
+
+
+class FactDecompSaveCommand(CreateFactDecompDraftSubmit):
+    """A durable fact save command identified by a client-generated key."""
+
+    request_id: str = Field(min_length=1, max_length=128)
 
 
 class ValidationPreview(SQLModel):
@@ -431,6 +454,15 @@ class FactDecompCreateResponse(SQLModel):
     facts: list[FactDraft] = Field(default_factory=list)
     item_revision: int
     validation: ValidationPreview
+
+
+class FactDecompSaveReceiptResponse(SQLModel):
+    request_id: str
+    request_hash: str
+    command: Literal["draft", "submit"]
+    request: CreateFactDecompDraftSubmit
+    response: FactDecompCreateResponse
+    replayed: bool
 
 
 class RetrievalSubmissionBatchSubmit(SQLModel):
@@ -520,8 +552,6 @@ class AdminUserMetric(SQLModel):
     fact_decomp_reviews: int
     retrieval_qa_reviews: int
     relevance_judgments: int
-    mean_kappa: float | None = None
-    kappa_overlap: int = 0
 
 
 class AdminUserMetricPage(SQLModel):

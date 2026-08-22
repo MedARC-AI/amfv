@@ -2195,7 +2195,9 @@ def test_admin_agreement_and_inter_user_metrics(
     assert agreement.json()[0]["alpha"] == 1.0
 
     inter_user = client.get(
-        f"{settings.API_V1_STR}/admin/metrics/inter-user-agreement?dataset_id={dataset.id}",
+        f"{settings.API_V1_STR}/admin/metrics/inter-user-agreement"
+        f"?dataset_id={dataset.id}&left_user_id={first_user.id}"
+        f"&right_user_id={second_user.id}",
         headers=superuser_token_headers,
     )
     assert inter_user.status_code == 200
@@ -2205,7 +2207,8 @@ def test_admin_agreement_and_inter_user_metrics(
 
     invalid_overlap = client.get(
         f"{settings.API_V1_STR}/admin/metrics/inter-user-agreement"
-        f"?dataset_id={dataset.id}&min_overlap=0",
+        f"?dataset_id={dataset.id}&left_user_id={first_user.id}"
+        f"&right_user_id={second_user.id}&min_overlap=0",
         headers=superuser_token_headers,
     )
     assert invalid_overlap.status_code == 422
@@ -2605,7 +2608,7 @@ def test_fact_decomp_creation_persists_ordered_facts_and_provenance(
     draft = client.post(
         f"{settings.API_V1_STR}/create/fact-decomp/draft",
         headers=normal_user_token_headers,
-        json=payload,
+        json={**payload, "request_id": f"fact-draft-{uuid4()}"},
     )
     assert draft.status_code == 200
     draft_data = draft.json()
@@ -2614,6 +2617,7 @@ def test_fact_decomp_creation_persists_ordered_facts_and_provenance(
         headers=normal_user_token_headers,
         json={
             **payload,
+            "request_id": f"fact-submit-{uuid4()}",
             "item_id": draft_data["id"],
             "expected_item_revision": draft_data["item_revision"],
         },
@@ -2664,7 +2668,7 @@ def test_fact_decomp_submit_rejects_missing_unwanted_fact(
     draft = client.post(
         f"{settings.API_V1_STR}/create/fact-decomp/draft",
         headers=normal_user_token_headers,
-        json=payload,
+        json={**payload, "request_id": f"fact-draft-{uuid4()}"},
     )
     assert draft.status_code == 200
     rejected = client.post(
@@ -2672,6 +2676,7 @@ def test_fact_decomp_submit_rejects_missing_unwanted_fact(
         headers=normal_user_token_headers,
         json={
             **payload,
+            "request_id": f"fact-submit-{uuid4()}",
             "item_id": draft.json()["id"],
             "expected_item_revision": draft.json()["item_revision"],
         },
@@ -2717,7 +2722,7 @@ def test_fact_decomp_submit_rejects_duplicate_fact_uuid(
     draft = client.post(
         f"{settings.API_V1_STR}/create/fact-decomp/draft",
         headers=normal_user_token_headers,
-        json=payload,
+        json={**payload, "request_id": f"fact-draft-{uuid4()}"},
     )
     assert draft.status_code == 200
     rejected = client.post(
@@ -2725,6 +2730,7 @@ def test_fact_decomp_submit_rejects_duplicate_fact_uuid(
         headers=normal_user_token_headers,
         json={
             **payload,
+            "request_id": f"fact-submit-{uuid4()}",
             "item_id": draft.json()["id"],
             "expected_item_revision": draft.json()["item_revision"],
         },
@@ -2753,6 +2759,7 @@ def test_fact_decomp_draft_rejects_retrieval_dataset(
         f"{settings.API_V1_STR}/create/fact-decomp/draft",
         headers=normal_user_token_headers,
         json={
+            "request_id": f"fact-draft-{uuid4()}",
             "dataset_id": dataset.id,
             "source_text": "Should not persist.",
             "facts": [
@@ -2815,6 +2822,7 @@ def test_fact_decomp_draft_rejects_stale_provenance_span(
         f"{settings.API_V1_STR}/create/fact-decomp/draft",
         headers=normal_user_token_headers,
         json={
+            "request_id": f"fact-draft-{uuid4()}",
             "dataset_id": dataset.id,
             "document_id": document.id,
             "source_text": "Current provenance text.",

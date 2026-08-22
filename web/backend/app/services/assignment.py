@@ -4,6 +4,7 @@ import hashlib
 from datetime import datetime, timezone
 from uuid import UUID
 
+from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, func, select
 
@@ -390,36 +391,58 @@ def select_assignment(
     return assignment
 
 
-def complete_assignment(session: Session, assignment: Assignment) -> None:
-    """Complete a live assignment without releasing its consumed label slot."""
+def complete_assignment(session: Session, assignment: Assignment) -> bool:
+    """Atomically complete an assignment and report whether this call won."""
 
-    if assignment.released_at is not None:
-        raise ValueError("Released assignments cannot be completed")
-    if assignment.completed_at is not None:
-        raise ValueError("Completed assignments cannot be completed again")
-    assignment.completed_at = datetime.now(timezone.utc)
-    session.add(assignment)
+    assert assignment.id is not None
+    completed_at = datetime.now(timezone.utc)
+    completed_assignment_id = session.exec(
+        update(Assignment)
+        .where(
+            col(Assignment.id) == assignment.id,
+            col(Assignment.completed_at).is_(None),
+            col(Assignment.released_at).is_(None),
+        )
+        .values(completed_at=completed_at, updated_at=completed_at)
+        .returning(col(Assignment.id))
+    ).first()
+    if completed_assignment_id is None:
+        return False
+    session.expire(assignment)
     _maybe_complete_calibration(session, assignment)
+    return True
 
 
 def release_assignment(
     session: Session, assignment: Assignment, *, reason: str
-) -> None:
-    """Release an incomplete assignment so its slot becomes claimable again."""
+) -> bool:
+    """Atomically release an assignment and report whether this call won."""
 
     normalized_reason = reason.strip()
     if not normalized_reason:
         raise ValueError("Release reason is required")
     if len(normalized_reason) > 500:
         raise ValueError("Release reason must be at most 500 characters")
-    if assignment.completed_at is not None:
-        raise ValueError("Completed assignments cannot be released")
-    if assignment.released_at is not None:
-        raise ValueError("Assignment has already been released")
-    assignment.released_at = datetime.now(timezone.utc)
-    assignment.release_reason = normalized_reason
-    assignment.updated_at = datetime.now(timezone.utc)
-    session.add(assignment)
+    assert assignment.id is not None
+    released_at = datetime.now(timezone.utc)
+    released_assignment_id = session.exec(
+        update(Assignment)
+        .where(
+            col(Assignment.id) == assignment.id,
+            col(Assignment.completed_at).is_(None),
+            col(Assignment.released_at).is_(None),
+        )
+        .values(
+            released_at=released_at,
+            release_reason=normalized_reason,
+            updated_at=released_at,
+        )
+        .returning(col(Assignment.id))
+    ).first()
+    if released_assignment_id is None:
+        return False
+    session.expire(assignment)
+    return True
 
 
 def _dataset_preference_id(user: User, eval_type: EvalType) -> int | None:

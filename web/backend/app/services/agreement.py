@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass
 from itertools import combinations
 from uuid import UUID
@@ -19,6 +20,16 @@ from app.models import (
 )
 
 JudgmentMap = dict[str, dict[UUID, str]]
+
+
+class JudgmentVolumeExceeded(ValueError):
+    """Raised before a synchronous agreement calculation exceeds its row budget."""
+
+    def __init__(self, max_rows: int) -> None:
+        self.max_rows = max_rows
+        super().__init__(
+            f"Agreement exceeds the synchronous limit of {max_rows} judgments."
+        )
 
 
 @dataclass(frozen=True)
@@ -141,8 +152,13 @@ def dataset_judgments_for_all(
     *,
     dataset_id: int | None = None,
     reviewer_kind: ReviewerKind | None = None,
+    user_ids: set[UUID] | None = None,
+    max_rows: int | None = None,
 ) -> dict[str, JudgmentMap]:
+    """Load a filtered judgment snapshot within an optional hard row ceiling."""
+
     output: dict[str, JudgmentMap] = defaultdict(lambda: defaultdict(dict))
+    remaining = max_rows
     statement = (
         select(FactDecompReview, ReviewTask, EvalItem)
         .join(ReviewTask, col(FactDecompReview.task_id) == col(ReviewTask.id))
@@ -157,7 +173,13 @@ def dataset_judgments_for_all(
         statement = statement.where(
             col(FactDecompReview.reviewer_kind) == reviewer_kind
         )
-    for review, task, item in session.exec(statement).all():
+    if user_ids is not None:
+        statement = statement.where(col(FactDecompReview.user_id).in_(user_ids))
+    fact_rows = session.exec(
+        statement.limit(remaining + 1) if remaining is not None else statement
+    ).all()
+    remaining = _consume_row_budget(fact_rows, remaining, max_rows)
+    for review, task, item in fact_rows:
         if review.item_revision != item.revision:
             continue
         if not review.ratings:
@@ -170,17 +192,25 @@ def dataset_judgments_for_all(
                 continue
             elif isinstance(value, str):
                 output[key][f"task:{task.id}"][review.user_id] = value
-    user_kinds = _user_kinds(session) if reviewer_kind is not None else {}
-    item_statement = select(RetrievalQAReview, EvalItem).join(
-        EvalItem, col(RetrievalQAReview.item_id) == col(EvalItem.id)
+    item_statement = (
+        select(RetrievalQAReview, EvalItem)
+        .join(EvalItem, col(RetrievalQAReview.item_id) == col(EvalItem.id))
+        .join(User, col(RetrievalQAReview.user_id) == col(User.id))
     )
     if dataset_id is not None:
         item_statement = item_statement.where(col(EvalItem.dataset_id) == dataset_id)
-    for judgment, item in session.exec(item_statement).all():
-        if judgment.skipped or (
-            reviewer_kind is not None
-            and user_kinds.get(judgment.user_id) != reviewer_kind
-        ):
+    if reviewer_kind is not None:
+        item_statement = item_statement.where(col(User.reviewer_kind) == reviewer_kind)
+    if user_ids is not None:
+        item_statement = item_statement.where(
+            col(RetrievalQAReview.user_id).in_(user_ids)
+        )
+    item_rows = session.exec(
+        item_statement.limit(remaining + 1) if remaining is not None else item_statement
+    ).all()
+    remaining = _consume_row_budget(item_rows, remaining, max_rows)
+    for judgment, item in item_rows:
+        if judgment.skipped:
             continue
         for dimension, value in (
             ("question_validity", judgment.question_validity),
@@ -196,20 +226,34 @@ def dataset_judgments_for_all(
             output["item_verdict"][f"item:{item.id}"][judgment.user_id] = (
                 judgment.verdict.value
             )
-    relevance_statement = select(RelevanceJudgment, PooledCandidate).join(
-        PooledCandidate, col(RelevanceJudgment.candidate_id) == col(PooledCandidate.id)
+    relevance_statement = (
+        select(RelevanceJudgment, PooledCandidate)
+        .join(
+            PooledCandidate,
+            col(RelevanceJudgment.candidate_id) == col(PooledCandidate.id),
+        )
+        .join(User, col(RelevanceJudgment.user_id) == col(User.id))
     )
     if dataset_id is not None:
         relevance_statement = relevance_statement.where(
             col(PooledCandidate.dataset_id) == dataset_id
         )
-    for judgment, candidate in session.exec(relevance_statement).all():
+    if reviewer_kind is not None:
+        relevance_statement = relevance_statement.where(
+            col(User.reviewer_kind) == reviewer_kind
+        )
+    if user_ids is not None:
+        relevance_statement = relevance_statement.where(
+            col(RelevanceJudgment.user_id).in_(user_ids)
+        )
+    relevance_rows = session.exec(
+        relevance_statement.limit(remaining + 1)
+        if remaining is not None
+        else relevance_statement
+    ).all()
+    _consume_row_budget(relevance_rows, remaining, max_rows)
+    for judgment, candidate in relevance_rows:
         if judgment.skipped or judgment.grade is None:
-            continue
-        if (
-            reviewer_kind is not None
-            and user_kinds.get(judgment.user_id) != reviewer_kind
-        ):
             continue
         output["relevance_grade"][f"candidate:{candidate.id}"][judgment.user_id] = str(
             judgment.grade
@@ -217,12 +261,17 @@ def dataset_judgments_for_all(
     return output
 
 
-def _user_kinds(session: Session) -> dict[UUID, ReviewerKind]:
-    return {
-        user.id: user.reviewer_kind
-        for user in session.exec(select(User)).all()
-        if user.id is not None
-    }
+def _consume_row_budget(
+    rows: Sequence[object],
+    remaining: int | None,
+    max_rows: int | None,
+) -> int | None:
+    if remaining is None:
+        return None
+    if len(rows) > remaining:
+        assert max_rows is not None
+        raise JudgmentVolumeExceeded(max_rows)
+    return remaining - len(rows)
 
 
 def _krippendorff_alpha(items: JudgmentMap, distance) -> tuple[float | None, int]:

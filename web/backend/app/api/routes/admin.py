@@ -2,7 +2,6 @@ import json
 import uuid
 from collections import defaultdict
 from collections.abc import AsyncIterator, Sequence
-from itertools import combinations
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
@@ -21,10 +20,7 @@ from app.models import (
     EvalFact,
     EvalItem,
     EvalType,
-    FactDecompReview,
     ItemStatus,
-    PooledCandidate,
-    RelevanceJudgment,
     RetrievalQAReview,
     ReviewerKind,
     ReviewTask,
@@ -37,7 +33,6 @@ from app.schemas import (
     AdminItemSummary,
     AdminModerationAction,
     AdminTaskGenerationResult,
-    AdminUserMetric,
     AdminUserMetricPage,
     ChunkSummary,
     DatasetCreate,
@@ -49,11 +44,12 @@ from app.schemas import (
     DocumentSummary,
 )
 from app.services import document_import
+from app.services.admin_metrics import user_activity_metrics
 from app.services.agreement import (
+    JudgmentVolumeExceeded,
     agreement_summaries,
     cohen_kappa,
     dataset_judgments_for_all,
-    reviewer_mean_kappa_from_judgments,
 )
 from app.services.documents import (
     create_document_with_chunks,
@@ -71,6 +67,7 @@ MAX_IMPORT_ERROR_MESSAGE_CHARS = 1_024
 DEFAULT_ADMIN_PAGE_SIZE = 100
 MAX_ADMIN_METRIC_PAGE_SIZE = 500
 MAX_ADMIN_EXPORT_PAGE_SIZE = 1_000
+MAX_SYNC_AGREEMENT_JUDGMENTS = 5_000
 
 
 class ImportArtifactTooLargeError(ValueError):
@@ -325,16 +322,25 @@ def read_agreement_metrics(
     session: SessionDep,
     dataset_id: int | None = None,
     reviewer_kind: ReviewerKind | None = None,
+    max_judgments: int = Query(
+        default=2_000,
+        ge=1,
+        le=MAX_SYNC_AGREEMENT_JUDGMENTS,
+    ),
 ) -> Any:
     if dataset_id is not None:
         _get_dataset_or_404(session, dataset_id)
-    summaries = agreement_summaries(
-        dataset_judgments_for_all(
-            session,
-            dataset_id=dataset_id,
-            reviewer_kind=reviewer_kind,
+    try:
+        summaries = agreement_summaries(
+            dataset_judgments_for_all(
+                session,
+                dataset_id=dataset_id,
+                reviewer_kind=reviewer_kind,
+                max_rows=max_judgments,
+            )
         )
-    )
+    except JudgmentVolumeExceeded as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return [
         AdminAgreementMetric(
             dimension=summary.dimension,
@@ -362,7 +368,7 @@ def read_user_metrics(
     users = session.exec(
         select(User).order_by(col(User.email)).offset(offset).limit(limit)
     ).all()
-    items = _user_metrics(session, users, dataset_id=dataset_id)
+    items = user_activity_metrics(session, users, dataset_id=dataset_id)
     return AdminUserMetricPage(
         offset=offset,
         limit=limit,
@@ -378,41 +384,58 @@ def read_user_metrics(
 )
 def read_inter_user_agreement(
     session: SessionDep,
+    left_user_id: uuid.UUID,
+    right_user_id: uuid.UUID,
     dataset_id: int | None = None,
     min_overlap: int = Query(default=1, ge=1),
+    max_judgments: int = Query(
+        default=2_000,
+        ge=1,
+        le=MAX_SYNC_AGREEMENT_JUDGMENTS,
+    ),
 ) -> Any:
+    if left_user_id == right_user_id:
+        raise HTTPException(status_code=422, detail="Choose two different reviewers")
+    if (
+        session.get(User, left_user_id) is None
+        or session.get(User, right_user_id) is None
+    ):
+        raise HTTPException(status_code=404, detail="Reviewer not found")
     if dataset_id is not None:
         _get_dataset_or_404(session, dataset_id)
-    by_dimension = dataset_judgments_for_all(session, dataset_id=dataset_id)
+    try:
+        by_dimension = dataset_judgments_for_all(
+            session,
+            dataset_id=dataset_id,
+            user_ids={left_user_id, right_user_id},
+            max_rows=max_judgments,
+        )
+    except JudgmentVolumeExceeded as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     rows: list[AdminInterUserAgreementMetric] = []
     for dimension, judgments in sorted(by_dimension.items()):
-        users = sorted(
-            {user_id for labels in judgments.values() for user_id in labels},
-            key=str,
-        )
-        for left_user_id, right_user_id in combinations(users, 2):
-            left = {
-                item_key: labels[left_user_id]
-                for item_key, labels in judgments.items()
-                if left_user_id in labels
-            }
-            right = {
-                item_key: labels[right_user_id]
-                for item_key, labels in judgments.items()
-                if right_user_id in labels
-            }
-            kappa, overlap = cohen_kappa(left, right, min_overlap=min_overlap)
-            if overlap < min_overlap:
-                continue
-            rows.append(
-                AdminInterUserAgreementMetric(
-                    dimension=dimension,
-                    left_user_id=str(left_user_id),
-                    right_user_id=str(right_user_id),
-                    kappa=kappa,
-                    overlap=overlap,
-                )
+        left = {
+            item_key: labels[left_user_id]
+            for item_key, labels in judgments.items()
+            if left_user_id in labels
+        }
+        right = {
+            item_key: labels[right_user_id]
+            for item_key, labels in judgments.items()
+            if right_user_id in labels
+        }
+        kappa, overlap = cohen_kappa(left, right, min_overlap=min_overlap)
+        if overlap < min_overlap:
+            continue
+        rows.append(
+            AdminInterUserAgreementMetric(
+                dimension=dimension,
+                left_user_id=str(left_user_id),
+                right_user_id=str(right_user_id),
+                kappa=kappa,
+                overlap=overlap,
             )
+        )
     return rows
 
 
@@ -735,78 +758,3 @@ def _item_chunk_ids(item: EvalItem) -> set[int]:
         elif isinstance(value, str) and value.isdigit():
             chunk_ids.add(int(value))
     return chunk_ids
-
-
-def _user_metrics(
-    session: SessionDep,
-    users: Sequence[User],
-    *,
-    dataset_id: int | None,
-) -> list[AdminUserMetric]:
-    """Load one bounded user page using grouped activity queries."""
-    user_ids = [user.id for user in users if user.id is not None]
-    if not user_ids:
-        return []
-
-    authored = select(col(EvalItem.author_user_id), func.count(col(EvalItem.id))).where(
-        col(EvalItem.author_user_id).in_(user_ids)
-    )
-    fact_reviews = select(
-        col(FactDecompReview.user_id), func.count(col(FactDecompReview.id))
-    ).where(col(FactDecompReview.user_id).in_(user_ids))
-    retrieval_reviews = select(
-        col(RetrievalQAReview.user_id), func.count(col(RetrievalQAReview.id))
-    ).where(col(RetrievalQAReview.user_id).in_(user_ids))
-    relevance = select(
-        col(RelevanceJudgment.user_id), func.count(col(RelevanceJudgment.id))
-    ).where(col(RelevanceJudgment.user_id).in_(user_ids))
-    if dataset_id is not None:
-        authored = authored.where(col(EvalItem.dataset_id) == dataset_id)
-        fact_reviews = fact_reviews.join(
-            ReviewTask, col(FactDecompReview.task_id) == col(ReviewTask.id)
-        ).where(col(ReviewTask.dataset_id) == dataset_id)
-        retrieval_reviews = retrieval_reviews.join(
-            EvalItem, col(RetrievalQAReview.item_id) == col(EvalItem.id)
-        ).where(col(EvalItem.dataset_id) == dataset_id)
-        relevance = relevance.join(
-            PooledCandidate,
-            col(RelevanceJudgment.candidate_id) == col(PooledCandidate.id),
-        ).where(col(PooledCandidate.dataset_id) == dataset_id)
-
-    authored_counts = dict(
-        session.exec(authored.group_by(col(EvalItem.author_user_id))).all()
-    )
-    fact_review_counts = dict(
-        session.exec(fact_reviews.group_by(col(FactDecompReview.user_id))).all()
-    )
-    retrieval_review_counts = dict(
-        session.exec(retrieval_reviews.group_by(col(RetrievalQAReview.user_id))).all()
-    )
-    relevance_counts = dict(
-        session.exec(relevance.group_by(col(RelevanceJudgment.user_id))).all()
-    )
-    judgments = dataset_judgments_for_all(session, dataset_id=dataset_id)
-
-    rows = []
-    for user in users:
-        assert user.id is not None
-        mean_kappa, overlap = reviewer_mean_kappa_from_judgments(
-            judgments,
-            user.id,
-            min_overlap=1,
-        )
-        rows.append(
-            AdminUserMetric(
-                user_id=str(user.id),
-                email=user.email,
-                role=user.role.value,
-                reviewer_kind=user.reviewer_kind.value,
-                authored_items=authored_counts.get(user.id, 0),
-                fact_decomp_reviews=fact_review_counts.get(user.id, 0),
-                retrieval_qa_reviews=retrieval_review_counts.get(user.id, 0),
-                relevance_judgments=relevance_counts.get(user.id, 0),
-                mean_kappa=mean_kappa,
-                kappa_overlap=overlap,
-            )
-        )
-    return rows

@@ -18,6 +18,7 @@ from app.models import (
     EvalFact,
     EvalItem,
     EvalType,
+    FactDecompSaveReceipt,
     ItemSource,
     ItemStatus,
     RetrievalSubmissionBatch,
@@ -35,6 +36,8 @@ from app.schemas import (
     DocumentSummary,
     EvidenceSpan,
     FactDecompCreateResponse,
+    FactDecompSaveCommand,
+    FactDecompSaveReceiptResponse,
     FactDraft,
     RetrievalCreateResponse,
     RetrievalSubmissionBatchResponse,
@@ -242,10 +245,14 @@ def preview_fact_decomp_creation(
     return _preview_fact_decomp_validation(session, body)
 
 
-@router.post("/fact-decomp/draft", response_model=FactDecompCreateResponse)
+@router.post(
+    "/fact-decomp/draft",
+    response_model=FactDecompCreateResponse,
+    responses={409: {"model": AuthoringConflictResponse}},
+)
 def create_fact_decomp_draft(
     session: SessionDep,
-    body: CreateFactDecompDraftSubmit,
+    body: FactDecompSaveCommand,
     current_user: CurrentUser,
 ) -> FactDecompCreateResponse:
     return _create_or_update_fact_decomp_item(
@@ -260,12 +267,27 @@ def create_fact_decomp_draft(
 )
 def submit_fact_decomp_draft(
     session: SessionDep,
-    body: CreateFactDecompDraftSubmit,
+    body: FactDecompSaveCommand,
     current_user: CurrentUser,
 ) -> FactDecompCreateResponse:
     return _create_or_update_fact_decomp_item(
         session, body, current_user, status=ItemStatus.SUBMITTED
     )
+
+
+@router.get(
+    "/fact-decomp/receipts/{request_id}",
+    response_model=FactDecompSaveReceiptResponse,
+)
+def read_fact_decomp_save_receipt(
+    session: SessionDep,
+    request_id: str,
+    current_user: CurrentUser,
+) -> FactDecompSaveReceiptResponse:
+    receipt = _read_fact_decomp_save_receipt(session, current_user.id, request_id)
+    if receipt is None:
+        raise HTTPException(status_code=404, detail="Fact save receipt not found")
+    return _fact_decomp_save_receipt_response(receipt, replayed=True)
 
 
 @router.get("/items/{item_id}", response_model=AuthoringItemState)
@@ -558,6 +580,77 @@ def _persist_retrieval_batch(
     session.refresh(receipt)
 
 
+def _canonical_fact_save_hash(
+    request: CreateFactDecompDraftSubmit,
+    *,
+    command: str,
+) -> str:
+    encoded = json.dumps(
+        {
+            "command": command,
+            "request": request.model_dump(mode="json"),
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _read_fact_decomp_save_receipt(
+    session: SessionDep,
+    author_user_id: Any,
+    request_id: str,
+) -> FactDecompSaveReceipt | None:
+    return session.exec(
+        select(FactDecompSaveReceipt).where(
+            col(FactDecompSaveReceipt.author_user_id) == author_user_id,
+            col(FactDecompSaveReceipt.request_id) == request_id,
+        )
+    ).first()
+
+
+def _reconcile_fact_decomp_save(
+    receipt: FactDecompSaveReceipt,
+    request_hash: str,
+) -> FactDecompSaveReceiptResponse:
+    if receipt.request_hash != request_hash:
+        _raise_authoring_conflict(
+            code="fact_save_request_conflict",
+            message="request_id was already used for a different fact save.",
+            item_id=receipt.item_id,
+            request_id=receipt.request_id,
+        )
+    return _fact_decomp_save_receipt_response(receipt, replayed=True)
+
+
+def _fact_decomp_save_receipt_response(
+    receipt: FactDecompSaveReceipt,
+    *,
+    replayed: bool,
+) -> FactDecompSaveReceiptResponse:
+    if receipt.command == "draft":
+        command = "draft"
+    elif receipt.command == "submit":
+        command = "submit"
+    else:
+        raise RuntimeError(f"Unsupported fact save command: {receipt.command}")
+    return FactDecompSaveReceiptResponse(
+        request_id=receipt.request_id,
+        request_hash=receipt.request_hash,
+        command=command,
+        request=CreateFactDecompDraftSubmit.model_validate(receipt.request_payload),
+        response=FactDecompCreateResponse.model_validate(receipt.response_payload),
+        replayed=replayed,
+    )
+
+
+def _commit_fact_decomp_save(session: SessionDep) -> None:
+    """Commit the authored item and its recovery receipt as one transaction."""
+
+    session.commit()
+
+
 def _ensure_batch_prompts_are_distinct(items: list[EvalItem]) -> None:
     prompts = [item.prompt_text for item in items]
     if len(prompts) != len(set(prompts)):
@@ -573,11 +666,22 @@ def _ensure_batch_prompts_are_distinct(items: list[EvalItem]) -> None:
 
 def _create_or_update_fact_decomp_item(
     session: SessionDep,
-    body: CreateFactDecompDraftSubmit,
+    body: FactDecompSaveCommand,
     current_user: CurrentUser,
     *,
     status: ItemStatus,
 ) -> FactDecompCreateResponse:
+    command = "draft" if status == ItemStatus.DRAFT else "submit"
+    request = CreateFactDecompDraftSubmit.model_validate(
+        body.model_dump(exclude={"request_id"})
+    )
+    request_hash = _canonical_fact_save_hash(request, command=command)
+    existing_receipt = _read_fact_decomp_save_receipt(
+        session, current_user.id, body.request_id
+    )
+    if existing_receipt is not None:
+        return _reconcile_fact_decomp_save(existing_receipt, request_hash).response
+
     _ensure_fact_decomp_dataset(session, body.dataset_id)
     if status == ItemStatus.SUBMITTED and body.item_id is None:
         _raise_authoring_conflict(
@@ -632,12 +736,10 @@ def _create_or_update_fact_decomp_item(
     item_id = item.id
     for fact in _fact_models(item_id, body.facts):
         session.add(fact)
-    session.commit()
-    session.expire_all()
-    item = session.get(EvalItem, item_id)
-    assert item is not None
-    assert item.id is not None
-    return FactDecompCreateResponse(
+    session.flush()
+    session.expire(item)
+    session.refresh(item)
+    response = FactDecompCreateResponse(
         id=item.id,
         dataset_id=item.dataset_id,
         eval_type=item.eval_type,
@@ -648,6 +750,33 @@ def _create_or_update_fact_decomp_item(
         item_revision=item.revision,
         validation=preview,
     )
+    receipt = FactDecompSaveReceipt(
+        author_user_id=current_user.id,
+        request_id=body.request_id,
+        request_hash=request_hash,
+        command=command,
+        item_id=item_id,
+        request_payload=request.model_dump(mode="json"),
+        response_payload=response.model_dump(mode="json"),
+    )
+    session.add(receipt)
+    try:
+        _commit_fact_decomp_save(session)
+    except IntegrityError:
+        session.rollback()
+        raced_receipt = _read_fact_decomp_save_receipt(
+            session, current_user.id, body.request_id
+        )
+        if raced_receipt is not None:
+            return _reconcile_fact_decomp_save(raced_receipt, request_hash).response
+        raise
+    except Exception as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Fact-decomposition save could not be committed.",
+        ) from exc
+    return response
 
 
 def _read_owned_fact_item(

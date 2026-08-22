@@ -25,6 +25,8 @@ from app.models import (
 from app.schemas import (
     AssignmentRelease,
     AssignmentReleaseResponse,
+    AssignmentTerminalConflict,
+    AssignmentTerminalConflictResponse,
     ChunkSummary,
     DocumentDetail,
     EvidenceSpan,
@@ -121,6 +123,7 @@ def claim_next_review_task(
 @router.post(
     "/assignments/{assignment_id}/release",
     response_model=AssignmentReleaseResponse,
+    responses={409: {"model": AssignmentTerminalConflictResponse}},
 )
 def release_review_assignment(
     session: SessionDep,
@@ -138,16 +141,23 @@ def release_review_assignment(
         raise HTTPException(
             status_code=403, detail="Cannot release another user's assignment"
         )
-    try:
-        release_assignment(session, assignment, reason=body.reason)
-    except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    session.commit()
     assert assignment.id is not None
-    assert assignment.release_reason is not None
+    assignment_identifier = assignment.id
+    # Discard the read transaction before the conditional terminal write. SQLite
+    # otherwise cannot promote a stale read snapshot after a competing writer.
+    session.rollback()
+    try:
+        released = release_assignment(session, assignment, reason=body.reason)
+    except ValueError as exc:
+        session.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not released:
+        session.rollback()
+        _raise_assignment_terminal_conflict(assignment_identifier)
+    session.commit()
     return AssignmentReleaseResponse(
-        id=assignment.id,
-        release_reason=assignment.release_reason,
+        id=assignment_identifier,
+        release_reason=body.reason.strip(),
     )
 
 
@@ -188,7 +198,11 @@ def read_retrieval_review(
     )
 
 
-@router.post("/retrieval/{assignment_id}", response_model=ReviewSubmissionResponse)
+@router.post(
+    "/retrieval/{assignment_id}",
+    response_model=ReviewSubmissionResponse,
+    responses={409: {"model": AssignmentTerminalConflictResponse}},
+)
 def submit_retrieval_review(
     session: SessionDep,
     assignment_id: int,
@@ -211,10 +225,20 @@ def submit_retrieval_review(
         )
     assert assignment.id is not None
     assert item.id is not None
+    assert current_user.id is not None
+    assignment_identifier = assignment.id
+    item_identifier = item.id
+    user_id = current_user.id
+    # The conditional completion must start a fresh write transaction before a
+    # judgment is added, so a losing concurrent request cannot persist one.
+    session.rollback()
+    if not complete_assignment(session, assignment):
+        session.rollback()
+        _raise_assignment_terminal_conflict(assignment_identifier)
     judgment = RetrievalQAReview(
-        assignment_id=assignment.id,
-        item_id=item.id,
-        user_id=current_user.id,
+        assignment_id=assignment_identifier,
+        item_id=item_identifier,
+        user_id=user_id,
         question_validity=body.question_validity,
         evidence_quality=body.evidence_quality,
         answer_correctness=body.answer_correctness,
@@ -233,16 +257,13 @@ def submit_retrieval_review(
         skip_reason=body.skip_reason.strip() if body.skip_reason else None,
     )
     session.add(judgment)
-    complete_assignment(session, assignment)
     session.commit()
     session.refresh(judgment)
-    assert assignment.id is not None
-    assert item.id is not None
     assert judgment.id is not None
     return ReviewSubmissionResponse(
         id=judgment.id,
-        assignment_id=assignment.id,
-        item_id=item.id,
+        assignment_id=assignment_identifier,
+        item_id=item_identifier,
         kind="retrieval_audit",
     )
 
@@ -405,7 +426,11 @@ def read_relevance_review(
     )
 
 
-@router.post("/relevance/{assignment_id}", response_model=ReviewSubmissionResponse)
+@router.post(
+    "/relevance/{assignment_id}",
+    response_model=ReviewSubmissionResponse,
+    responses={409: {"model": AssignmentTerminalConflictResponse}},
+)
 def submit_relevance_review(
     session: SessionDep,
     assignment_id: int,
@@ -444,25 +469,33 @@ def submit_relevance_review(
         )
     assert assignment.id is not None
     assert candidate.id is not None
+    assert item.id is not None
+    assert current_user.id is not None
+    assignment_identifier = assignment.id
+    candidate_identifier = candidate.id
+    item_identifier = item.id
+    user_id = current_user.id
+    # See retrieval submission: claim the terminal transition before the
+    # judgment enters this transaction.
+    session.rollback()
+    if not complete_assignment(session, assignment):
+        session.rollback()
+        _raise_assignment_terminal_conflict(assignment_identifier)
     judgment = RelevanceJudgment(
-        assignment_id=assignment.id,
-        candidate_id=candidate.id,
-        user_id=current_user.id,
+        assignment_id=assignment_identifier,
+        candidate_id=candidate_identifier,
+        user_id=user_id,
         grade=body.grade,
         confidence=body.confidence,
     )
     session.add(judgment)
-    complete_assignment(session, assignment)
     session.commit()
     session.refresh(judgment)
-    assert assignment.id is not None
-    assert candidate.id is not None
-    assert item.id is not None
     assert judgment.id is not None
     return ReviewSubmissionResponse(
         id=judgment.id,
-        assignment_id=assignment.id,
-        item_id=item.id,
+        assignment_id=assignment_identifier,
+        item_id=item_identifier,
         kind="relevance",
     )
 
@@ -602,12 +635,18 @@ def _read_assignment_for_user(
     ):
         raise HTTPException(status_code=404, detail="Review assignment not found")
     if assignment.released_at is not None:
-        raise HTTPException(
-            status_code=409, detail="Review assignment has been released"
-        )
+        _raise_assignment_terminal_conflict(assignment_id)
     if assignment.completed_at is not None:
-        raise HTTPException(status_code=409, detail="Review assignment is complete")
+        _raise_assignment_terminal_conflict(assignment_id)
     return assignment
+
+
+def _raise_assignment_terminal_conflict(assignment_id: int) -> None:
+    detail = AssignmentTerminalConflict(
+        message="Review assignment has already been completed or released.",
+        assignment_id=assignment_id,
+    )
+    raise HTTPException(status_code=409, detail=detail.model_dump())
 
 
 def _read_active_review_task(session: SessionDep, task_id: int) -> ReviewTask:
