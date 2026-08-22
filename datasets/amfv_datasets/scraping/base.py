@@ -10,6 +10,8 @@ from typing import Any
 
 import httpx
 
+from amfv_datasets.scraping.contract import SCRAPED_DOCUMENT_SCHEMA_VERSION
+
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
 )
@@ -21,7 +23,10 @@ class ScrapeError(RuntimeError):
 
 @dataclass(frozen=True)
 class ScrapedDocument:
-    """Normalized source document produced by a scraper."""
+    """Normalized source document produced by a scraper.
+
+    The ``schema_version`` field is emitted in every serialized document row.
+    """
 
     source: str
     external_id: str
@@ -30,6 +35,7 @@ class ScrapedDocument:
     content: str
     section_count: int = 1
     metadata: dict[str, Any] = field(default_factory=dict)
+    schema_version: int = SCRAPED_DOCUMENT_SCHEMA_VERSION
 
 
 @dataclass(frozen=True)
@@ -129,6 +135,7 @@ __all__ = [
     "ScrapeError",
     "ScrapeRun",
     "ScrapedDocument",
+    "SCRAPED_DOCUMENT_SCHEMA_VERSION",
     "USER_AGENT",
     "default_client",
     "scrape_listing_documents",

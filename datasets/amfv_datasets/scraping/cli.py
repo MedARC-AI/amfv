@@ -6,7 +6,6 @@ import json
 import re
 import sys
 from collections.abc import Iterable
-from dataclasses import asdict
 from enum import StrEnum
 from itertools import chain
 from pathlib import Path
@@ -26,6 +25,7 @@ from rich.progress import (
 )
 
 from amfv_datasets.scraping.base import ScrapedDocument, ScrapeRun
+from amfv_datasets.scraping.contract import serialize_scraped_document
 from amfv_datasets.scraping.html import LinkMode
 from amfv_datasets.scraping.nice import scrape_nice
 
@@ -94,7 +94,7 @@ def write_jsonl(documents: Iterable[ScrapedDocument], output: TextIO) -> int:
     """
     count = 0
     for document in documents:
-        output.write(json.dumps(asdict(document), sort_keys=True))
+        output.write(json.dumps(serialize_scraped_document(document), sort_keys=True))
         output.write("\n")
         count += 1
     return count
@@ -109,7 +109,7 @@ def write_huggingface_dataset(documents: Iterable[ScrapedDocument], output_path:
     """
     from datasets import Dataset
 
-    rows = [asdict(document) for document in documents]
+    rows = [serialize_scraped_document(document) for document in documents]
     dataset = Dataset.from_list(rows)
     dataset.save_to_disk(output_path)
     return len(rows)

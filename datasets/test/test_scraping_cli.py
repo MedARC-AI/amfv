@@ -17,6 +17,7 @@ from amfv_datasets.scraping.cli import (
     write_jsonl,
     write_markdown_files,
 )
+from amfv_datasets.scraping.contract import ScrapedDocumentContractError, validate_scraped_document_row
 from amfv_datasets.scraping.html import LinkMode
 
 
@@ -32,11 +33,48 @@ def test_write_jsonl_serializes_documents() -> None:
         "content": "content",
         "external_id": "nice-ng1",
         "metadata": {"ref": "NG1"},
+        "schema_version": 1,
         "section_count": 1,
         "source": "nice",
         "title": "Guideline 1",
         "url": "https://www.nice.org.uk/guidance/ng1",
     }
+
+
+def test_write_jsonl_rejects_unknown_schema_version() -> None:
+    """JSONL output rejects document rows from an unsupported contract version."""
+    output = _TextSink()
+    document = ScrapedDocument(
+        source="nice",
+        external_id="nice-ng1",
+        title="Guideline 1",
+        url="https://www.nice.org.uk/guidance/ng1",
+        content="content",
+        schema_version=2,
+    )
+
+    with pytest.raises(ScrapedDocumentContractError, match="Unsupported scraped-document schema_version 2"):
+        write_jsonl([document], output)
+
+    assert output.value == ""
+
+
+def test_serialized_contract_accepts_additive_metadata_keys() -> None:
+    """Source metadata remains extensible while the top-level contract stays fixed."""
+    row = {
+        "schema_version": 1,
+        "source": "nice",
+        "external_id": "nice-ng1",
+        "title": "Guideline 1",
+        "url": "https://www.nice.org.uk/guidance/ng1",
+        "content": "content",
+        "section_count": 1,
+        "metadata": {"ref": "NG1", "future_source_key": ["value", 2]},
+    }
+
+    assert validate_scraped_document_row(row) == row
+    with pytest.raises(ScrapedDocumentContractError, match="unexpected fields: future_top_level_key"):
+        validate_scraped_document_row({**row, "future_top_level_key": "not part of v1"})
 
 
 def test_write_huggingface_dataset_saves_to_disk(tmp_path: Path) -> None:

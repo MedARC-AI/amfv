@@ -42,8 +42,6 @@ from amfv_datasets.scraping.html import LinkMode, document_title, first_matching
 from amfv_datasets.scraping.nextjs import script_json_by_id
 
 BASE_URL = "https://www.nice.org.uk"
-NICE_DATASET_NAME = "nice-webscrape"
-NICE_DATASET_DISPLAY_NAME = "NICE Webscrape"
 DOCUMENT_DELAY_SECONDS = 5.0
 
 logger = logging.getLogger(__name__)
@@ -415,8 +413,6 @@ __all__ = [
     "BASE_URL",
     "DOCUMENT_DELAY_SECONDS",
     "GuidanceListingPage",
-    "NICE_DATASET_DISPLAY_NAME",
-    "NICE_DATASET_NAME",
     "GuidanceRef",
     "NiceFetchError",
     "build_guideline_text",

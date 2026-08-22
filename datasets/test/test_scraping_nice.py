@@ -1,9 +1,14 @@
 """Tests for NICE scraping helpers."""
 
 import json
+from pathlib import Path
 
 import httpx
+import pytest
 
+from amfv_datasets.scraping import nice
+from amfv_datasets.scraping.cli import write_jsonl
+from amfv_datasets.scraping.contract import validate_scraped_document_row
 from amfv_datasets.scraping.html import LinkMode
 from amfv_datasets.scraping.nice import (
     BASE_URL,
@@ -13,6 +18,8 @@ from amfv_datasets.scraping.nice import (
     guidance_ref_from_url,
     list_published_guidance,
 )
+
+_FIXTURES_DIR = Path(__file__).parent / "fixtures" / "scraping"
 
 
 def test_list_published_guidance_parses_next_data_listing() -> None:
@@ -305,3 +312,178 @@ def test_build_guideline_text_trims_quality_standard_overview_boilerplate() -> N
         "## Quality statements\n\n"
         "Statement text."
     )
+
+
+def test_single_url_scrape_matches_versioned_jsonl_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A mocked NICE URL scrape emits the frozen v1 JSONL contract row."""
+    _mock_nice_client(
+        monkeypatch,
+        {
+            "https://www.nice.org.uk/guidance/ng235": """
+                <html>
+                  <h1>Cardiovascular disease</h1>
+                  <nav class="stacked-nav">
+                    <a href="/guidance/ng235/chapter/recommendations">Recommendations</a>
+                  </nav>
+                </html>
+            """,
+            "https://www.nice.org.uk/guidance/ng235/chapter/recommendations": """
+                <div class="chapter">
+                  <h2>1 Recommendation</h2>
+                  <p>Offer treatment.</p>
+                </div>
+            """,
+        },
+    )
+
+    scrape_run = nice.scrape_nice(
+        documents=1,
+        url="https://www.nice.org.uk/guidance/NG235/chapter/recommendations",
+    )
+    output = _TextSink()
+
+    assert write_jsonl(scrape_run, output) == 1
+    assert output.value == _fixture_text("nice_document_v1.jsonl")
+    assert validate_scraped_document_row(json.loads(output.value)) == json.loads(output.value)
+
+
+@pytest.mark.parametrize(
+    ("source_url", "pages", "expected_external_id", "expected_url"),
+    [
+        pytest.param(
+            "https://www.nice.org.uk/guidance/NG235/chapter/recommendations",
+            {
+                "https://www.nice.org.uk/guidance/ng235": """
+                    <html><h1>Guidance</h1><nav class="stacked-nav">
+                    <a href="/guidance/ng235/chapter/recommendations">Recommendations</a>
+                    </nav></html>
+                """,
+                "https://www.nice.org.uk/guidance/ng235/chapter/recommendations": """
+                    <div class="chapter"><h2>1 Recommendations</h2><p>Guidance text.</p></div>
+                """,
+            },
+            "nice-ng235",
+            "https://www.nice.org.uk/guidance/ng235",
+            id="guidance",
+        ),
+        pytest.param(
+            "https://www.nice.org.uk/advice/MIB323/chapter/Summary",
+            {
+                "https://www.nice.org.uk/advice/mib323": """
+                    <html><h1>Advice</h1><nav class="stacked-nav">
+                    <a href="/advice/mib323/chapter/Summary">Summary</a>
+                    </nav></html>
+                """,
+                "https://www.nice.org.uk/advice/mib323/chapter/Summary": """
+                    <div class="chapter"><h2>1 Summary</h2><p>Advice text.</p></div>
+                """,
+            },
+            "nice-mib323",
+            "https://www.nice.org.uk/advice/mib323",
+            id="advice",
+        ),
+    ],
+)
+def test_single_url_scrape_uses_stable_id_and_canonical_url(
+    monkeypatch: pytest.MonkeyPatch,
+    source_url: str,
+    pages: dict[str, str],
+    expected_external_id: str,
+    expected_url: str,
+) -> None:
+    """Guidance and advice URLs normalize to their stable source identities."""
+    _mock_nice_client(monkeypatch, pages)
+
+    document = next(iter(nice.scrape_nice(documents=1, url=source_url)))
+
+    assert document.external_id == expected_external_id
+    assert document.url == expected_url
+
+
+def test_bounded_listing_scrape_uses_stable_ids_and_canonical_urls(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A bounded mocked listing preserves canonical guidance and advice URLs."""
+    listing = {
+        "props": {
+            "pageProps": {
+                "results": {
+                    "resultCount": 3,
+                    "documents": [
+                        {
+                            "guidanceRef": "NG235",
+                            "title": "Guidance",
+                            "pathAndQuery": "/guidance/ng235",
+                        },
+                        {
+                            "guidanceRef": "MIB323",
+                            "title": "Advice",
+                            "pathAndQuery": "/guidance/mib323",
+                        },
+                        {
+                            "guidanceRef": "TA999",
+                            "title": "Not fetched because the listing is bounded",
+                            "pathAndQuery": "/guidance/ta999",
+                        },
+                    ],
+                }
+            }
+        }
+    }
+    _mock_nice_client(
+        monkeypatch,
+        {
+            "https://www.nice.org.uk/guidance/published?sp=on&pa=1": (
+                f'<script id="__NEXT_DATA__" type="application/json">{json.dumps(listing)}</script>'
+            ),
+            "https://www.nice.org.uk/guidance/ng235": """
+                <html><nav class="stacked-nav">
+                <a href="/guidance/ng235/chapter/recommendations">Recommendations</a>
+                </nav></html>
+            """,
+            "https://www.nice.org.uk/guidance/ng235/chapter/recommendations": """
+                <div class="chapter"><h2>1 Recommendations</h2><p>Guidance text.</p></div>
+            """,
+            "https://www.nice.org.uk/advice/mib323": """
+                <html><nav class="stacked-nav">
+                <a href="/advice/mib323/chapter/Summary">Summary</a>
+                </nav></html>
+            """,
+            "https://www.nice.org.uk/advice/mib323/chapter/Summary": """
+                <div class="chapter"><h2>1 Summary</h2><p>Advice text.</p></div>
+            """,
+        },
+    )
+
+    scrape_run = nice.scrape_nice(documents=2)
+    documents = list(scrape_run)
+
+    assert scrape_run.total == 2
+    assert [(document.external_id, document.url) for document in documents] == [
+        ("nice-ng235", "https://www.nice.org.uk/guidance/ng235"),
+        ("nice-mib323", "https://www.nice.org.uk/advice/mib323"),
+    ]
+
+
+def _mock_nice_client(monkeypatch: pytest.MonkeyPatch, pages: dict[str, str]) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        try:
+            return httpx.Response(200, text=pages[str(request.url)])
+        except KeyError as exc:
+            raise AssertionError(f"Unexpected NICE request: {request.url}") from exc
+
+    def client_factory() -> httpx.Client:
+        return httpx.Client(transport=httpx.MockTransport(handler))
+
+    monkeypatch.setattr(nice, "default_client", client_factory)
+
+
+def _fixture_text(name: str) -> str:
+    return (_FIXTURES_DIR / name).read_text(encoding="utf-8")
+
+
+class _TextSink:
+    def __init__(self) -> None:
+        self.value = ""
+
+    def write(self, text: str) -> int:
+        self.value += text
+        return len(text)
