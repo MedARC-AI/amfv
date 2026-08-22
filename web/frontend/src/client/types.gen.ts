@@ -110,6 +110,12 @@ export type AuthoringItemState = {
     status: ItemStatus;
 };
 
+export type Body_admin_import_admin_documents = {
+    dataset_id: number;
+    dry_run?: boolean;
+    file: string;
+};
+
 export type Body_auth_preview_invite = {
     token: string;
 };
@@ -188,7 +194,27 @@ export type DocumentDetail = {
     paragraphs?: Array<{
         [key: string]: unknown;
     }>;
+    source_url?: (string | null);
     title: string;
+};
+
+/**
+ * One bounded, line-local document import failure.
+ */
+export type DocumentImportError = {
+    line: number;
+    message: string;
+};
+
+/**
+ * Counts and bounded errors produced by a document JSONL import.
+ */
+export type DocumentImportSummary = {
+    created: number;
+    dry_run: boolean;
+    errors: Array<DocumentImportError>;
+    rejected: number;
+    unchanged: number;
 };
 
 export type DocumentSummary = {
@@ -196,6 +222,7 @@ export type DocumentSummary = {
     external_id: string;
     id: number;
     is_active: boolean;
+    source_url?: (string | null);
     title: string;
 };
 
@@ -323,54 +350,6 @@ export type NextReviewRecommendation = {
 export type kind = 'retrieval_audit' | 'fact_decomp' | 'relevance';
 
 export type reservation_state = 'existing' | 'created' | 'selected';
-
-export type NiceDocumentResponse = {
-    char_count: number;
-    dataset_id: number;
-    document_id: number;
-    page_url: string;
-    reference: string;
-    section_count: number;
-    title: string;
-};
-
-export type NiceDownloadSummary = {
-    char_count: number;
-    id: number;
-    page_count: number;
-    page_url: string;
-    reference: string;
-    title: string;
-};
-
-export type NiceImportJobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
-
-export type NiceImportJobStatusResponse = {
-    completed_count: number;
-    failed_count: number;
-    finished_at?: (string | null);
-    heartbeat_at?: (string | null);
-    id: number;
-    last_error?: (string | null);
-    requested_limit: NiceImportLimit;
-    started_at?: (string | null);
-    started_by_user_id: string;
-    status: NiceImportJobStatus;
-    target_count?: (number | null);
-};
-
-export type NiceImportLimit = '10' | '20' | '50' | 'all';
-
-export type NiceImportStart = {
-    limit: 10 | 20 | 50 | 'all';
-};
-
-export type limit = 10 | 20 | 50 | 'all';
-
-export type NiceUrlRecommendationRequest = {
-    dataset_id?: (number | null);
-    url: string;
-};
 
 export type PooledCandidate = {
     chunk_id: number;
@@ -690,6 +669,12 @@ export type AdminCreateAdminDocumentData = {
 
 export type AdminCreateAdminDocumentResponse = (DocumentDetail);
 
+export type AdminImportAdminDocumentsData = {
+    formData: Body_admin_import_admin_documents;
+};
+
+export type AdminImportAdminDocumentsResponse = (DocumentImportSummary);
+
 export type AdminReadAdminDocumentData = {
     documentId: number;
 };
@@ -750,20 +735,6 @@ export type AdminReadUserMetricsData = {
 };
 
 export type AdminReadUserMetricsResponse = (Array<AdminUserMetric>);
-
-export type AdminStartNiceImportData = {
-    requestBody: NiceImportStart;
-};
-
-export type AdminStartNiceImportResponse = (NiceImportJobStatusResponse);
-
-export type AdminReadCurrentNiceImportResponse = ((NiceImportJobStatusResponse | null));
-
-export type AdminCancelNiceImportData = {
-    jobId: number;
-};
-
-export type AdminCancelNiceImportResponse = (NiceImportJobStatusResponse);
 
 export type AdminReadAdminUsersResponse = (unknown);
 
@@ -910,14 +881,6 @@ export type LoginResetPasswordData = {
 };
 
 export type LoginResetPasswordResponse = (Message);
-
-export type NiceListNiceDownloadsResponse = (Array<NiceDownloadSummary>);
-
-export type NiceFetchNiceRecommendationByUrlData = {
-    requestBody: NiceUrlRecommendationRequest;
-};
-
-export type NiceFetchNiceRecommendationByUrlResponse = (NiceDocumentResponse);
 
 export type ReviewReleaseReviewAssignmentData = {
     assignmentId: number;

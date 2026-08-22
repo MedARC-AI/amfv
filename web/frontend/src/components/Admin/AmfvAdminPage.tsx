@@ -3,7 +3,6 @@ import DocumentsAdmin from "@/components/Admin/DocumentsAdmin"
 import ExportAdmin from "@/components/Admin/ExportAdmin"
 import MetricsAdmin from "@/components/Admin/MetricsAdmin"
 import ModerationAdmin from "@/components/Admin/ModerationAdmin"
-import NiceImportAdmin from "@/components/Admin/NiceImportAdmin"
 import TaskGenerationAdmin from "@/components/Admin/TaskGenerationAdmin"
 import UsersAdmin from "@/components/Admin/UsersAdmin"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -23,7 +22,6 @@ export default function AmfvAdminPage() {
           ) : null}
           <TabsTrigger value="datasets">Datasets</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
-          {canManageUsers ? <TabsTrigger value="nice">NICE</TabsTrigger> : null}
           <TabsTrigger value="moderation">Moderation</TabsTrigger>
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="export">Export</TabsTrigger>
@@ -41,14 +39,8 @@ export default function AmfvAdminPage() {
         </TabsContent>
 
         <TabsContent value="documents">
-          <DocumentsAdmin />
+          <DocumentsAdmin canImport={Boolean(canManageUsers)} />
         </TabsContent>
-
-        {canManageUsers ? (
-          <TabsContent value="nice">
-            <NiceImportAdmin />
-          </TabsContent>
-        ) : null}
 
         <TabsContent value="moderation">
           <ModerationAdmin />

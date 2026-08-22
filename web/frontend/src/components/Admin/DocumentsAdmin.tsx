@@ -1,14 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { FileText } from "lucide-react"
+import { ExternalLink, FileText } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import {
   AdminService,
   type DatasetSummary,
+  type DocumentImportSummary,
   type DocumentSummary,
 } from "@/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -18,10 +20,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { apiErrorMessage, sourceDocumentUrl } from "@/utils"
 
-export default function DocumentsAdmin() {
+export default function DocumentsAdmin({ canImport }: { canImport: boolean }) {
   const queryClient = useQueryClient()
   const [datasetId, setDatasetId] = useState("")
+  const [importDatasetId, setImportDatasetId] = useState("")
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [dryRun, setDryRun] = useState(true)
+  const [importSummary, setImportSummary] =
+    useState<DocumentImportSummary | null>(null)
   const [title, setTitle] = useState("")
   const [externalId, setExternalId] = useState("")
   const [content, setContent] = useState("")
@@ -72,6 +80,28 @@ export default function DocumentsAdmin() {
       })
     },
   })
+  const importDocuments = useMutation({
+    mutationFn: () => {
+      if (!importFile) {
+        throw new Error("Select a JSONL artifact to import.")
+      }
+      return AdminService.importAdminDocuments({
+        formData: {
+          dataset_id: Number(importDatasetId),
+          dry_run: dryRun,
+          // The generated schema currently describes UploadFile as string, but
+          // its generated FormData serializer correctly accepts File/Blob.
+          file: importFile as unknown as string,
+        },
+      })
+    },
+    onSuccess: (summary) => {
+      setImportSummary(summary)
+      if (!summary.dry_run) {
+        void queryClient.invalidateQueries({ queryKey: ["admin-documents"] })
+      }
+    },
+  })
   const datasetsById = useMemo(() => {
     return new Map(
       (datasetsQuery.data ?? []).map((dataset) => [dataset.id, dataset]),
@@ -79,6 +109,11 @@ export default function DocumentsAdmin() {
   }, [datasetsQuery.data])
   const canSubmit =
     datasetId.length > 0 && title.trim().length > 0 && content.trim().length > 0
+  const importDatasets = (datasetsQuery.data ?? []).filter(
+    (dataset) => dataset.eval_type === "RETRIEVAL" && dataset.is_active,
+  )
+  const canImportArtifact =
+    canImport && importDatasetId.length > 0 && importFile !== null
 
   return (
     <div className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
@@ -155,6 +190,81 @@ export default function DocumentsAdmin() {
             </p>
           ) : null}
         </form>
+
+        {canImport ? (
+          <form
+            className="mt-6 flex flex-col gap-4 border-t pt-6"
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (canImportArtifact) {
+                setImportSummary(null)
+                importDocuments.mutate()
+              }
+            }}
+          >
+            <div>
+              <h2 className="text-base font-semibold tracking-normal">
+                Import normalized JSONL
+              </h2>
+              <p className="text-muted-foreground mt-1 text-sm">
+                Upload a versioned source-document artifact. Validate with a dry
+                run before creating documents.
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <Label>Retrieval dataset</Label>
+              <Select
+                value={importDatasetId}
+                onValueChange={setImportDatasetId}
+              >
+                <SelectTrigger data-testid="admin-document-import-dataset">
+                  <SelectValue placeholder="Select active retrieval dataset" />
+                </SelectTrigger>
+                <SelectContent>
+                  {importDatasets.map((dataset) => (
+                    <SelectItem key={dataset.id} value={String(dataset.id)}>
+                      {dataset.display_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="document-import-file">JSONL artifact</Label>
+              <Input
+                accept=".jsonl,application/x-ndjson"
+                id="document-import-file"
+                onChange={(event) => {
+                  setImportFile(event.target.files?.[0] ?? null)
+                  setImportSummary(null)
+                }}
+                type="file"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={dryRun}
+                id="document-import-dry-run"
+                onCheckedChange={(checked) => setDryRun(checked === true)}
+              />
+              <Label htmlFor="document-import-dry-run">
+                Dry run (no writes)
+              </Label>
+            </div>
+            <Button
+              disabled={!canImportArtifact || importDocuments.isPending}
+              type="submit"
+            >
+              {dryRun ? "Validate artifact" : "Import documents"}
+            </Button>
+            {importDocuments.isError ? (
+              <p className="text-destructive text-sm">
+                {apiErrorMessage(importDocuments.error)}
+              </p>
+            ) : null}
+            {importSummary ? <ImportSummary summary={importSummary} /> : null}
+          </form>
+        ) : null}
       </section>
 
       <section className="flex flex-col gap-4">
@@ -191,6 +301,29 @@ export default function DocumentsAdmin() {
   )
 }
 
+function ImportSummary({ summary }: { summary: DocumentImportSummary }) {
+  return (
+    <output className="block rounded-md border p-3 text-sm">
+      <p className="font-medium">
+        {summary.dry_run ? "Dry-run result" : "Import result"}
+      </p>
+      <p className="text-muted-foreground mt-1">
+        Created {summary.created} · unchanged {summary.unchanged} · rejected{" "}
+        {summary.rejected}
+      </p>
+      {summary.errors.length > 0 ? (
+        <ul className="text-destructive mt-3 max-h-40 list-disc space-y-1 overflow-auto pl-5">
+          {summary.errors.map((error) => (
+            <li key={`${error.line}-${error.message}`}>
+              Line {error.line}: {error.message}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </output>
+  )
+}
+
 function DocumentRow({
   document,
   dataset,
@@ -202,6 +335,7 @@ function DocumentRow({
   onPreview: () => void
   onToggle: () => void
 }) {
+  const sourceUrl = sourceDocumentUrl(document)
   return (
     <div
       className="rounded-md border p-4"
@@ -216,6 +350,17 @@ function DocumentRow({
           <p className="text-muted-foreground text-xs">
             {document.external_id}
           </p>
+          {sourceUrl ? (
+            <a
+              className="mt-1 inline-flex items-center gap-1 text-xs text-primary underline-offset-4 hover:underline"
+              href={sourceUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Source URL
+              <ExternalLink className="size-3" />
+            </a>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={document.is_active ? "default" : "outline"}>
@@ -238,6 +383,7 @@ function DocumentDetailPanel({
 }: {
   document: Awaited<ReturnType<typeof AdminService.readAdminDocument>>
 }) {
+  const sourceUrl = sourceDocumentUrl(document)
   return (
     <div className="rounded-md border p-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -248,6 +394,17 @@ function DocumentDetailPanel({
           <p className="text-muted-foreground text-sm">
             Complete document text
           </p>
+          {sourceUrl ? (
+            <a
+              className="mt-1 inline-flex items-center gap-1 text-sm text-primary underline-offset-4 hover:underline"
+              href={sourceUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              View source URL
+              <ExternalLink className="size-3.5" />
+            </a>
+          ) : null}
         </div>
         <Badge variant={document.is_active ? "default" : "outline"}>
           {document.is_active ? "Active" : "Inactive"}

@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { AdminReadAdminDatasetsResponse, AdminCreateAdminDatasetData, AdminCreateAdminDatasetResponse, AdminReadAdminDatasetData, AdminReadAdminDatasetResponse, AdminGenerateDatasetTasksData, AdminGenerateDatasetTasksResponse, AdminReadAdminDocumentsResponse, AdminCreateAdminDocumentData, AdminCreateAdminDocumentResponse, AdminReadAdminDocumentData, AdminReadAdminDocumentResponse, AdminToggleAdminDocumentData, AdminToggleAdminDocumentResponse, AdminExportDatasetData, AdminExportDatasetResponse, AdminIngestDatasetResponse, AdminReadAdminItemsData, AdminReadAdminItemsResponse, AdminApproveAdminItemData, AdminApproveAdminItemResponse, AdminRejectAdminItemData, AdminRejectAdminItemResponse, AdminReadAgreementMetricsData, AdminReadAgreementMetricsResponse, AdminReadInterUserAgreementData, AdminReadInterUserAgreementResponse, AdminReadUserMetricsData, AdminReadUserMetricsResponse, AdminStartNiceImportData, AdminStartNiceImportResponse, AdminReadCurrentNiceImportResponse, AdminCancelNiceImportData, AdminCancelNiceImportResponse, AdminReadAdminUsersResponse, AdminUpdateAdminUserData, AdminUpdateAdminUserResponse, AdminReadAdminUserReviewsData, AdminReadAdminUserReviewsResponse, AuthListInvitesResponse, AuthCreateInviteData, AuthCreateInviteResponse, AuthPreviewInviteData, AuthPreviewInviteResponse, AuthDisableInviteData, AuthDisableInviteResponse, AuthInviteSignupData, AuthInviteSignupResponse, CreateCreateFactDecompDraftData, CreateCreateFactDecompDraftResponse, CreatePreviewFactDecompCreationData, CreatePreviewFactDecompCreationResponse, CreateSubmitFactDecompDraftData, CreateSubmitFactDecompDraftResponse, CreateReadAuthoringItemData, CreateReadAuthoringItemResponse, CreateReadCreateOptionsResponse, CreateSubmitRetrievalBatchData, CreateSubmitRetrievalBatchResponse, CreateReadRetrievalBatchData, CreateReadRetrievalBatchResponse, CreateCreateRetrievalDraftData, CreateCreateRetrievalDraftResponse, CreatePreviewRetrievalCreationData, CreatePreviewRetrievalCreationResponse, CreateSubmitRetrievalDraftData, CreateSubmitRetrievalDraftResponse, CreateReadSourceDocumentsData, CreateReadSourceDocumentsResponse, CreateReadSourceDocumentDetailData, CreateReadSourceDocumentDetailResponse, CreateValidateCreationRequestData, CreateValidateCreationRequestResponse, HomeReadHomeSummaryResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, NiceListNiceDownloadsResponse, NiceFetchNiceRecommendationByUrlData, NiceFetchNiceRecommendationByUrlResponse, ReviewReleaseReviewAssignmentData, ReviewReleaseReviewAssignmentResponse, ReviewClaimNextReviewTaskData, ReviewClaimNextReviewTaskResponse, ReviewReadFactDecompReviewData, ReviewReadFactDecompReviewResponse, ReviewSubmitFactDecompReviewData, ReviewSubmitFactDecompReviewResponse, ReviewReadNextReviewTaskData, ReviewReadNextReviewTaskResponse, ReviewReadRelevanceReviewData, ReviewReadRelevanceReviewResponse, ReviewSubmitRelevanceReviewData, ReviewSubmitRelevanceReviewResponse, ReviewReadRetrievalReviewData, ReviewReadRetrievalReviewResponse, ReviewSubmitRetrievalReviewData, ReviewSubmitRetrievalReviewResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UtilsHealthCheckResponse, UtilsTestEmailData, UtilsTestEmailResponse } from './types.gen';
+import type { AdminReadAdminDatasetsResponse, AdminCreateAdminDatasetData, AdminCreateAdminDatasetResponse, AdminReadAdminDatasetData, AdminReadAdminDatasetResponse, AdminGenerateDatasetTasksData, AdminGenerateDatasetTasksResponse, AdminReadAdminDocumentsResponse, AdminCreateAdminDocumentData, AdminCreateAdminDocumentResponse, AdminImportAdminDocumentsData, AdminImportAdminDocumentsResponse, AdminReadAdminDocumentData, AdminReadAdminDocumentResponse, AdminToggleAdminDocumentData, AdminToggleAdminDocumentResponse, AdminExportDatasetData, AdminExportDatasetResponse, AdminIngestDatasetResponse, AdminReadAdminItemsData, AdminReadAdminItemsResponse, AdminApproveAdminItemData, AdminApproveAdminItemResponse, AdminRejectAdminItemData, AdminRejectAdminItemResponse, AdminReadAgreementMetricsData, AdminReadAgreementMetricsResponse, AdminReadInterUserAgreementData, AdminReadInterUserAgreementResponse, AdminReadUserMetricsData, AdminReadUserMetricsResponse, AdminReadAdminUsersResponse, AdminUpdateAdminUserData, AdminUpdateAdminUserResponse, AdminReadAdminUserReviewsData, AdminReadAdminUserReviewsResponse, AuthListInvitesResponse, AuthCreateInviteData, AuthCreateInviteResponse, AuthPreviewInviteData, AuthPreviewInviteResponse, AuthDisableInviteData, AuthDisableInviteResponse, AuthInviteSignupData, AuthInviteSignupResponse, CreateCreateFactDecompDraftData, CreateCreateFactDecompDraftResponse, CreatePreviewFactDecompCreationData, CreatePreviewFactDecompCreationResponse, CreateSubmitFactDecompDraftData, CreateSubmitFactDecompDraftResponse, CreateReadAuthoringItemData, CreateReadAuthoringItemResponse, CreateReadCreateOptionsResponse, CreateSubmitRetrievalBatchData, CreateSubmitRetrievalBatchResponse, CreateReadRetrievalBatchData, CreateReadRetrievalBatchResponse, CreateCreateRetrievalDraftData, CreateCreateRetrievalDraftResponse, CreatePreviewRetrievalCreationData, CreatePreviewRetrievalCreationResponse, CreateSubmitRetrievalDraftData, CreateSubmitRetrievalDraftResponse, CreateReadSourceDocumentsData, CreateReadSourceDocumentsResponse, CreateReadSourceDocumentDetailData, CreateReadSourceDocumentDetailResponse, CreateValidateCreationRequestData, CreateValidateCreationRequestResponse, HomeReadHomeSummaryResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, ReviewReleaseReviewAssignmentData, ReviewReleaseReviewAssignmentResponse, ReviewClaimNextReviewTaskData, ReviewClaimNextReviewTaskResponse, ReviewReadFactDecompReviewData, ReviewReadFactDecompReviewResponse, ReviewSubmitFactDecompReviewData, ReviewSubmitFactDecompReviewResponse, ReviewReadNextReviewTaskData, ReviewReadNextReviewTaskResponse, ReviewReadRelevanceReviewData, ReviewReadRelevanceReviewResponse, ReviewSubmitRelevanceReviewData, ReviewSubmitRelevanceReviewResponse, ReviewReadRetrievalReviewData, ReviewReadRetrievalReviewResponse, ReviewSubmitRetrievalReviewData, ReviewSubmitRetrievalReviewResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UtilsHealthCheckResponse, UtilsTestEmailData, UtilsTestEmailResponse } from './types.gen';
 
 export class AdminService {
     /**
@@ -102,6 +102,30 @@ export class AdminService {
             url: '/api/v1/admin/documents',
             body: data.requestBody,
             mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+
+    /**
+     * Import Admin Documents
+     * Import a bounded stream of v1 source-document JSONL rows.
+     *
+     * Valid rows use nested transactions so one bad source document does not
+     * discard earlier valid rows. ``dry_run`` follows the same write and
+     * duplicate paths, then rolls the request transaction back before returning.
+     * @param data The data for the request.
+     * @param data.formData
+     * @returns DocumentImportSummary Successful Response
+     * @throws ApiError
+     */
+    public static importAdminDocuments(data: AdminImportAdminDocumentsData): CancelablePromise<AdminImportAdminDocumentsResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/admin/documents/import',
+            formData: data.formData,
+            mediaType: 'multipart/form-data',
             errors: {
                 422: 'Validation Error'
             }
@@ -305,57 +329,6 @@ export class AdminService {
             url: '/api/v1/admin/metrics/users',
             query: {
                 dataset_id: data.datasetId
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-
-    /**
-     * Start Nice Import
-     * @param data The data for the request.
-     * @param data.requestBody
-     * @returns NiceImportJobStatusResponse Successful Response
-     * @throws ApiError
-     */
-    public static startNiceImport(data: AdminStartNiceImportData): CancelablePromise<AdminStartNiceImportResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/v1/admin/nice-imports',
-            body: data.requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-
-    /**
-     * Read Current Nice Import
-     * @returns unknown Successful Response
-     * @throws ApiError
-     */
-    public static readCurrentNiceImport(): CancelablePromise<AdminReadCurrentNiceImportResponse> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/v1/admin/nice-imports/current'
-        });
-    }
-
-    /**
-     * Cancel Nice Import
-     * @param data The data for the request.
-     * @param data.jobId
-     * @returns NiceImportJobStatusResponse Successful Response
-     * @throws ApiError
-     */
-    public static cancelNiceImport(data: AdminCancelNiceImportData): CancelablePromise<AdminCancelNiceImportResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/v1/admin/nice-imports/{job_id}/cancel',
-            path: {
-                job_id: data.jobId
             },
             errors: {
                 422: 'Validation Error'
@@ -873,41 +846,6 @@ export class LoginService {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/v1/reset-password/',
-            body: data.requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-}
-
-export class NiceService {
-    /**
-     * List Nice Downloads
-     * List previously downloaded NICE recommendations (metadata only).
-     * @returns NiceDownloadSummary Successful Response
-     * @throws ApiError
-     */
-    public static listNiceDownloads(): CancelablePromise<NiceListNiceDownloadsResponse> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/v1/nice/downloads'
-        });
-    }
-
-    /**
-     * Fetch Nice Recommendation By Url
-     * Materialize a locally imported NICE recommendation URL.
-     * @param data The data for the request.
-     * @param data.requestBody
-     * @returns NiceDocumentResponse Successful Response
-     * @throws ApiError
-     */
-    public static fetchNiceRecommendationByUrl(data: NiceFetchNiceRecommendationByUrlData): CancelablePromise<NiceFetchNiceRecommendationByUrlResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/v1/nice/recommendation-url',
             body: data.requestBody,
             mediaType: 'application/json',
             errors: {

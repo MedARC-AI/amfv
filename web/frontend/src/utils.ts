@@ -46,6 +46,19 @@ export function apiErrorMessage(err: unknown): string {
   return "Something went wrong."
 }
 
+/**
+ * Return a persisted source URL when the backend supplied one.
+ *
+ * This accepts the shared summary/detail provenance shape and never infers a
+ * source-specific URL from an external identifier.
+ */
+export function sourceDocumentUrl(
+  document: { source_url?: string | null } | null | undefined,
+): string | null {
+  const url = document?.source_url
+  return typeof url === "string" && url.length > 0 ? url : null
+}
+
 export const handleError = function (
   this: (msg: string) => void,
   err: ApiError,

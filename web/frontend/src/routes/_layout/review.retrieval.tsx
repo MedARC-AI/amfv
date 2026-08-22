@@ -22,8 +22,8 @@ import {
   searchMatchesByChunk,
 } from "@/lib/documentSearch"
 import { evalItemDomId } from "@/lib/evalItemPalette"
-import { niceDocumentUrl } from "@/lib/nice"
 import { cn } from "@/lib/utils"
+import { sourceDocumentUrl } from "@/utils"
 
 export const Route = createFileRoute("/_layout/review/retrieval")({
   component: RetrievalReview,
@@ -419,7 +419,7 @@ const RetrievalReviewDocumentViewer = React.memo(
     const [searchOpen, setSearchOpen] = React.useState(false)
     const [searchQuery, setSearchQuery] = React.useState("")
     const [textSize, setTextSize] = React.useState(1)
-    const sourceUrl = document ? niceDocumentUrl(document.external_id) : null
+    const sourceUrl = sourceDocumentUrl(document)
     const chunks = document?.chunks ?? fallbackChunks
     const textSizeClass =
       textSize === 0 ? "text-sm" : textSize === 1 ? "text-base" : "text-lg"

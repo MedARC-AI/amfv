@@ -7,6 +7,18 @@ test("admin can create datasets and source documents", async ({ page }) => {
   const documentTitle = `PW Source ${suffix}`
   const documentExternalId = `pw-source-${suffix}`
   const documentText = `This source document was created by Playwright ${suffix}. It has enough text for a document preview.`
+  const importedExternalId = `pw-imported-source-${suffix}`
+  const importedSourceUrl = `https://www.nice.org.uk/advice/example-${suffix}`
+  const importArtifact = `${JSON.stringify({
+    schema_version: 1,
+    source: "nice",
+    external_id: importedExternalId,
+    title: `PW Imported Source ${suffix}`,
+    url: importedSourceUrl,
+    content: `Imported source content ${suffix}.`,
+    section_count: 1,
+    metadata: { ref: `EA${suffix}`, kind: "advice" },
+  })}\n`
 
   await page.goto("/admin")
 
@@ -37,4 +49,26 @@ test("admin can create datasets and source documents", async ({ page }) => {
 
   await row.getByRole("button", { name: "Deactivate" }).click()
   await expect(row.getByText("Inactive").first()).toBeVisible()
+
+  await page.getByTestId("admin-document-import-dataset").click()
+  await page.getByRole("option", { name: datasetDisplayName }).click()
+  await page.getByLabel("JSONL artifact").setInputFiles({
+    name: "documents.jsonl",
+    mimeType: "application/x-ndjson",
+    buffer: Buffer.from(importArtifact),
+  })
+  await page.getByRole("button", { name: "Validate artifact" }).click()
+  await expect(page.getByText("Dry-run result")).toBeVisible()
+  await expect(
+    page.getByTestId(`admin-document-${importedExternalId}`),
+  ).toHaveCount(0)
+
+  await page.getByLabel("Dry run (no writes)").click()
+  await page.getByRole("button", { name: "Import documents" }).click()
+  await expect(page.getByText("Import result")).toBeVisible()
+  const importedRow = page.getByTestId(`admin-document-${importedExternalId}`)
+  await expect(importedRow).toBeVisible()
+  await expect(
+    importedRow.getByRole("link", { name: "Source URL" }),
+  ).toHaveAttribute("href", importedSourceUrl)
 })

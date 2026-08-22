@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import {
   ExternalLink,
@@ -51,9 +51,8 @@ import {
   searchMatchesByChunk,
 } from "@/lib/documentSearch"
 import { evalItemColor, evalItemDomId } from "@/lib/evalItemPalette"
-import { type NiceDocument, niceDocumentUrl } from "@/lib/nice"
 import { cn } from "@/lib/utils"
-import { apiErrorMessage } from "@/utils"
+import { apiErrorMessage, sourceDocumentUrl } from "@/utils"
 export const Route = createFileRoute("/_layout/create/retrieval")({
   component: RetrievalCreate,
   head: () => ({
@@ -369,7 +368,6 @@ type RetrievalControlPanelProps = {
   onEditEvalItem: (itemId: string) => void
   onMoveGoldSpan: (id: string, direction: "up" | "down") => void
   onMoveTrapSpan: (id: string, direction: "up" | "down") => void
-  onNiceCreated: (document: NiceDocument) => void
   onShowUsedDocumentsChange: (showUsed: boolean) => void
   onLocateEvidenceSpan: (span: EvidenceSpan) => void
   onPreview: () => void
@@ -412,7 +410,6 @@ function RetrievalControlPanel({
   onPreview,
   onMoveGoldSpan,
   onMoveTrapSpan,
-  onNiceCreated,
   onShowUsedDocumentsChange,
   onRemoveGoldSpan,
   onRemoveTrapSpan,
@@ -506,9 +503,7 @@ function RetrievalControlPanel({
           <div className="space-y-2">
             <SourceDocumentDialog
               activeDocumentId={activeDocumentId}
-              datasetId={datasetId}
               documents={documents}
-              onNiceCreated={onNiceCreated}
               onSelect={onSelectDocument}
               onShowUsedDocumentsChange={onShowUsedDocumentsChange}
               onToggle={onToggleDocument}
@@ -838,7 +833,7 @@ const RetrievalDocumentViewer = React.memo(function RetrievalDocumentViewer({
     )
   }
 
-  const sourceUrl = niceDocumentUrl(document.external_id)
+  const sourceUrl = sourceDocumentUrl(document)
   const textSizeClass =
     textSize === 0 ? "text-sm" : textSize === 1 ? "text-base" : "text-lg"
 
@@ -1054,8 +1049,6 @@ function RetrievalCreate() {
     return spansByChunk
   }, [activeCommittedSpansByChunk, savedEvalItemSpansByChunk])
 
-  const queryClient = useQueryClient()
-
   const optionsQuery = useQuery({
     queryKey: ["create-options"],
     queryFn: CreateService.readCreateOptions,
@@ -1070,8 +1063,7 @@ function RetrievalCreate() {
       return
     }
     const defaultDataset =
-      retrievalDatasets.find((dataset) => dataset.name === "nice-webscrape") ??
-      (retrievalDatasets.length === 1 ? retrievalDatasets[0] : null)
+      retrievalDatasets.length === 1 ? retrievalDatasets[0] : null
     if (defaultDataset) {
       setDatasetId(defaultDataset.id)
     }
@@ -1250,24 +1242,6 @@ function RetrievalCreate() {
     setActiveDocumentId(documentId)
     setUndoStack([])
     setLocalValidationFlags([])
-  }
-
-  const handleNiceCreated = async (document: NiceDocument) => {
-    // The document may have landed in the shared "NICE Webscrape" dataset, which
-    // may be newly created — refresh the dataset list and switch to it.
-    setDatasetId(document.dataset_id)
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["create-options"] }),
-      queryClient.invalidateQueries({
-        queryKey: ["create-source-documents", document.dataset_id],
-      }),
-    ])
-    selectDocument(document.document_id)
-    setValidation(null)
-    setLocalValidationFlags([])
-    setResultMessage(
-      `Loaded ${document.reference}: ${document.title} (${document.section_count} sections).`,
-    )
   }
 
   const locateEvidenceSpan = React.useCallback((span: EvidenceSpan) => {
@@ -1665,7 +1639,6 @@ function RetrievalCreate() {
           onMoveTrapSpan={(id, direction) =>
             setTrapSpans((current) => moveSpan(current, id, direction))
           }
-          onNiceCreated={handleNiceCreated}
           onRemoveGoldSpan={(id) => removeEvidenceSpanById(id)}
           onRemoveTrapSpan={(id) => removeEvidenceSpanById(id)}
           onSelectDocument={selectDocument}

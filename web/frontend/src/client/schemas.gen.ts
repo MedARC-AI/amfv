@@ -403,6 +403,28 @@ export const AuthoringItemStateSchema = {
     type: 'object'
 } as const;
 
+export const Body_admin_import_admin_documentsSchema = {
+    properties: {
+        dataset_id: {
+            title: 'Dataset Id',
+            type: 'integer'
+        },
+        dry_run: {
+            default: false,
+            title: 'Dry Run',
+            type: 'boolean'
+        },
+        file: {
+            contentMediaType: 'application/octet-stream',
+            title: 'File',
+            type: 'string'
+        }
+    },
+    required: ['dataset_id', 'file'],
+    title: 'Body_admin-import_admin_documents',
+    type: 'object'
+} as const;
+
 export const Body_auth_preview_inviteSchema = {
     properties: {
         token: {
@@ -774,6 +796,17 @@ export const DocumentDetailSchema = {
             title: 'Paragraphs',
             type: 'array'
         },
+        source_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Source Url'
+        },
         title: {
             title: 'Title',
             type: 'string'
@@ -781,6 +814,56 @@ export const DocumentDetailSchema = {
     },
     required: ['id', 'dataset_id', 'external_id', 'title', 'is_active', 'content'],
     title: 'DocumentDetail',
+    type: 'object'
+} as const;
+
+export const DocumentImportErrorSchema = {
+    description: 'One bounded, line-local document import failure.',
+    properties: {
+        line: {
+            minimum: 1,
+            title: 'Line',
+            type: 'integer'
+        },
+        message: {
+            title: 'Message',
+            type: 'string'
+        }
+    },
+    required: ['line', 'message'],
+    title: 'DocumentImportError',
+    type: 'object'
+} as const;
+
+export const DocumentImportSummarySchema = {
+    description: 'Counts and bounded errors produced by a document JSONL import.',
+    properties: {
+        created: {
+            title: 'Created',
+            type: 'integer'
+        },
+        dry_run: {
+            title: 'Dry Run',
+            type: 'boolean'
+        },
+        errors: {
+            items: {
+                '$ref': '#/components/schemas/DocumentImportError'
+            },
+            title: 'Errors',
+            type: 'array'
+        },
+        rejected: {
+            title: 'Rejected',
+            type: 'integer'
+        },
+        unchanged: {
+            title: 'Unchanged',
+            type: 'integer'
+        }
+    },
+    required: ['created', 'unchanged', 'rejected', 'errors', 'dry_run'],
+    title: 'DocumentImportSummary',
     type: 'object'
 } as const;
 
@@ -801,6 +884,17 @@ export const DocumentSummarySchema = {
         is_active: {
             title: 'Is Active',
             type: 'boolean'
+        },
+        source_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Source Url'
         },
         title: {
             title: 'Title',
@@ -1313,206 +1407,6 @@ export const NextReviewRecommendationSchema = {
     },
     required: ['kind', 'eval_type', 'dataset_id', 'title', 'reason', 'review_url', 'reservation_state'],
     title: 'NextReviewRecommendation',
-    type: 'object'
-} as const;
-
-export const NiceDocumentResponseSchema = {
-    properties: {
-        char_count: {
-            title: 'Char Count',
-            type: 'integer'
-        },
-        dataset_id: {
-            title: 'Dataset Id',
-            type: 'integer'
-        },
-        document_id: {
-            title: 'Document Id',
-            type: 'integer'
-        },
-        page_url: {
-            title: 'Page Url',
-            type: 'string'
-        },
-        reference: {
-            title: 'Reference',
-            type: 'string'
-        },
-        section_count: {
-            title: 'Section Count',
-            type: 'integer'
-        },
-        title: {
-            title: 'Title',
-            type: 'string'
-        }
-    },
-    required: ['document_id', 'dataset_id', 'reference', 'title', 'section_count', 'char_count', 'page_url'],
-    title: 'NiceDocumentResponse',
-    type: 'object'
-} as const;
-
-export const NiceDownloadSummarySchema = {
-    properties: {
-        char_count: {
-            title: 'Char Count',
-            type: 'integer'
-        },
-        id: {
-            title: 'Id',
-            type: 'integer'
-        },
-        page_count: {
-            title: 'Page Count',
-            type: 'integer'
-        },
-        page_url: {
-            title: 'Page Url',
-            type: 'string'
-        },
-        reference: {
-            title: 'Reference',
-            type: 'string'
-        },
-        title: {
-            title: 'Title',
-            type: 'string'
-        }
-    },
-    required: ['id', 'reference', 'title', 'page_url', 'page_count', 'char_count'],
-    title: 'NiceDownloadSummary',
-    type: 'object'
-} as const;
-
-export const NiceImportJobStatusSchema = {
-    enum: ['pending', 'running', 'completed', 'failed', 'cancelled'],
-    title: 'NiceImportJobStatus',
-    type: 'string'
-} as const;
-
-export const NiceImportJobStatusResponseSchema = {
-    properties: {
-        completed_count: {
-            title: 'Completed Count',
-            type: 'integer'
-        },
-        failed_count: {
-            title: 'Failed Count',
-            type: 'integer'
-        },
-        finished_at: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Finished At'
-        },
-        heartbeat_at: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Heartbeat At'
-        },
-        id: {
-            title: 'Id',
-            type: 'integer'
-        },
-        last_error: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Last Error'
-        },
-        requested_limit: {
-            '$ref': '#/components/schemas/NiceImportLimit'
-        },
-        started_at: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Started At'
-        },
-        started_by_user_id: {
-            title: 'Started By User Id',
-            type: 'string'
-        },
-        status: {
-            '$ref': '#/components/schemas/NiceImportJobStatus'
-        },
-        target_count: {
-            anyOf: [
-                {
-                    type: 'integer'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Target Count'
-        }
-    },
-    required: ['id', 'status', 'requested_limit', 'completed_count', 'failed_count', 'started_by_user_id'],
-    title: 'NiceImportJobStatusResponse',
-    type: 'object'
-} as const;
-
-export const NiceImportLimitSchema = {
-    enum: ['10', '20', '50', 'all'],
-    title: 'NiceImportLimit',
-    type: 'string'
-} as const;
-
-export const NiceImportStartSchema = {
-    properties: {
-        limit: {
-            enum: [10, 20, 50, 'all'],
-            title: 'Limit'
-        }
-    },
-    required: ['limit'],
-    title: 'NiceImportStart',
-    type: 'object'
-} as const;
-
-export const NiceUrlRecommendationRequestSchema = {
-    properties: {
-        dataset_id: {
-            anyOf: [
-                {
-                    type: 'integer'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Dataset Id'
-        },
-        url: {
-            title: 'Url',
-            type: 'string'
-        }
-    },
-    required: ['url'],
-    title: 'NiceUrlRecommendationRequest',
     type: 'object'
 } as const;
 

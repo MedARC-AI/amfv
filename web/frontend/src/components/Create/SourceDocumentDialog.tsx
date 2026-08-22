@@ -1,13 +1,4 @@
-import { useMutation } from "@tanstack/react-query"
-import {
-  Check,
-  FileText,
-  Import,
-  Loader2,
-  Search,
-  Sparkles,
-  X,
-} from "lucide-react"
+import { Check, FileText, Search, Sparkles, X } from "lucide-react"
 import * as React from "react"
 
 import type { DocumentSummary } from "@/client"
@@ -21,10 +12,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import useCustomToast from "@/hooks/useCustomToast"
-import { createNiceDocumentFromUrl, type NiceDocument } from "@/lib/nice"
 import { cn } from "@/lib/utils"
 
 /**
@@ -39,30 +28,10 @@ function normalize(value: string): string {
   return value.toLowerCase().trim()
 }
 
-function niceExternalIdFromUrl(value: string): string | null {
-  let parsed: URL
-  try {
-    parsed = new URL(value.trim())
-  } catch {
-    return null
-  }
-
-  if (
-    !["nice.org.uk", "www.nice.org.uk"].includes(parsed.hostname.toLowerCase())
-  ) {
-    return null
-  }
-
-  const match = parsed.pathname.match(/^\/guidance\/((?:ng|cg)\d+)(?:\/|$)/i)
-  return match ? `nice-${match[1].toLowerCase()}` : null
-}
-
 type SourceDocumentDialogProps = {
   activeDocumentId: number | null
-  datasetId: number | null
   documents: DocumentSummary[]
   onSelect: (documentId: number) => void
-  onNiceCreated: (document: NiceDocument) => void
   onToggle: (document: DocumentSummary, checked: boolean) => void
   selectedDocumentIds: number[]
   showUsedDocuments: boolean
@@ -76,19 +45,16 @@ type SourceDocumentDialogProps = {
  */
 export default function SourceDocumentDialog({
   activeDocumentId,
-  datasetId,
   documents,
   onSelect,
-  onNiceCreated,
   onToggle,
   selectedDocumentIds,
   showUsedDocuments,
   onShowUsedDocumentsChange,
 }: SourceDocumentDialogProps) {
-  const { showSuccessToast, showErrorToast } = useCustomToast()
+  const { showErrorToast } = useCustomToast()
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState("")
-  const [url, setUrl] = React.useState("")
   const [highlightedIndex, setHighlightedIndex] = React.useState(0)
   const listRef = React.useRef<HTMLDivElement>(null)
 
@@ -126,26 +92,6 @@ export default function SourceDocumentDialog({
     setOpen(false)
   }
 
-  // Imported documents are handed to the parent, which selects and opens them;
-  // the picker then closes so the user lands on the document ready to highlight
-  // evidence.
-  const acquired = (document: NiceDocument) => {
-    showSuccessToast(`Loaded ${document.reference}: ${document.title}`)
-    onNiceCreated(document)
-    setOpen(false)
-  }
-
-  const urlMutation = useMutation({
-    mutationFn: (niceUrl: string) =>
-      createNiceDocumentFromUrl(datasetId, niceUrl),
-    onSuccess: (document) => {
-      setUrl("")
-      acquired(document)
-    },
-    onError: (error: Error) => showErrorToast(error.message),
-  })
-
-  const acquiring = urlMutation.isPending
   const chooseLuckyDocument = () => {
     const hasSearch = normalize(query).length > 0
     const candidates = hasSearch ? filtered : documents
@@ -159,26 +105,6 @@ export default function SourceDocumentDialog({
     }
     const document = candidates[Math.floor(Math.random() * candidates.length)]
     choose(document.id)
-  }
-
-  const importUrl = () => {
-    const sourceUrl = url.trim()
-    if (!sourceUrl) {
-      showErrorToast("Enter a source document URL")
-      return
-    }
-    const externalId = niceExternalIdFromUrl(sourceUrl)
-    if (externalId) {
-      const existing = documents.find(
-        (document) => document.external_id.toLowerCase() === externalId,
-      )
-      if (existing) {
-        setUrl("")
-        choose(existing.id)
-        return
-      }
-    }
-    urlMutation.mutate(sourceUrl)
   }
 
   const onListKeyDown = (event: React.KeyboardEvent) => {
@@ -249,8 +175,7 @@ export default function SourceDocumentDialog({
           <div className="space-y-1">
             <DialogTitle>Source documents</DialogTitle>
             <DialogDescription>
-              Search the imported set, randomly select an available document, or
-              import a source document URL.
+              Search the imported set or randomly select an available document.
             </DialogDescription>
           </div>
           <div className="relative">
@@ -270,7 +195,7 @@ export default function SourceDocumentDialog({
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Button
               className="shrink-0"
-              disabled={acquiring || documents.length === 0}
+              disabled={documents.length === 0}
               onClick={chooseLuckyDocument}
               type="button"
               variant="secondary"
@@ -278,34 +203,6 @@ export default function SourceDocumentDialog({
               <Sparkles className="size-4" />
               I'm feeling lucky
             </Button>
-            <div className="flex flex-1 gap-2">
-              <Input
-                aria-label="Source document URL"
-                onChange={(event) => setUrl(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault()
-                    importUrl()
-                  }
-                }}
-                placeholder="https://example.org/source-document"
-                value={url}
-              />
-              <Button
-                className="shrink-0"
-                disabled={acquiring}
-                onClick={importUrl}
-                type="button"
-                variant="outline"
-              >
-                {urlMutation.isPending ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Import className="size-4" />
-                )}
-                Import URL
-              </Button>
-            </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
             <span>
@@ -337,8 +234,7 @@ export default function SourceDocumentDialog({
         <div className="min-h-0 flex-1 overflow-y-auto p-2" ref={listRef}>
           {documents.length === 0 ? (
             <p className="p-6 text-center text-sm text-muted-foreground">
-              No source documents available. Import a source document URL, or
-              show documents you've already used.
+              No source documents available. Show documents you've already used.
             </p>
           ) : visible.length === 0 ? (
             <p className="p-6 text-center text-sm text-muted-foreground">
