@@ -4,8 +4,8 @@ import { useNavigate } from "@tanstack/react-router"
 import {
   type Body_login_login_access_token as AccessToken,
   AuthService,
+  type InviteSignupRequest,
   LoginService,
-  type UserRegister,
 } from "@/client"
 import { clearAccessToken, isLoggedIn, setAccessToken } from "@/lib/auth"
 import {
@@ -27,7 +27,7 @@ const useAuth = () => {
   })
 
   const signUpMutation = useMutation({
-    mutationFn: (data: UserRegister) =>
+    mutationFn: (data: InviteSignupRequest) =>
       AuthService.inviteSignup({ requestBody: data }),
     onSuccess: (response) => {
       setAccessToken(response.access_token)

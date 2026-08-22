@@ -36,7 +36,7 @@ export const Route = createFileRoute("/_layout/review/retrieval")({
   }),
 })
 
-type RubricScore = RetrievalReviewSubmit["question_validity"]
+type RubricScore = NonNullable<RetrievalReviewSubmit["question_validity"]>
 type RubricFieldKey =
   | "question_validity"
   | "evidence_quality"

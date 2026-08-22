@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import { Loader2 } from "lucide-react"
 import { useForm } from "react-hook-form"
-import { z } from "zod"
 
 import { AuthService } from "@/client"
 import { AuthLayout } from "@/components/Common/AuthLayout"
@@ -18,10 +17,6 @@ import {
   type UserAccountFormData,
 } from "@/lib/userProfile"
 
-const searchSchema = z.object({
-  token: z.string().catch(""),
-})
-
 const inviteRoleLabels = {
   user: "User",
   data_admin: "Data admin",
@@ -33,14 +28,27 @@ type FormData = UserAccountFormData & {
   confirm_password: string
 }
 
+function consumeInviteToken(hash: string): string {
+  const token = new URLSearchParams(hash.replace(/^#/, "")).get("token") ?? ""
+  if (hash) {
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${window.location.search}`,
+    )
+  }
+  return token
+}
+
 export const Route = createFileRoute("/signup")({
   component: SignUp,
-  validateSearch: searchSchema,
-  beforeLoad: async ({ context, search }) => {
-    await redirectIfAuthenticated(context.queryClient)
-    if (!search.token) {
+  beforeLoad: async ({ context, location }) => {
+    const inviteToken = consumeInviteToken(location.hash)
+    if (!inviteToken) {
       throw redirect({ to: "/login" })
     }
+    await redirectIfAuthenticated(context.queryClient)
+    return { inviteToken }
   },
   head: () => ({
     meta: [
@@ -52,11 +60,12 @@ export const Route = createFileRoute("/signup")({
 })
 
 function SignUp() {
-  const { token } = Route.useSearch()
+  const { inviteToken } = Route.useRouteContext()
   const { signUpMutation } = useAuth()
   const inviteQuery = useQuery({
-    queryKey: ["invite-preview", token],
-    queryFn: () => AuthService.previewInvite({ token }),
+    queryKey: ["invite-preview", inviteToken],
+    queryFn: () =>
+      AuthService.previewInvite({ requestBody: { token: inviteToken } }),
   })
   const form = useForm<FormData, unknown, FormData>({
     resolver: createUserAccountFormResolver<FormData>({
@@ -79,7 +88,7 @@ function SignUp() {
   const onSubmit = (data: FormData) => {
     if (signUpMutation.isPending) return
     signUpMutation.mutate({
-      invite_token: token,
+      invite_token: inviteToken,
       ...buildUserProfilePayload(data),
       ...buildPasswordPayload(data),
       password: data.password,

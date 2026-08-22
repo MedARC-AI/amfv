@@ -135,7 +135,7 @@ function InvitePanel() {
 
   const inviteLink = useMemo(() => {
     if (!invite) return ""
-    return `${getPublicAppUrl()}/signup?token=${invite.token}`
+    return `${getPublicAppUrl()}/signup#token=${encodeURIComponent(invite.token)}`
   }, [invite])
 
   const { data: invites } = useQuery(getInvitesQueryOptions())

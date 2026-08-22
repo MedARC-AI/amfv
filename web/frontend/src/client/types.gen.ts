@@ -67,6 +67,23 @@ export type AssignmentKind = 'REGULAR' | 'DOUBLE' | 'CALIBRATION' | 'TRAP';
 
 export type AssignmentMode = 'ITEM_AUDIT' | 'RELEVANCE';
 
+/**
+ * Record why an incomplete assignment is being returned to the queue.
+ */
+export type AssignmentRelease = {
+    reason: string;
+};
+
+export type AssignmentReleaseResponse = {
+    id: number;
+    release_reason: string;
+    released?: boolean;
+};
+
+export type Body_auth_preview_invite = {
+    token: string;
+};
+
 export type Body_login_login_access_token = {
     client_id?: (string | null);
     client_secret?: (string | null);
@@ -231,7 +248,21 @@ export type HTTPValidationError = {
     detail?: Array<ValidationError>;
 };
 
+/**
+ * Signup payload that lets the route normalize malformed invite tokens.
+ */
+export type InviteSignupRequest = {
+    discord_handle?: (string | null);
+    email: string;
+    full_name?: (string | null);
+    invite_token: string;
+    medical_profession?: (string | null);
+    password: string;
+};
+
 export type ItemStatus = 'DRAFT' | 'SUBMITTED' | 'ACTIVE' | 'REJECTED';
+
+export type ItemVerdict = 'ACCEPT' | 'REJECT';
 
 export type JudgmentConfidence = 'EASY_CALL' | 'DELIBERATED';
 
@@ -379,9 +410,7 @@ export type RetrievalReviewPayload = {
     chunks?: Array<ChunkSummary>;
     dataset: ReviewDataset;
     documents?: Array<DocumentDetail>;
-    existing_submission?: ({
-    [key: string]: unknown;
-} | null);
+    existing_submission?: (RetrievalReviewSubmission | null);
     gold_evidence_spans?: Array<EvidenceSpan>;
     item: ReviewItem;
     item_revision: number;
@@ -389,22 +418,40 @@ export type RetrievalReviewPayload = {
     trap_evidence_spans?: Array<EvidenceSpan>;
 };
 
-export type RetrievalReviewSubmit = {
-    accept_as_gold: boolean;
-    answer_correctness: 1 | 2 | 3 | 4;
-    answer_faithfulness: 1 | 2 | 3 | 4;
-    evidence_quality: 1 | 2 | 3 | 4;
+/**
+ * Canonical persisted retrieval-review state returned to a reviewer.
+ */
+export type RetrievalReviewSubmission = {
+    answer_correctness?: (number | null);
+    answer_faithfulness?: (number | null);
+    evidence_quality?: (number | null);
+    id: number;
     notes?: (string | null);
-    question_validity: 1 | 2 | 3 | 4;
+    question_validity?: (number | null);
+    skip_reason?: (string | null);
+    skipped: boolean;
+    verdict?: (ItemVerdict | null);
 };
 
-export type answer_correctness = 1 | 2 | 3 | 4;
+export type RetrievalReviewSubmit = {
+    accept_as_gold?: (boolean | null);
+    answer_correctness?: (1 | 2 | 3 | 4 | null);
+    answer_faithfulness?: (1 | 2 | 3 | 4 | null);
+    evidence_quality?: (1 | 2 | 3 | 4 | null);
+    notes?: (string | null);
+    question_validity?: (1 | 2 | 3 | 4 | null);
+    skip_reason?: (string | null);
+    skipped?: boolean;
+};
 
-export type answer_faithfulness = 1 | 2 | 3 | 4;
-
-export type evidence_quality = 1 | 2 | 3 | 4;
-
-export type question_validity = 1 | 2 | 3 | 4;
+/**
+ * Request one review claim in a selected evaluation dataset.
+ */
+export type ReviewClaimRequest = {
+    dataset_id?: (number | null);
+    eval_type: EvalType;
+    mode?: AssignmentMode;
+};
 
 export type ReviewDataset = {
     display_name: string;
@@ -526,15 +573,6 @@ export type UserPublic = {
     medical_profession?: (string | null);
     reviewer_kind?: ReviewerKind;
     role?: UserRole;
-};
-
-export type UserRegister = {
-    discord_handle?: (string | null);
-    email: string;
-    full_name?: (string | null);
-    invite_token: string;
-    medical_profession?: (string | null);
-    password: string;
 };
 
 export type UserRole = 'user' | 'data_admin' | 'admin';
@@ -706,20 +744,20 @@ export type AuthCreateInviteData = {
 
 export type AuthCreateInviteResponse = (SignupInviteCreated);
 
+export type AuthPreviewInviteData = {
+    requestBody: Body_auth_preview_invite;
+};
+
+export type AuthPreviewInviteResponse = (SignupInvitePreview);
+
 export type AuthDisableInviteData = {
     inviteId: string;
 };
 
 export type AuthDisableInviteResponse = (SignupInvitePublic);
 
-export type AuthPreviewInviteData = {
-    token: string;
-};
-
-export type AuthPreviewInviteResponse = (SignupInvitePreview);
-
 export type AuthInviteSignupData = {
-    requestBody: UserRegister;
+    requestBody: InviteSignupRequest;
 };
 
 export type AuthInviteSignupResponse = (Token);
@@ -807,6 +845,19 @@ export type NiceFetchNiceRecommendationByUrlData = {
 };
 
 export type NiceFetchNiceRecommendationByUrlResponse = (NiceDocumentResponse);
+
+export type ReviewReleaseReviewAssignmentData = {
+    assignmentId: number;
+    requestBody: AssignmentRelease;
+};
+
+export type ReviewReleaseReviewAssignmentResponse = (AssignmentReleaseResponse);
+
+export type ReviewClaimNextReviewTaskData = {
+    requestBody: ReviewClaimRequest;
+};
+
+export type ReviewClaimNextReviewTaskResponse = (NextReviewRecommendation);
 
 export type ReviewReadFactDecompReviewData = {
     taskId: number;

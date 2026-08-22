@@ -267,6 +267,55 @@ export const AssignmentModeSchema = {
     type: 'string'
 } as const;
 
+export const AssignmentReleaseSchema = {
+    description: 'Record why an incomplete assignment is being returned to the queue.',
+    properties: {
+        reason: {
+            maxLength: 500,
+            minLength: 1,
+            title: 'Reason',
+            type: 'string'
+        }
+    },
+    required: ['reason'],
+    title: 'AssignmentRelease',
+    type: 'object'
+} as const;
+
+export const AssignmentReleaseResponseSchema = {
+    properties: {
+        id: {
+            title: 'Id',
+            type: 'integer'
+        },
+        release_reason: {
+            title: 'Release Reason',
+            type: 'string'
+        },
+        released: {
+            default: true,
+            title: 'Released',
+            type: 'boolean'
+        }
+    },
+    required: ['id', 'release_reason'],
+    title: 'AssignmentReleaseResponse',
+    type: 'object'
+} as const;
+
+export const Body_auth_preview_inviteSchema = {
+    properties: {
+        token: {
+            maxLength: 255,
+            title: 'Token',
+            type: 'string'
+        }
+    },
+    required: ['token'],
+    title: 'Body_auth-preview_invite',
+    type: 'object'
+} as const;
+
 export const Body_login_login_access_tokenSchema = {
     properties: {
         client_id: {
@@ -963,9 +1012,77 @@ export const HomeSummarySchema = {
     type: 'object'
 } as const;
 
+export const InviteSignupRequestSchema = {
+    description: 'Signup payload that lets the route normalize malformed invite tokens.',
+    properties: {
+        discord_handle: {
+            anyOf: [
+                {
+                    maxLength: 255,
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Discord Handle'
+        },
+        email: {
+            format: 'email',
+            maxLength: 255,
+            title: 'Email',
+            type: 'string'
+        },
+        full_name: {
+            anyOf: [
+                {
+                    maxLength: 255,
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Full Name'
+        },
+        invite_token: {
+            maxLength: 255,
+            title: 'Invite Token',
+            type: 'string'
+        },
+        medical_profession: {
+            anyOf: [
+                {
+                    maxLength: 100,
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Medical Profession'
+        },
+        password: {
+            maxLength: 128,
+            minLength: 8,
+            title: 'Password',
+            type: 'string'
+        }
+    },
+    required: ['invite_token', 'email', 'password'],
+    title: 'InviteSignupRequest',
+    type: 'object'
+} as const;
+
 export const ItemStatusSchema = {
     enum: ['DRAFT', 'SUBMITTED', 'ACTIVE', 'REJECTED'],
     title: 'ItemStatus',
+    type: 'string'
+} as const;
+
+export const ItemVerdictSchema = {
+    enum: ['ACCEPT', 'REJECT'],
+    title: 'ItemVerdict',
     type: 'string'
 } as const;
 
@@ -1596,14 +1713,12 @@ export const RetrievalReviewPayloadSchema = {
         existing_submission: {
             anyOf: [
                 {
-                    additionalProperties: true,
-                    type: 'object'
+                    '$ref': '#/components/schemas/RetrievalReviewSubmission'
                 },
                 {
                     type: 'null'
                 }
-            ],
-            title: 'Existing Submission'
+            ]
         },
         gold_evidence_spans: {
             items: {
@@ -1638,25 +1753,50 @@ export const RetrievalReviewPayloadSchema = {
     type: 'object'
 } as const;
 
-export const RetrievalReviewSubmitSchema = {
+export const RetrievalReviewSubmissionSchema = {
+    description: 'Canonical persisted retrieval-review state returned to a reviewer.',
     properties: {
-        accept_as_gold: {
-            title: 'Accept As Gold',
-            type: 'boolean'
-        },
         answer_correctness: {
-            enum: [1, 2, 3, 4],
-            title: 'Answer Correctness',
-            type: 'integer'
+            anyOf: [
+                {
+                    maximum: 4,
+                    minimum: 1,
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Answer Correctness'
         },
         answer_faithfulness: {
-            enum: [1, 2, 3, 4],
-            title: 'Answer Faithfulness',
-            type: 'integer'
+            anyOf: [
+                {
+                    maximum: 4,
+                    minimum: 1,
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Answer Faithfulness'
         },
         evidence_quality: {
-            enum: [1, 2, 3, 4],
-            title: 'Evidence Quality',
+            anyOf: [
+                {
+                    maximum: 4,
+                    minimum: 1,
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Evidence Quality'
+        },
+        id: {
+            title: 'Id',
             type: 'integer'
         },
         notes: {
@@ -1671,13 +1811,167 @@ export const RetrievalReviewSubmitSchema = {
             title: 'Notes'
         },
         question_validity: {
-            enum: [1, 2, 3, 4],
-            title: 'Question Validity',
-            type: 'integer'
+            anyOf: [
+                {
+                    maximum: 4,
+                    minimum: 1,
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Question Validity'
+        },
+        skip_reason: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Skip Reason'
+        },
+        skipped: {
+            title: 'Skipped',
+            type: 'boolean'
+        },
+        verdict: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/ItemVerdict'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         }
     },
-    required: ['question_validity', 'evidence_quality', 'answer_correctness', 'answer_faithfulness', 'accept_as_gold'],
+    required: ['id', 'skipped'],
+    title: 'RetrievalReviewSubmission',
+    type: 'object'
+} as const;
+
+export const RetrievalReviewSubmitSchema = {
+    properties: {
+        accept_as_gold: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Accept As Gold'
+        },
+        answer_correctness: {
+            anyOf: [
+                {
+                    enum: [1, 2, 3, 4],
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Answer Correctness'
+        },
+        answer_faithfulness: {
+            anyOf: [
+                {
+                    enum: [1, 2, 3, 4],
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Answer Faithfulness'
+        },
+        evidence_quality: {
+            anyOf: [
+                {
+                    enum: [1, 2, 3, 4],
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Evidence Quality'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        },
+        question_validity: {
+            anyOf: [
+                {
+                    enum: [1, 2, 3, 4],
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Question Validity'
+        },
+        skip_reason: {
+            anyOf: [
+                {
+                    maxLength: 500,
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Skip Reason'
+        },
+        skipped: {
+            default: false,
+            title: 'Skipped',
+            type: 'boolean'
+        }
+    },
     title: 'RetrievalReviewSubmit',
+    type: 'object'
+} as const;
+
+export const ReviewClaimRequestSchema = {
+    description: 'Request one review claim in a selected evaluation dataset.',
+    properties: {
+        dataset_id: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Dataset Id'
+        },
+        eval_type: {
+            '$ref': '#/components/schemas/EvalType'
+        },
+        mode: {
+            '$ref': '#/components/schemas/AssignmentMode',
+            default: 'ITEM_AUDIT'
+        }
+    },
+    required: ['eval_type'],
+    title: 'ReviewClaimRequest',
     type: 'object'
 } as const;
 
@@ -2308,68 +2602,6 @@ export const UserPublicSchema = {
     },
     required: ['email', 'id'],
     title: 'UserPublic',
-    type: 'object'
-} as const;
-
-export const UserRegisterSchema = {
-    properties: {
-        discord_handle: {
-            anyOf: [
-                {
-                    maxLength: 255,
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Discord Handle'
-        },
-        email: {
-            format: 'email',
-            maxLength: 255,
-            title: 'Email',
-            type: 'string'
-        },
-        full_name: {
-            anyOf: [
-                {
-                    maxLength: 255,
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Full Name'
-        },
-        invite_token: {
-            maxLength: 255,
-            minLength: 16,
-            title: 'Invite Token',
-            type: 'string'
-        },
-        medical_profession: {
-            anyOf: [
-                {
-                    maxLength: 100,
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Medical Profession'
-        },
-        password: {
-            maxLength: 128,
-            minLength: 8,
-            title: 'Password',
-            type: 'string'
-        }
-    },
-    required: ['invite_token', 'email', 'password'],
-    title: 'UserRegister',
     type: 'object'
 } as const;
 
