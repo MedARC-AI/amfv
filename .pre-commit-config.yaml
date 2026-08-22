@@ -1,0 +1,48 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c
+    hooks:
+      - id: check-added-large-files
+      - id: check-toml
+      - id: check-yaml
+        args: [--unsafe]
+      - id: end-of-file-fixer
+        exclude: ^web/frontend/src/client/|^web/backend/app/email-templates/build/
+      - id: trailing-whitespace
+        exclude: ^web/frontend/src/client/
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: Ruff check
+        entry: uv run ruff check --force-exclude
+        language: system
+        types: [python]
+      - id: ruff-format
+        name: Ruff format check
+        entry: uv run ruff format --force-exclude --check
+        language: system
+        types: [python]
+      - id: web-ty
+        name: Web backend ty check
+        entry: uv run ty check web/backend/app
+        language: system
+        pass_filenames: false
+        files: ^web/backend/.*\.py$
+      - id: web-frontend-check
+        name: Web frontend and email checks
+        entry: bash -c 'cd web && bun run check'
+        language: system
+        pass_filenames: false
+        files: ^web/(frontend/|backend/app/email-templates/|package\.json|bun\.lock)
+      - id: web-frontend-unit
+        name: Web frontend unit tests
+        entry: bash -c 'cd web && bun run test:unit'
+        language: system
+        pass_filenames: false
+        files: ^web/frontend/(src|tests)/
+      - id: generate-web-client
+        name: Generate web API client
+        entry: bash web/scripts/generate-client.sh
+        language: system
+        pass_filenames: false
+        files: ^web/backend/|^web/scripts/generate-client\.sh$

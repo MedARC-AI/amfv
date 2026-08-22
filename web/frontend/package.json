@@ -6,11 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.build.json && vite build",
-    "lint": "biome check --write --unsafe --no-errors-on-unmatched --files-ignore-unknown=true ./",
+    "lint": "biome check ./src ./tests",
+    "check": "tsc -p tsconfig.build.json && bun run lint && bun run test:unit",
     "preview": "vite preview",
     "generate-client": "openapi-ts",
     "check-client": "bun ./scripts/check-client.ts",
-    "test": "bash ../scripts/run-frontend-e2e.sh",
+    "test": "bun run test:unit",
+    "test:unit": "bun test src",
+    "test:e2e": "bash ../scripts/run-frontend-e2e.sh",
     "test:ui": "bunx playwright test --config playwright.config.cjs --ui"
   },
   "dependencies": {

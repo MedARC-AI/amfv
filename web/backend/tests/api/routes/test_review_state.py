@@ -101,9 +101,10 @@ def test_normal_retrieval_verdicts_control_relevance_eligibility(
     assert accepted_review.checks is None
     assert item_accepted_for_relevance(db, accepted_item)
     assert not item_accepted_for_relevance(db, rejected_item)
-    assert [candidate.id for candidate in available_relevance_candidates(db, labeler, dataset)] == [
-        accepted_candidate.id
-    ]
+    assert [
+        candidate.id
+        for candidate in available_relevance_candidates(db, labeler, dataset)
+    ] == [accepted_candidate.id]
 
 
 def test_retrieval_get_is_read_only_and_post_claim_is_idempotent(
@@ -233,7 +234,9 @@ def test_home_hides_full_item_slots_and_shows_released_slot(
 ) -> None:
     reviewer, reviewer_headers = _reviewer(client, db, "home-item-capacity")
     author = User(email=f"home-item-author-{uuid4()}@example.com", hashed_password="x")
-    slot_owner = User(email=f"home-item-owner-{uuid4()}@example.com", hashed_password="x")
+    slot_owner = User(
+        email=f"home-item-owner-{uuid4()}@example.com", hashed_password="x"
+    )
     dataset = Dataset(
         name=f"home-item-dataset-{uuid4()}",
         display_name="Home item capacity dataset",
@@ -253,10 +256,16 @@ def test_home_hides_full_item_slots_and_shows_released_slot(
     reviewer.fact_decomp_dataset_id = quiet_fact_dataset.id
     db.add(reviewer)
 
-    completed_item = _retrieval_item(db, dataset, author, "Completed slot stays occupied")
-    releasable_item = _retrieval_item(db, dataset, author, "Released slot becomes visible")
+    completed_item = _retrieval_item(
+        db, dataset, author, "Completed slot stays occupied"
+    )
+    releasable_item = _retrieval_item(
+        db, dataset, author, "Released slot becomes visible"
+    )
     completed_assignment = _assignment(db, dataset, slot_owner, completed_item, slot=0)
-    releasable_assignment = _assignment(db, dataset, slot_owner, releasable_item, slot=0)
+    releasable_assignment = _assignment(
+        db, dataset, slot_owner, releasable_item, slot=0
+    )
     complete_assignment(db, completed_assignment)
     db.commit()
 
@@ -284,9 +293,9 @@ def test_home_hides_full_item_slots_and_shows_released_slot(
     db.add(releasable_assignment)
     db.commit()
 
-    assert [item.id for item in available_item_audit_targets(db, reviewer, dataset)] == [
-        releasable_item.id
-    ]
+    assert [
+        item.id for item in available_item_audit_targets(db, reviewer, dataset)
+    ] == [releasable_item.id]
     released = client.get(
         f"{settings.API_V1_STR}/home/summary",
         headers=reviewer_headers,
@@ -320,7 +329,9 @@ def test_home_hides_full_relevance_slots_and_shows_released_slot(
     db: Session,
 ) -> None:
     reviewer, reviewer_headers = _reviewer(client, db, "home-relevance-capacity")
-    author = User(email=f"home-relevance-author-{uuid4()}@example.com", hashed_password="x")
+    author = User(
+        email=f"home-relevance-author-{uuid4()}@example.com", hashed_password="x"
+    )
     slot_owner = User(
         email=f"home-relevance-owner-{uuid4()}@example.com",
         hashed_password="x",
@@ -400,9 +411,10 @@ def test_home_hides_full_relevance_slots_and_shows_released_slot(
     db.add(relevance_assignment)
     db.commit()
 
-    assert [candidate_row.id for candidate_row in available_relevance_candidates(db, reviewer, dataset)] == [
-        candidate.id
-    ]
+    assert [
+        candidate_row.id
+        for candidate_row in available_relevance_candidates(db, reviewer, dataset)
+    ] == [candidate.id]
     released = client.get(
         f"{settings.API_V1_STR}/home/summary",
         headers=reviewer_headers,
@@ -531,7 +543,9 @@ def test_claim_keeps_dataset_preferences_separate_by_evaluation_type(
     )
     db.add_all([author, first_retrieval, selected_retrieval, fact_dataset])
     db.flush()
-    selected_item = _retrieval_item(db, selected_retrieval, author, "Selected retrieval")
+    selected_item = _retrieval_item(
+        db, selected_retrieval, author, "Selected retrieval"
+    )
     fact_item = EvalItem(
         dataset_id=fact_dataset.id,
         eval_type=EvalType.FACT_DECOMP,
@@ -665,9 +679,7 @@ def test_agreement_and_export_use_canonical_retrieval_columns(
         headers=superuser_token_headers,
     )
     assert metrics.status_code == 200
-    assert {
-        metric["dimension"] for metric in metrics.json()
-    } >= {
+    assert {metric["dimension"] for metric in metrics.json()} >= {
         "item_question_validity",
         "item_evidence_quality",
         "item_answer_correctness",
@@ -726,10 +738,14 @@ def test_task_generation_only_materializes_fact_decomposition_work(
     )
     assert retrieval_generation.json()["created"] == 0
     assert fact_generation.json()["created"] == 1
-    assert db.exec(select(ReviewTask).where(col(ReviewTask.item_a_id) == fact_item.id)).one()
+    assert db.exec(
+        select(ReviewTask).where(col(ReviewTask.item_a_id) == fact_item.id)
+    ).one()
 
 
-def _reviewer(client: TestClient, db: Session, prefix: str) -> tuple[User, dict[str, str]]:
+def _reviewer(
+    client: TestClient, db: Session, prefix: str
+) -> tuple[User, dict[str, str]]:
     email = f"{prefix}-{uuid4()}@example.com"
     headers = authentication_token_from_email(client=client, email=email, db=db)
     user = crud.get_user_by_email(session=db, email=email)

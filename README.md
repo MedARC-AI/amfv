@@ -2,7 +2,7 @@
 
 An open-source reproduction of Baichuan-M3's medical fact verification system, built by [MedARC](https://www.medarc.ai/).
 
-Under active development. 
+Under active development.
 
 ## System Sketch
 
@@ -33,4 +33,8 @@ they can evolve on their own.
 Install every Python workspace package and its development tools with `uv sync --dev`. Run all Python tests with
 `uv run pytest`, or only the web backend tests with `uv run pytest web/backend/tests`. Install and build the frontend with
 `cd web/frontend && bun install --frozen-lockfile && bun run build`. Regenerate the public API client from the repository
-root with `bash web/scripts/generate-client.sh`.
+root with `bash web/scripts/generate-client.sh`. Pure frontend tests run with
+`cd web/frontend && bun run test:unit`; the serial disposable-database browser
+suite runs with `bash web/scripts/run-frontend-e2e.sh`. Source-document JSONL is
+produced by `datasets` and imported through the generic contract in
+[`web/docs/ingest-format.md`](web/docs/ingest-format.md).

@@ -14,13 +14,9 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-if [[ -f "${ROOT_DIR}/.env" ]]; then
-  set -a
-  # shellcheck source=/dev/null
-  source "${ROOT_DIR}/.env"
-  set +a
-fi
-export BACKEND_PORT="${BACKEND_PORT:-21783}"
+# shellcheck source=common.sh
+source "${SCRIPT_DIR}/common.sh"
+amfv_load_web_environment "${ROOT_DIR}"
 
 "${SCRIPT_DIR}/backend-dev.sh" &
 BACKEND_PID="$!"

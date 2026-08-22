@@ -7,7 +7,15 @@
   "scripts": {
     "dev": "bun run --filter frontend dev",
     "lint": "bun run --filter frontend lint",
-    "test": "bun run --filter frontend test",
-    "test:ui": "bun run --filter frontend test:ui"
+    "check": "bun run email:check && bun run --filter frontend check",
+    "test": "bun run test:unit",
+    "test:unit": "bun run --filter frontend test:unit",
+    "test:e2e": "bun run --filter frontend test:e2e",
+    "test:ui": "bun run --filter frontend test:ui",
+    "email:build": "bun ./scripts/email-templates.mjs build",
+    "email:check": "bun ./scripts/email-templates.mjs check"
+  },
+  "devDependencies": {
+    "mjml": "4.15.3"
   }
 }

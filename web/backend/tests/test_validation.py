@@ -30,7 +30,9 @@ def session() -> Session:
 
 def test_verbatim_answer_must_appear_in_document() -> None:
     with session() as db:
-        dataset = Dataset(name="retrieval", display_name="Retrieval", eval_type=EvalType.RETRIEVAL)
+        dataset = Dataset(
+            name="retrieval", display_name="Retrieval", eval_type=EvalType.RETRIEVAL
+        )
         db.add(dataset)
         db.flush()
         document = Document(
@@ -64,7 +66,9 @@ def test_verbatim_answer_must_appear_in_document() -> None:
 
 def test_fact_decomp_requires_both_polarities() -> None:
     with session() as db:
-        dataset = Dataset(name="facts", display_name="Facts", eval_type=EvalType.FACT_DECOMP)
+        dataset = Dataset(
+            name="facts", display_name="Facts", eval_type=EvalType.FACT_DECOMP
+        )
         db.add(dataset)
         db.flush()
         item = EvalItem(
@@ -94,7 +98,11 @@ def test_fact_decomp_requires_both_polarities() -> None:
 
 def test_fact_decomp_warns_on_duplicate_and_context_dependent_facts() -> None:
     with session() as db:
-        dataset = Dataset(name="fact-warnings", display_name="Fact Warnings", eval_type=EvalType.FACT_DECOMP)
+        dataset = Dataset(
+            name="fact-warnings",
+            display_name="Fact Warnings",
+            eval_type=EvalType.FACT_DECOMP,
+        )
         db.add(dataset)
         db.flush()
         item = EvalItem(
@@ -139,7 +147,9 @@ def test_fact_decomp_warns_on_duplicate_and_context_dependent_facts() -> None:
 
 def test_evidence_span_validation_uses_python_code_point_offsets() -> None:
     with session() as db:
-        dataset = Dataset(name="span", display_name="Span", eval_type=EvalType.RETRIEVAL)
+        dataset = Dataset(
+            name="span", display_name="Span", eval_type=EvalType.RETRIEVAL
+        )
         db.add(dataset)
         db.flush()
         document = Document(
@@ -195,9 +205,13 @@ def test_evidence_span_validation_uses_python_code_point_offsets() -> None:
         assert [selected.id for selected in chunks] == [chunk.id, combining_chunk.id]
 
 
-def test_evidence_span_validation_rejects_stale_text_offsets_and_dataset_mismatch() -> None:
+def test_evidence_span_validation_rejects_stale_text_offsets_and_dataset_mismatch() -> (
+    None
+):
     with session() as db:
-        dataset = Dataset(name="span-a", display_name="Span A", eval_type=EvalType.RETRIEVAL)
+        dataset = Dataset(
+            name="span-a", display_name="Span A", eval_type=EvalType.RETRIEVAL
+        )
         other_dataset = Dataset(
             name="span-b", display_name="Span B", eval_type=EvalType.RETRIEVAL
         )
@@ -245,9 +259,7 @@ def test_evidence_span_validation_rejects_stale_text_offsets_and_dataset_mismatc
                 dataset_id=dataset.id,
                 spans=[
                     EvidenceSpan(chunk_id=chunk.id, start=0, end=7, text="Stale!!"),
-                    EvidenceSpan(
-                        chunk_id=other_chunk.id, start=0, end=5, text="Wrong"
-                    ),
+                    EvidenceSpan(chunk_id=other_chunk.id, start=0, end=5, text="Wrong"),
                 ],
             )
         except EvidenceSpanValidationError as exc:
@@ -259,7 +271,9 @@ def test_evidence_span_validation_rejects_stale_text_offsets_and_dataset_mismatc
 
 def test_multi_document_validation_uses_resolved_chunks() -> None:
     with session() as db:
-        dataset = Dataset(name="multi-doc", display_name="Multi Doc", eval_type=EvalType.RETRIEVAL)
+        dataset = Dataset(
+            name="multi-doc", display_name="Multi Doc", eval_type=EvalType.RETRIEVAL
+        )
         db.add(dataset)
         db.flush()
         first_document = Document(
@@ -318,4 +332,7 @@ def test_multi_document_validation_uses_resolved_chunks() -> None:
         result = validate_item(db, item, chunks=chunks)
 
         assert result.ok
-        assert {document.id for document in documents} == {first_document.id, second_document.id}
+        assert {document.id for document in documents} == {
+            first_document.id,
+            second_document.id,
+        }

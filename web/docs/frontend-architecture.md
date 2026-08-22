@@ -23,7 +23,12 @@ End users should see two main choices:
 
 Each choice branches into Retrieval and Fact Decomposition. Admin users get richer surfaces for datasets, source documents, moderation, task generation, export, users, user metrics, agreement, and inter-user agreement.
 
-The AMFV-specific `/api/v1/admin/users*`, ingest, and user review-history endpoints are still deferred. Basic user management uses the template `/api/v1/users` APIs. Do not add navigation or UI copy that implies the deferred AMFV admin features work until the backend endpoints are implemented.
+The AMFV-specific `/api/v1/admin/users*`, legacy item ingest, and user
+review-history endpoints are still deferred. The distinct generic document
+JSONL import is live at `/api/v1/admin/documents/import`. Basic user management
+uses the template `/api/v1/users` APIs. Do not add navigation or UI copy that
+implies the deferred AMFV admin features work until the backend endpoints are
+implemented.
 
 ## API Ownership
 
@@ -36,7 +41,7 @@ The backend is the source of truth for:
 - moderation status transitions;
 - task generation;
 - agreement and user metrics;
-- export shapes.
+- bounded, paginated export shapes.
 
 The frontend should not duplicate these rules. It should submit draft/review payloads, render returned validation flags, and refresh data after server mutations.
 
@@ -65,3 +70,7 @@ bash ./scripts/generate-client.sh
 ```
 
 The script writes `frontend/openapi.json`, regenerates `frontend/src/client/*`, and runs the generated-client smoke check.
+
+Review commands are authorized by each payload's literal `allowed_actions`;
+the UI refuses unavailable actions. Server and transport errors are rendered
+through bounded product messages rather than raw response bodies.

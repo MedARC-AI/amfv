@@ -4,7 +4,7 @@
 
 `backend/` is a FastAPI, SQLModel, Alembic, and SQLite app. Routes live in `backend/app/api/routes/`, domain services in `backend/app/services/`, models in `backend/app/models.py`, schemas in `backend/app/schemas.py`, and migrations in `backend/app/alembic/versions/`. Tests are under `backend/tests/`.
 
-`frontend/` is a Vite React TypeScript app using TanStack Router/Query, Tailwind, local UI components, and Playwright. UI code lives in `frontend/src/components/`, routes in `frontend/src/routes/`, hooks in `frontend/src/hooks/`, utilities in `frontend/src/lib/`, and e2e tests in `frontend/tests/`.
+`frontend/` is a Vite React TypeScript app using TanStack Router/Query, Tailwind, local UI components, and Playwright. UI code lives in `frontend/src/components/`, routes in `frontend/src/routes/`, hooks in `frontend/src/hooks/`, shared utilities in `frontend/src/`, and E2E tests in `frontend/tests/`.
 
 Read `docs/frontend-architecture.md` before changing review/create flows or highlighting. Read `docs/ingest-format.md` before touching ingest/export contracts. Larger planned efforts are organized in `workflows/*/{slices,reviews,results}`.
 
@@ -27,29 +27,32 @@ Do not hand-edit generated files: `frontend/src/client/*`, `frontend/openapi.jso
 - `bash ./scripts/dev.sh`: start the dev backend and frontend together.
 - `bash ./scripts/backend.sh`: apply migrations, seed the first superuser, and serve the backend with `fastapi run`.
 - `bash ./scripts/backend-dev.sh`: apply migrations, seed the first superuser, and serve the backend with `fastapi dev`.
-- `bash ./scripts/frontend.sh`: start Vite on `http://localhost:5173`.
+- `bash ./scripts/frontend.sh`: build and preview the frontend on `http://localhost:24861` by default.
 - `uv sync --dev` from the monorepo root: install all Python workspace packages and development tools.
 - `uv run pytest web/backend/tests` from the monorepo root: run the web backend tests.
 - `cd web/backend && uv run alembic upgrade head`: apply web database migrations.
 - `cd web/backend && uv run alembic revision --autogenerate -m "describe change"`: create a model migration.
-- `cd frontend && bun install`: install frontend dependencies.
+- `cd frontend && bun install --frozen-lockfile`: install frontend dependencies.
 - `cd frontend && bun run dev`: run the frontend manually.
+- `cd frontend && bun run test:unit`: run pure frontend tests.
+- `cd frontend && bun run test:e2e`: run the serial, disposable-real-backend Playwright suite.
+- `cd web && bun run email:check`: verify MJML-built HTML has no drift.
 
 ## Coding Style & Naming Conventions
 
-Python targets 3.10+. Use Ruff, Ruff format, and `ty`; keep routes thin and reusable behavior in services. Frontend uses Biome with spaces, double quotes, and semicolons as needed. Components use PascalCase, hooks use `useCamelCase`, and Playwright tests use descriptive `*.spec.ts` names.
+Python targets 3.13. Use Ruff, Ruff format, and `ty`; keep routes thin and reusable behavior in services. Frontend uses Biome with spaces and double quotes. Components use PascalCase, hooks use `useCamelCase`, and Playwright tests use descriptive `*.spec.ts` names.
 
 This repo is derived from `full-stack-fastapi-template`; inherited auth/user patterns are expected. User roles are `user`, `data_admin`, and `admin`. Signup is invite-gated. Local defaults from `.env.example` include `admin@example.com` / `changethis`.
 
 ## Testing Guidelines
 
-From the monorepo root, run backend checks with `uv run ruff check web/backend`, `uv run ty check web/backend/app`, and `uv run pytest web/backend/tests`. Run frontend checks from `web/frontend` with `bunx tsc -p tsconfig.build.json`, `bunx biome check ./src ./tests`, `bun run build`, and `bun run test`.
+From the monorepo root, run backend checks with `uv run ruff format --check web/backend`, `uv run ruff check web/backend`, `uv run ty check web/backend/app`, and `uv run pytest web/backend/tests`. Run frontend checks from `web/frontend` with `bun run check`, `bun run test:unit`, and `bun run build`. Use `bun run test:e2e` only for the explicit real-backend browser suite.
 
 For full hook parity, install/run `prek` from `backend/`: `uv run prek install -f` and `uv run prek run --all-files`.
 
 ## Commit & Pull Request Guidelines
 
-Recent commits use concise imperative subjects such as `Improve NICE source document flow`. Keep commits focused. PRs should include a summary, validation commands, linked issues when applicable, screenshots for UI changes, and explicit notes for migrations, generated client updates, ingest/export changes, or dataset-scoping implications.
+Recent commits use concise imperative subjects. Keep commits focused. PRs should include a summary, validation commands, linked issues when applicable, screenshots for UI changes, and explicit notes for migrations, generated client updates, ingest/export changes, or dataset-scoping implications.
 
 ## Security & Configuration Tips
 

@@ -101,6 +101,44 @@ test("previews and submits one retrieval batch with selected gold evidence", asy
   await expect(page.getByText("Submitted 1 item.")).toBeVisible()
 })
 
+test("recovers a persisted retrieval batch after the browser loses its response", async ({
+  page,
+}) => {
+  await chooseDataset(page)
+  const documentPicker = page.getByRole("button", { name: /^Select document/ })
+  const sourceDocument = page.getByRole("button", {
+    name: "E2E Retrieval Source",
+  })
+  await documentPicker.click()
+  if (!(await sourceDocument.isVisible())) {
+    await page
+      .getByRole("checkbox", { name: "Show documents I've already used" })
+      .click()
+    await documentPicker.click()
+  }
+  await sourceDocument.click()
+  await selectEvidenceText(page, "Baker")
+  await page
+    .getByLabel("Question")
+    .fill(`Which answer survives a lost response? ${Date.now()}`)
+  await page.getByRole("button", { name: "Add eval item" }).click()
+  await page.getByRole("button", { name: "Validate batch" }).click()
+  await expect(page.getByText("Server validation completed.")).toBeVisible()
+
+  let persistedBatchRequest = false
+  await page.route("**/api/v1/create/retrieval/batch", async (route) => {
+    const response = await route.fetch()
+    persistedBatchRequest = response.ok()
+    await route.abort("failed")
+  })
+  await page.getByRole("button", { name: "Submit" }).click()
+
+  await expect(
+    page.getByText("Recovered submission receipt for 1 item."),
+  ).toBeVisible()
+  expect(persistedBatchRequest).toBe(true)
+})
+
 test("hides adversarial retrieval item controls", async ({ page }) => {
   await chooseDataset(page)
 

@@ -15,7 +15,8 @@ bun install
 bun run dev
 ```
 
-* Then open your browser at http://localhost:5173/.
+Then open `http://localhost:5173/`. The repository launch scripts use the
+configured monorepo port (`24861` by default) instead.
 
 Notice that this live server is not running inside Docker, it's for local development, and that is the recommended workflow. Once you are happy with your frontend, you can build the frontend Docker image and start it, to test it in a production-like environment. But building the image at every change will not be as productive as running the local development server with live reload.
 
@@ -25,11 +26,14 @@ Check the file `package.json` to see other available options.
 
 ### Automatically
 
-* From the top level project directory, run the script:
+From the `web/` directory, run:
 
 ```bash
 bash ./scripts/generate-client.sh
 ```
+
+From the monorepo root, the equivalent is
+`bash web/scripts/generate-client.sh`.
 
 * The script writes `frontend/openapi.json`, regenerates `frontend/src/client/*`, and runs the generated-client smoke check.
 
@@ -55,9 +59,9 @@ For focused frontend-only changes, use targeted checks:
 
 ```bash
 bun run check-client
-bunx tsc -p tsconfig.build.json
-bunx biome check ./src ./tests
-bunx vite build
+bun run check
+bun run test:unit
+bun run build
 ```
 
 For backend API contract changes, run the top-level generated-client script after
@@ -67,8 +71,8 @@ the backend change and before frontend edits:
 bash ../scripts/generate-client.sh
 ```
 
-Run the full backend suite and full Playwright harness at integration points and
-before final handoff rather than after every small frontend-only slice.
+`test:unit` runs the pure Bun suites, including code-point offsets and
+multi-viewer selection state. It never substitutes for Playwright.
 
 ## Using a Remote API
 
@@ -104,13 +108,19 @@ Keep new interactive workflows in React and call `/api/v1` APIs instead of addin
 
 ## End-to-End Testing with Playwright
 
-The frontend includes end-to-end tests using Playwright. From the top level project directory, run:
+The frontend includes end-to-end tests using Playwright. From the `web/`
+directory, run:
 
 ```bash
 bash ./scripts/run-frontend-e2e.sh
 ```
 
-The harness creates a disposable SQLite database, runs migrations and deterministic seed data, starts the backend, and lets Playwright start Vite. It is the final/integration browser gate for the AMFV workflows. To debug tests interactively after starting your own backend/frontend servers, run:
+Equivalently, run `bun run test:e2e` from `frontend/`. The harness creates a
+disposable SQLite database, runs migrations and deterministic seed data twice,
+starts the real backend, and lets Playwright start Vite. Tests run serially
+because they deliberately mutate shared seeded workflow state. Focused arguments
+are forwarded, for example `bun run test:e2e -- tests/create-retrieval.spec.ts`.
+To debug interactively after starting your own backend/frontend servers, run:
 
 ```bash
 bunx playwright test --ui

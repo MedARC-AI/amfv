@@ -150,6 +150,7 @@ dev = [
     { name = "amfv-utils" },
     { name = "amfv-verifier" },
     { name = "amfv-web-backend" },
+    { name = "prek" },
     { name = "pytest" },
     { name = "ruff" },
     { name = "ty" },
@@ -165,6 +166,7 @@ dev = [
     { name = "amfv-utils", editable = "utils" },
     { name = "amfv-verifier", editable = "verifier" },
     { name = "amfv-web-backend", editable = "web/backend" },
+    { name = "prek", specifier = ">=0.2.24,<1.0.0" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "ruff", specifier = ">=0.11" },
     { name = "ty", specifier = ">=0.0.25" },
@@ -257,7 +259,6 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "coverage" },
-    { name = "prek" },
     { name = "pytest" },
     { name = "ruff" },
     { name = "ty" },
@@ -284,7 +285,6 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "coverage", specifier = ">=7.4.3,<8.0.0" },
-    { name = "prek", specifier = ">=0.2.24,<1.0.0" },
     { name = "pytest", specifier = ">=7.4.3,<10.0.0" },
     { name = "ruff", specifier = ">=0.2.2,<1.0.0" },
     { name = "ty", specifier = ">=0.0.25" },

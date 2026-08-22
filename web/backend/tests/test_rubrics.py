@@ -20,8 +20,20 @@ def test_fact_decomp_requires_call_for_every_fact_uuid() -> None:
         status=ItemStatus.ACTIVE,
     )
     facts = [
-        EvalFact(item_id=1, fact_uuid="a", fact_text="A", polarity=FactPolarity.SHOULD_LIST, position=0),
-        EvalFact(item_id=1, fact_uuid="b", fact_text="B", polarity=FactPolarity.SHOULD_NOT_LIST, position=1),
+        EvalFact(
+            item_id=1,
+            fact_uuid="a",
+            fact_text="A",
+            polarity=FactPolarity.SHOULD_LIST,
+            position=0,
+        ),
+        EvalFact(
+            item_id=1,
+            fact_uuid="b",
+            fact_text="B",
+            polarity=FactPolarity.SHOULD_NOT_LIST,
+            position=1,
+        ),
     ]
 
     with pytest.raises(ValueError, match="missing calls"):
@@ -46,8 +58,20 @@ def test_fact_decomp_derives_fact_agreement() -> None:
         status=ItemStatus.ACTIVE,
     )
     facts = [
-        EvalFact(item_id=1, fact_uuid="a", fact_text="A", polarity=FactPolarity.SHOULD_LIST, position=0),
-        EvalFact(item_id=1, fact_uuid="b", fact_text="B", polarity=FactPolarity.SHOULD_NOT_LIST, position=1),
+        EvalFact(
+            item_id=1,
+            fact_uuid="a",
+            fact_text="A",
+            polarity=FactPolarity.SHOULD_LIST,
+            position=0,
+        ),
+        EvalFact(
+            item_id=1,
+            fact_uuid="b",
+            fact_text="B",
+            polarity=FactPolarity.SHOULD_NOT_LIST,
+            position=1,
+        ),
     ]
 
     ratings = validate_fact_decomp_ratings(

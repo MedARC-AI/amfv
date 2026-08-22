@@ -4,8 +4,6 @@ set -euo pipefail
 
 WEB_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-export PATH="${HOME}/.bun/bin:${PATH}"
-
 cd "${WEB_ROOT}/backend"
 uv run python -m app.scripts.export_openapi --output "${WEB_ROOT}/frontend/openapi.json"
 

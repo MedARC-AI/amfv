@@ -17,8 +17,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-export PATH="${HOME}/.bun/bin:${PATH}"
-
 ensure_node() {
   if command -v node >/dev/null 2>&1; then
     NODE_BIN="$(command -v node)"
@@ -93,4 +91,4 @@ rm -rf "${ROOT_DIR}/frontend/playwright/.auth" "${ROOT_DIR}/frontend/test-result
 
 cd "${ROOT_DIR}/frontend"
 "${NODE_BIN}" ../node_modules/@playwright/test/cli.js install chromium
-"${NODE_BIN}" ../node_modules/@playwright/test/cli.js test --config playwright.config.cjs
+"${NODE_BIN}" ../node_modules/@playwright/test/cli.js test --config playwright.config.cjs "$@"
