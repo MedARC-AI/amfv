@@ -10,6 +10,7 @@ from sqlalchemy.engine import Engine
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.api.routes import review as review_routes
+from app.api.routes import review_retrieval as retrieval_review_routes
 from app.models import (
     Assignment,
     AssignmentKind,
@@ -35,7 +36,7 @@ def test_release_and_retrieval_submission_have_one_terminal_winner(
     assignment_id, reviewer_id = _seed_retrieval_assignment(engine)
     terminal_barrier = Barrier(2)
     original_release = review_routes.release_assignment
-    original_complete = review_routes.complete_assignment
+    original_complete = retrieval_review_routes.complete_assignment
 
     def synchronized_release(
         session: Session, assignment: Assignment, *, reason: str
@@ -48,7 +49,9 @@ def test_release_and_retrieval_submission_have_one_terminal_winner(
         return original_complete(session, assignment)
 
     monkeypatch.setattr(review_routes, "release_assignment", synchronized_release)
-    monkeypatch.setattr(review_routes, "complete_assignment", synchronized_complete)
+    monkeypatch.setattr(
+        retrieval_review_routes, "complete_assignment", synchronized_complete
+    )
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         outcomes = list(
@@ -165,7 +168,7 @@ def _submit_retrieval_once(
             notes="Race-safe retrieval review.",
         )
         try:
-            review_routes.submit_retrieval_review(
+            retrieval_review_routes.submit_retrieval_review(
                 session, assignment_id, body, reviewer
             )
         except HTTPException as exc:
