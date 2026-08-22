@@ -574,7 +574,6 @@ class RetrievalQAReview(TimestampMixin, table=True):
     assignment_id: int = Field(foreign_key="assignment.id", nullable=False, index=True)
     item_id: int = Field(foreign_key="eval_item.id", nullable=False, index=True)
     user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
-    checks: dict | None = Field(default=None, sa_column=Column(JSON))
     question_validity: int | None = Field(default=None, ge=1, le=4)
     evidence_quality: int | None = Field(default=None, ge=1, le=4)
     answer_correctness: int | None = Field(default=None, ge=1, le=4)

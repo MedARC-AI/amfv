@@ -98,7 +98,6 @@ def test_normal_retrieval_verdicts_control_relevance_eligibility(
     ).one()
     assert accepted_review.verdict == ItemVerdict.ACCEPT
     assert rejected_review.verdict == ItemVerdict.REJECT
-    assert accepted_review.checks is None
     assert item_accepted_for_relevance(db, accepted_item)
     assert not item_accepted_for_relevance(db, rejected_item)
     assert [
@@ -225,7 +224,6 @@ def test_retrieval_submission_enforces_rubric_and_canonical_skip_shape(
     assert review.answer_correctness is None
     assert review.answer_faithfulness is None
     assert review.verdict is None
-    assert review.checks is None
 
 
 def test_home_hides_full_item_slots_and_shows_released_slot(
@@ -622,13 +620,6 @@ def test_agreement_and_export_use_canonical_retrieval_columns(
                 assignment_id=first_assignment.id,
                 item_id=item.id,
                 user_id=first_reviewer.id,
-                checks={
-                    "question_validity": 1,
-                    "evidence_quality": 1,
-                    "answer_correctness": 1,
-                    "answer_faithfulness": 1,
-                    "accept_as_gold": False,
-                },
                 question_validity=4,
                 evidence_quality=3,
                 answer_correctness=4,
@@ -639,13 +630,6 @@ def test_agreement_and_export_use_canonical_retrieval_columns(
                 assignment_id=second_assignment.id,
                 item_id=item.id,
                 user_id=second_reviewer.id,
-                checks={
-                    "question_validity": 1,
-                    "evidence_quality": 1,
-                    "answer_correctness": 1,
-                    "answer_faithfulness": 1,
-                    "accept_as_gold": False,
-                },
                 question_validity=4,
                 evidence_quality=3,
                 answer_correctness=4,

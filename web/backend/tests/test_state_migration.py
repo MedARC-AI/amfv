@@ -13,6 +13,7 @@ from app.core.config import settings
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 REVISION = "0001_initial_sqlite_template"
+PRE_CHECKS_CLEANUP_REVISION = "0006_fact_save_receipts"
 
 
 def test_canonical_state_upgrade_and_downgrade_preserve_populated_rows(
@@ -32,6 +33,47 @@ def test_canonical_state_upgrade_and_downgrade_preserve_populated_rows(
 
     command.downgrade(config, REVISION)
     _assert_source_shaped_downgrade(database_url)
+
+
+def test_retrieval_checks_cleanup_refuses_disagreement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_url = f"sqlite:///{tmp_path / 'review-checks-disagreement.db'}"
+    monkeypatch.setattr(settings, "SQLITE_DATABASE_URL", database_url)
+    config = Config(str(BACKEND_ROOT / "alembic.ini"))
+    command.upgrade(config, REVISION)
+    _insert_source_shaped_rows(database_url)
+    command.upgrade(config, PRE_CHECKS_CLEANUP_REVISION)
+
+    engine = sa.create_engine(database_url)
+    with engine.begin() as connection:
+        connection.execute(
+            sa.text("UPDATE retrieval_qa_review SET checks = :checks WHERE id = 1"),
+            {
+                "checks": json.dumps(
+                    {
+                        "question_validity": 4,
+                        "evidence_quality": 3,
+                        "answer_correctness": 4,
+                        "answer_faithfulness": 2,
+                        "accept_as_gold": False,
+                        "notes": "migrated note",
+                    }
+                )
+            },
+        )
+    engine.dispose()
+
+    with pytest.raises(RuntimeError, match="disagrees with typed columns"):
+        command.upgrade(config, "head")
+
+    engine = sa.create_engine(database_url)
+    assert "checks" in {
+        column["name"]
+        for column in sa.inspect(engine).get_columns("retrieval_qa_review")
+    }
+    engine.dispose()
 
 
 def _insert_source_shaped_rows(database_url: str) -> None:
@@ -131,6 +173,10 @@ def _insert_source_shaped_rows(database_url: str) -> None:
 
 def _assert_canonical_upgrade(database_url: str) -> None:
     engine = sa.create_engine(database_url)
+    assert "checks" not in {
+        column["name"]
+        for column in sa.inspect(engine).get_columns("retrieval_qa_review")
+    }
     with engine.begin() as connection:
         retrieval_preference = connection.execute(
             sa.text(
