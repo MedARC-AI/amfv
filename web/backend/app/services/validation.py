@@ -32,7 +32,11 @@ class ValidationResult:
 
 
 def split_paragraphs(content: str) -> list[dict[str, str | int]]:
-    chunks = [chunk.strip() for chunk in re.split(r"\n\s*\n", content.strip()) if chunk.strip()]
+    chunks = [
+        chunk.strip()
+        for chunk in re.split(r"\n\s*\n", content.strip())
+        if chunk.strip()
+    ]
     if not chunks and content.strip():
         chunks = [content.strip()]
     return [{"idx": idx, "text": text} for idx, text in enumerate(chunks)]
@@ -63,7 +67,9 @@ def validate_item(
         )
     ).first()
     if duplicate:
-        result.blocking.append("An item with the same prompt already exists in this dataset.")
+        result.blocking.append(
+            "An item with the same prompt already exists in this dataset."
+        )
 
     if item.eval_type == EvalType.RETRIEVAL:
         _validate_retrieval(result, item, document, chunks)
@@ -99,41 +105,89 @@ def _validate_retrieval(
     trap_spans = [
         span for span in spans if isinstance(span, dict) and span.get("kind") == "trap"
     ]
-    paragraph_indices = [span.get("paragraph_idx") for span in spans if isinstance(span, dict)]
-    chunk_ids = item.gold_chunk_ids or [span.get("chunk_id") for span in spans if isinstance(span, dict) and span.get("chunk_id")]
+    paragraph_indices = [
+        span.get("paragraph_idx") for span in spans if isinstance(span, dict)
+    ]
+    chunk_ids = item.gold_chunk_ids or [
+        span.get("chunk_id")
+        for span in spans
+        if isinstance(span, dict) and span.get("chunk_id")
+    ]
     evidence_document_ids = {
-        chunk.document_id for chunk in evidence_chunks if getattr(chunk, "document_id", None)
+        chunk.document_id
+        for chunk in evidence_chunks
+        if getattr(chunk, "document_id", None)
     }
 
     if item.category == RetrievalCategory.VERBATIM and not gold_spans:
         result.blocking.append("VERBATIM items require highlighted answer text.")
     if item.category == RetrievalCategory.VERBATIM and len(gold_spans) > 1:
-        result.blocking.append("VERBATIM items require exactly one highlighted answer span.")
-    if item.category not in {RetrievalCategory.VERBATIM, RetrievalCategory.ADVERSARIAL, None} and not gold_spans:
-        result.blocking.append("Retrieval items require selected evidence paragraph(s).")
+        result.blocking.append(
+            "VERBATIM items require exactly one highlighted answer span."
+        )
+    if (
+        item.category
+        not in {RetrievalCategory.VERBATIM, RetrievalCategory.ADVERSARIAL, None}
+        and not gold_spans
+    ):
+        result.blocking.append(
+            "Retrieval items require selected evidence paragraph(s)."
+        )
     if item.category == RetrievalCategory.VERBATIM and answer_norm not in source_norm:
-        result.blocking.append("VERBATIM answers must appear word-for-word in the selected evidence.")
+        result.blocking.append(
+            "VERBATIM answers must appear word-for-word in the selected evidence."
+        )
     if item.category == RetrievalCategory.ADVERSARIAL:
         if not item.why_not_answerable:
             result.blocking.append("ADVERSARIAL items require why_not_answerable.")
         if not trap_spans:
-            result.blocking.append("ADVERSARIAL items require selected trap evidence paragraph(s).")
+            result.blocking.append(
+                "ADVERSARIAL items require selected trap evidence paragraph(s)."
+            )
         if len(trap_spans) > 1:
-            result.blocking.append("ADVERSARIAL items require exactly one trap evidence paragraph.")
+            result.blocking.append(
+                "ADVERSARIAL items require exactly one trap evidence paragraph."
+            )
         if answer_norm and answer_norm in source_norm:
-            result.warnings.append("ADVERSARIAL answer-like text appears in the selected evidence.")
+            result.warnings.append(
+                "ADVERSARIAL answer-like text appears in the selected evidence."
+            )
     if item.category == RetrievalCategory.PARAPHRASE and len(gold_spans) > 1:
-        result.blocking.append("PARAPHRASE items require exactly one evidence paragraph.")
-    if item.category == RetrievalCategory.PARAPHRASE and _evidence_count(paragraph_indices, chunk_ids) != 1:
-        result.blocking.append("PARAPHRASE items must cite exactly one evidence paragraph or chunk.")
-    if item.category in {RetrievalCategory.MULTI_CHUNK, RetrievalCategory.MULTI_DOCUMENT}:
-        unique_indices = sorted({idx for idx in paragraph_indices if isinstance(idx, int)})
+        result.blocking.append(
+            "PARAPHRASE items require exactly one evidence paragraph."
+        )
+    if (
+        item.category == RetrievalCategory.PARAPHRASE
+        and _evidence_count(paragraph_indices, chunk_ids) != 1
+    ):
+        result.blocking.append(
+            "PARAPHRASE items must cite exactly one evidence paragraph or chunk."
+        )
+    if item.category in {
+        RetrievalCategory.MULTI_CHUNK,
+        RetrievalCategory.MULTI_DOCUMENT,
+    }:
+        unique_indices = sorted(
+            {idx for idx in paragraph_indices if isinstance(idx, int)}
+        )
         if _evidence_count(unique_indices, chunk_ids) < 2:
-            result.blocking.append("Multi-chunk retrieval items must cite at least two evidence paragraphs or chunks.")
-        if any((b - a) == 1 for a, b in zip(unique_indices, unique_indices[1:], strict=False)):
-            result.warnings.append("Multi-chunk evidence should prefer discontinuous paragraphs.")
-    if item.category == RetrievalCategory.MULTI_DOCUMENT and len(evidence_document_ids) < 2:
-        result.blocking.append("MULTI_DOCUMENT items must cite chunks from at least two documents.")
+            result.blocking.append(
+                "Multi-chunk retrieval items must cite at least two evidence paragraphs or chunks."
+            )
+        if any(
+            (b - a) == 1
+            for a, b in zip(unique_indices, unique_indices[1:], strict=False)
+        ):
+            result.warnings.append(
+                "Multi-chunk evidence should prefer discontinuous paragraphs."
+            )
+    if (
+        item.category == RetrievalCategory.MULTI_DOCUMENT
+        and len(evidence_document_ids) < 2
+    ):
+        result.blocking.append(
+            "MULTI_DOCUMENT items must cite chunks from at least two documents."
+        )
 
 
 def _evidence_count(paragraph_indices: list, chunk_ids: list) -> int:
@@ -146,24 +200,34 @@ def _validate_fact_decomp(result: ValidationResult, facts: list[EvalFact]) -> No
     if any(not normalize_text(fact.fact_text) for fact in facts):
         result.blocking.append("Facts cannot be empty.")
     fact_uuids = [fact.fact_uuid for fact in facts]
-    duplicate_uuids = {fact_uuid for fact_uuid in fact_uuids if fact_uuids.count(fact_uuid) > 1}
+    duplicate_uuids = {
+        fact_uuid for fact_uuid in fact_uuids if fact_uuids.count(fact_uuid) > 1
+    }
     if duplicate_uuids:
         result.blocking.append("FACT_DECOMP fact UUIDs must be unique.")
     positions = [fact.position for fact in facts]
-    duplicate_positions = {position for position in positions if positions.count(position) > 1}
+    duplicate_positions = {
+        position for position in positions if positions.count(position) > 1
+    }
     if duplicate_positions:
         result.blocking.append("FACT_DECOMP fact positions must be unique.")
     polarities = {fact.polarity for fact in facts}
     if FactPolarity.SHOULD_LIST not in polarities:
-        result.blocking.append("FACT_DECOMP items require at least one SHOULD_LIST fact.")
+        result.blocking.append(
+            "FACT_DECOMP items require at least one SHOULD_LIST fact."
+        )
     if FactPolarity.SHOULD_NOT_LIST not in polarities:
-        result.blocking.append("FACT_DECOMP items require at least one SHOULD_NOT_LIST fact.")
+        result.blocking.append(
+            "FACT_DECOMP items require at least one SHOULD_NOT_LIST fact."
+        )
     normalized_facts = [normalize_text(fact.fact_text) for fact in facts]
     duplicate_facts = {
         text for text in normalized_facts if text and normalized_facts.count(text) > 1
     }
     if duplicate_facts:
-        result.warnings.append("FACT_DECOMP items contain duplicate or redundant facts.")
+        result.warnings.append(
+            "FACT_DECOMP items contain duplicate or redundant facts."
+        )
     context_dependent = [
         fact.fact_text
         for fact in facts

@@ -115,7 +115,9 @@ def _get_or_create_document(
 
 def _first_chunk(session: Session, *, document_id: int) -> Chunk:
     chunk = session.exec(
-        select(Chunk).where(col(Chunk.document_id) == document_id).order_by(col(Chunk.position))
+        select(Chunk)
+        .where(col(Chunk.document_id) == document_id)
+        .order_by(col(Chunk.position))
     ).first()
     if chunk is None:
         raise RuntimeError(f"Seed document {document_id} has no chunks")

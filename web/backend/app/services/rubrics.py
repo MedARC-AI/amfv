@@ -33,9 +33,17 @@ FACT_DECOMP_DIMENSIONS = (
 )
 
 
-def validate_fact_decomp_ratings(item: EvalItem, facts: list[EvalFact], *, fact_calls: dict[str, str], values: dict[str, str]) -> dict:
+def validate_fact_decomp_ratings(
+    item: EvalItem,
+    facts: list[EvalFact],
+    *,
+    fact_calls: dict[str, str],
+    values: dict[str, str],
+) -> dict:
     if item.eval_type != EvalType.FACT_DECOMP:
-        raise ValueError("Fact-decomposition ratings can only be submitted for FACT_DECOMP items.")
+        raise ValueError(
+            "Fact-decomposition ratings can only be submitted for FACT_DECOMP items."
+        )
     required = {fact.fact_uuid for fact in facts}
     submitted = set(fact_calls)
     if submitted != required:
@@ -47,7 +55,9 @@ def validate_fact_decomp_ratings(item: EvalItem, facts: list[EvalFact], *, fact_
         if extra:
             pieces.append(f"unknown fact ids {', '.join(extra)}")
         raise ValueError("; ".join(pieces))
-    unknown_calls = {call for call in fact_calls.values() if call not in FACT_CALL_OPTIONS}
+    unknown_calls = {
+        call for call in fact_calls.values() if call not in FACT_CALL_OPTIONS
+    }
     if unknown_calls:
         raise ValueError(f"Unknown fact call: {', '.join(sorted(unknown_calls))}")
     _validate_options(values, _allowed_options(FACT_DECOMP_DIMENSIONS))
@@ -56,7 +66,8 @@ def validate_fact_decomp_ratings(item: EvalItem, facts: list[EvalFact], *, fact_
         **values,
         "fact_calls": fact_calls,
         "fact_agreement": {
-            fact_uuid: _fact_agreement(call, polarity_by_uuid[fact_uuid]) for fact_uuid, call in fact_calls.items()
+            fact_uuid: _fact_agreement(call, polarity_by_uuid[fact_uuid])
+            for fact_uuid, call in fact_calls.items()
         },
     }
 
@@ -64,21 +75,34 @@ def validate_fact_decomp_ratings(item: EvalItem, facts: list[EvalFact], *, fact_
 def _fact_agreement(call: str, polarity: str) -> str:
     if call == "MALFORMED":
         return "malformed"
-    if call == FactPolarity.SHOULD_LIST.value and polarity == FactPolarity.SHOULD_LIST.value:
+    if (
+        call == FactPolarity.SHOULD_LIST.value
+        and polarity == FactPolarity.SHOULD_LIST.value
+    ):
         return "agree"
-    if call == FactPolarity.SHOULD_NOT_LIST.value and polarity == FactPolarity.SHOULD_NOT_LIST.value:
+    if (
+        call == FactPolarity.SHOULD_NOT_LIST.value
+        and polarity == FactPolarity.SHOULD_NOT_LIST.value
+    ):
         return "agree"
     return "disagree"
 
 
 def _allowed_options(dimensions: tuple[RubricDimension, ...]) -> dict[str, set[str]]:
-    return {dimension.id: {value for value, _ in dimension.options} for dimension in dimensions}
+    return {
+        dimension.id: {value for value, _ in dimension.options}
+        for dimension in dimensions
+    }
 
 
 def _validate_options(values: dict[str, str], allowed: dict[str, set[str]]) -> None:
     missing = sorted(set(allowed) - set(values))
     unknown = sorted(set(values) - set(allowed))
-    invalid = sorted(key for key, value in values.items() if key in allowed and value not in allowed[key])
+    invalid = sorted(
+        key
+        for key, value in values.items()
+        if key in allowed and value not in allowed[key]
+    )
     if missing:
         raise ValueError(f"Missing rubric dimensions: {', '.join(missing)}")
     if unknown:

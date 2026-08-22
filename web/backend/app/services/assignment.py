@@ -194,7 +194,9 @@ def available_relevance_candidates(
             and not item_accepted_for_relevance(session, item)
         ):
             continue
-        if _already_assigned_to_user(session, user, AssignmentMode.RELEVANCE, candidate.id):
+        if _already_assigned_to_user(
+            session, user, AssignmentMode.RELEVANCE, candidate.id
+        ):
             continue
         if not pooled_candidate_is_loadable(session, candidate):
             continue
@@ -222,7 +224,11 @@ def assignment_target_is_loadable(session: Session, assignment: Assignment) -> b
     if assignment.released_at is not None:
         return False
     dataset = session.get(Dataset, assignment.dataset_id)
-    if dataset is None or not dataset.is_active or dataset.eval_type != EvalType.RETRIEVAL:
+    if (
+        dataset is None
+        or not dataset.is_active
+        or dataset.eval_type != EvalType.RETRIEVAL
+    ):
         return False
     if assignment.mode == AssignmentMode.ITEM_AUDIT:
         item = session.get(EvalItem, assignment.target_id)
@@ -396,7 +402,9 @@ def complete_assignment(session: Session, assignment: Assignment) -> None:
     _maybe_complete_calibration(session, assignment)
 
 
-def release_assignment(session: Session, assignment: Assignment, *, reason: str) -> None:
+def release_assignment(
+    session: Session, assignment: Assignment, *, reason: str
+) -> None:
     """Release an incomplete assignment so its slot becomes claimable again."""
 
     normalized_reason = reason.strip()
@@ -605,9 +613,7 @@ def _rate_hit(rate: float, mode: AssignmentMode, target_id: int, salt: str) -> b
         return False
     bucket = (
         int(
-            hashlib.sha256(
-                f"{mode.value}:{target_id}:{salt}".encode()
-            ).hexdigest()[:8],
+            hashlib.sha256(f"{mode.value}:{target_id}:{salt}".encode()).hexdigest()[:8],
             16,
         )
         % 10_000
@@ -672,7 +678,9 @@ def _maybe_complete_calibration(session: Session, assignment: Assignment) -> Non
         )
 
 
-def _has_incomplete_calibration_targets(session: Session, assignment: Assignment) -> bool:
+def _has_incomplete_calibration_targets(
+    session: Session, assignment: Assignment
+) -> bool:
     calibration_items = session.exec(
         select(EvalItem.id).where(
             col(EvalItem.dataset_id) == assignment.dataset_id,

@@ -135,7 +135,9 @@ def release_review_assignment(
     if assignment is None:
         raise HTTPException(status_code=404, detail="Review assignment not found")
     if assignment.user_id != current_user.id and not is_admin:
-        raise HTTPException(status_code=403, detail="Cannot release another user's assignment")
+        raise HTTPException(
+            status_code=403, detail="Cannot release another user's assignment"
+        )
     try:
         release_assignment(session, assignment, reason=body.reason)
     except ValueError as exc:
@@ -163,7 +165,9 @@ def read_retrieval_review(
         raise HTTPException(status_code=404, detail="Review item not found")
     dataset = _read_active_dataset(session, assignment.dataset_id, EvalType.RETRIEVAL)
     existing = session.exec(
-        select(RetrievalQAReview).where(col(RetrievalQAReview.assignment_id) == assignment.id)
+        select(RetrievalQAReview).where(
+            col(RetrievalQAReview.assignment_id) == assignment.id
+        )
     ).first()
     chunks = _chunks_for_item(session, item)
     documents = _documents_for_chunks_and_item(session, item, chunks)
@@ -178,7 +182,9 @@ def read_retrieval_review(
         trap_evidence_spans=_item_spans(item, kind="trap"),
         allowed_actions=["accept", "reject"],
         item_revision=item.revision,
-        existing_submission=_retrieval_submission_payload(existing) if existing else None,
+        existing_submission=_retrieval_submission_payload(existing)
+        if existing
+        else None,
     )
 
 
@@ -196,9 +202,13 @@ def submit_retrieval_review(
     if item.dataset_id != assignment.dataset_id:
         raise HTTPException(status_code=404, detail="Review item not found")
     if session.exec(
-        select(RetrievalQAReview).where(RetrievalQAReview.assignment_id == assignment.id)
+        select(RetrievalQAReview).where(
+            RetrievalQAReview.assignment_id == assignment.id
+        )
     ).first():
-        raise HTTPException(status_code=409, detail="Review assignment already submitted")
+        raise HTTPException(
+            status_code=409, detail="Review assignment already submitted"
+        )
     assert assignment.id is not None
     assert item.id is not None
     judgment = RetrievalQAReview(
@@ -215,7 +225,9 @@ def submit_retrieval_review(
         verdict=(
             None
             if body.skipped
-            else ItemVerdict.ACCEPT if body.accept_as_gold else ItemVerdict.REJECT
+            else ItemVerdict.ACCEPT
+            if body.accept_as_gold
+            else ItemVerdict.REJECT
         ),
         skipped=body.skipped,
         skip_reason=body.skip_reason.strip() if body.skip_reason else None,
@@ -249,12 +261,17 @@ def read_fact_decomp_review(
         raise HTTPException(status_code=403, detail="Cannot review your own item")
     dataset = _read_active_dataset(session, task.dataset_id, EvalType.FACT_DECOMP)
     existing = session.exec(
-        select(FactDecompReview).where(col(FactDecompReview.task_id) == task.id, col(FactDecompReview.user_id) == current_user.id)
+        select(FactDecompReview).where(
+            col(FactDecompReview.task_id) == task.id,
+            col(FactDecompReview.user_id) == current_user.id,
+        )
     ).first()
     chunks = _chunks_for_item(session, item)
     documents = _documents_for_chunks_and_item(session, item, chunks)
     facts = session.exec(
-        select(EvalFact).where(col(EvalFact.item_id) == item.id).order_by(col(EvalFact.position))
+        select(EvalFact)
+        .where(col(EvalFact.item_id) == item.id)
+        .order_by(col(EvalFact.position))
     ).all()
     assert task.id is not None
     return FactDecompReviewPayload(
@@ -271,7 +288,9 @@ def read_fact_decomp_review(
     )
 
 
-@router.post("/fact-decomp/{task_id}", response_model=FactDecompReviewSubmissionResponse)
+@router.post(
+    "/fact-decomp/{task_id}", response_model=FactDecompReviewSubmissionResponse
+)
 def submit_fact_decomp_review(
     session: SessionDep,
     task_id: int,
@@ -288,11 +307,16 @@ def submit_fact_decomp_review(
     if body.item_revision != item.revision:
         raise HTTPException(status_code=409, detail="Item revision is stale")
     if session.exec(
-        select(FactDecompReview).where(col(FactDecompReview.task_id) == task.id, col(FactDecompReview.user_id) == current_user.id)
+        select(FactDecompReview).where(
+            col(FactDecompReview.task_id) == task.id,
+            col(FactDecompReview.user_id) == current_user.id,
+        )
     ).first():
         raise HTTPException(status_code=409, detail="Review task already submitted")
     facts = session.exec(
-        select(EvalFact).where(col(EvalFact.item_id) == item.id).order_by(col(EvalFact.position))
+        select(EvalFact)
+        .where(col(EvalFact.item_id) == item.id)
+        .order_by(col(EvalFact.position))
     ).all()
     try:
         ratings = validate_fact_decomp_ratings(
@@ -411,9 +435,13 @@ def submit_relevance_review(
     ):
         raise HTTPException(status_code=404, detail="Candidate document not found")
     if session.exec(
-        select(RelevanceJudgment).where(col(RelevanceJudgment.assignment_id) == assignment.id)
+        select(RelevanceJudgment).where(
+            col(RelevanceJudgment.assignment_id) == assignment.id
+        )
     ).first():
-        raise HTTPException(status_code=409, detail="Review assignment already submitted")
+        raise HTTPException(
+            status_code=409, detail="Review assignment already submitted"
+        )
     assert assignment.id is not None
     assert candidate.id is not None
     judgment = RelevanceJudgment(
@@ -537,7 +565,11 @@ def _select_fact_decomp_task(
             col(EvalItem.status) == ItemStatus.ACTIVE,
             col(EvalItem.is_active) == True,  # noqa: E712
         )
-        .order_by(col(ReviewTask.labels_count), col(ReviewTask.priority_score).desc(), col(ReviewTask.id))
+        .order_by(
+            col(ReviewTask.labels_count),
+            col(ReviewTask.priority_score).desc(),
+            col(ReviewTask.id),
+        )
     ).all()
     for task in tasks:
         item = session.get(EvalItem, task.item_a_id)
@@ -570,7 +602,9 @@ def _read_assignment_for_user(
     ):
         raise HTTPException(status_code=404, detail="Review assignment not found")
     if assignment.released_at is not None:
-        raise HTTPException(status_code=409, detail="Review assignment has been released")
+        raise HTTPException(
+            status_code=409, detail="Review assignment has been released"
+        )
     if assignment.completed_at is not None:
         raise HTTPException(status_code=409, detail="Review assignment is complete")
     return assignment
@@ -592,7 +626,9 @@ def _read_active_dataset(
     return dataset
 
 
-def _read_active_item(session: SessionDep, item_id: int, eval_type: EvalType) -> EvalItem:
+def _read_active_item(
+    session: SessionDep, item_id: int, eval_type: EvalType
+) -> EvalItem:
     item = session.get(EvalItem, item_id)
     if (
         item is None
@@ -650,7 +686,9 @@ def _chunks_for_item(session: SessionDep, item: EvalItem) -> list[Chunk]:
     return list(
         session.exec(
             select(Chunk)
-            .where(col(Chunk.id).in_(chunk_ids), col(Chunk.dataset_id) == item.dataset_id)
+            .where(
+                col(Chunk.id).in_(chunk_ids), col(Chunk.dataset_id) == item.dataset_id
+            )
             .order_by(col(Chunk.document_id), col(Chunk.position))
         ).all()
     )
@@ -678,7 +716,9 @@ def _documents_for_chunks_and_item(
 
 def _document_detail(session: SessionDep, document: Document) -> DocumentDetail:
     chunks = session.exec(
-        select(Chunk).where(col(Chunk.document_id) == document.id).order_by(col(Chunk.position))
+        select(Chunk)
+        .where(col(Chunk.document_id) == document.id)
+        .order_by(col(Chunk.position))
     ).all()
     assert document.id is not None
     return DocumentDetail(
