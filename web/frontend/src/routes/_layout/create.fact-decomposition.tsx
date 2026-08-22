@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { apiErrorMessage } from "@/utils"
+import { apiErrorMessage, ProductMessageError } from "@/utils"
 
 export const Route = createFileRoute("/_layout/create/fact-decomposition")({
   component: FactDecompositionCreate,
@@ -263,7 +263,9 @@ function FactDecompositionCreate() {
   const submitMutation = useMutation({
     mutationFn: async (): Promise<FactMutationResult> => {
       if (!draftIdentity) {
-        throw new Error("Save this draft before submitting it for moderation.")
+        throw new ProductMessageError(
+          "Save this draft before submitting it for moderation.",
+        )
       }
       try {
         const response = await CreateService.submitFactDecompDraft({
@@ -288,7 +290,7 @@ function FactDecompositionCreate() {
           itemId: draftIdentity.id,
         })
         if (state.status !== "SUBMITTED") {
-          throw new Error(
+          throw new ProductMessageError(
             "Submission was not recorded. It was not retried automatically.",
           )
         }

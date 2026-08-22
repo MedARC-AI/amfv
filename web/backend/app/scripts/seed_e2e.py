@@ -165,6 +165,7 @@ def _get_or_create_retrieval_item(
             }
         ],
         gold_chunk_ids=[chunk.id],
+        is_calibration=True,
         status=ItemStatus.ACTIVE,
     )
     session.add(item)

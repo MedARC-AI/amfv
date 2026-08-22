@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Loader2 } from "lucide-react"
 import * as React from "react"
@@ -18,6 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { isReviewActionAllowed } from "@/reviewCapabilities"
+import { apiErrorMessage, hasApiErrorStatus } from "@/utils"
 
 export const Route = createFileRoute("/_layout/review/relevance")({
   component: RelevanceReview,
@@ -42,33 +44,8 @@ const confidences: Array<{ value: JudgmentConfidence; label: string }> = [
   { value: "DELIBERATED", label: "Deliberated" },
 ]
 
-function apiMessage(error: unknown): string {
-  if (error && typeof error === "object" && "body" in error) {
-    const body = (error as { body?: { detail?: unknown } }).body
-    if (typeof body?.detail === "string") {
-      return body.detail
-    }
-    if (Array.isArray(body?.detail)) {
-      return body.detail
-        .map((entry) => {
-          if (entry && typeof entry === "object" && "message" in entry) {
-            return String((entry as { message: unknown }).message)
-          }
-          if (entry && typeof entry === "object" && "msg" in entry) {
-            return String((entry as { msg: unknown }).msg)
-          }
-          return String(entry)
-        })
-        .join("; ")
-    }
-  }
-  if (error instanceof Error) {
-    return error.message
-  }
-  return "Request failed"
-}
-
 function RelevanceReview() {
+  const queryClient = useQueryClient()
   const [grade, setGrade] = React.useState(3)
   const [confidence, setConfidence] =
     React.useState<JudgmentConfidence>("EASY_CALL")
@@ -85,6 +62,21 @@ function RelevanceReview() {
         mode: "RELEVANCE",
       }),
     retry: false,
+  })
+
+  const claimMutation = useMutation({
+    mutationFn: () =>
+      ReviewService.claimNextReviewTask({
+        requestBody: {
+          eval_type: "RETRIEVAL",
+          mode: "RELEVANCE",
+        },
+      }),
+    onSuccess: (recommendation) => {
+      setErrorMessage(null)
+      queryClient.setQueryData(["review-next", "relevance"], recommendation)
+    },
+    onError: (error) => setErrorMessage(apiErrorMessage(error)),
   })
 
   const assignmentId = nextQuery.data?.assignment_id ?? null
@@ -113,11 +105,15 @@ function RelevanceReview() {
       )
       setErrorMessage(null)
     },
-    onError: (error) => setErrorMessage(apiMessage(error)),
+    onError: (error) => setErrorMessage(apiErrorMessage(error)),
   })
 
   const submitReview = () => {
-    if (!payload || completionMessage) {
+    if (
+      !payload ||
+      completionMessage ||
+      !isReviewActionAllowed(payload.allowed_actions, "grade_relevance")
+    ) {
       return
     }
     submitMutation.mutate({
@@ -136,11 +132,11 @@ function RelevanceReview() {
     )
   }
 
-  if (nextQuery.isError) {
+  if (nextQuery.isError && !hasApiErrorStatus(nextQuery.error, 404)) {
     return (
       <div className="flex flex-col gap-3">
         <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-          {apiMessage(nextQuery.error)}
+          {apiErrorMessage(nextQuery.error)}
         </div>
       </div>
     )
@@ -150,8 +146,29 @@ function RelevanceReview() {
     return (
       <div className="flex flex-col gap-3">
         <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-          No relevance review tasks are available.
+          No relevance review assignment is currently held by you. Claim the
+          next available task to begin reviewing.
         </div>
+        {errorMessage ? (
+          <div
+            className="rounded-md border border-destructive/40 p-3 text-sm"
+            role="alert"
+          >
+            {errorMessage}
+          </div>
+        ) : null}
+        <Button
+          disabled={claimMutation.isPending}
+          onClick={() => {
+            setErrorMessage(null)
+            claimMutation.mutate()
+          }}
+          type="button"
+        >
+          {claimMutation.isPending
+            ? "Claiming relevance review"
+            : "Claim relevance review"}
+        </Button>
       </div>
     )
   }
@@ -160,7 +177,7 @@ function RelevanceReview() {
     return (
       <div className="flex flex-col gap-3">
         <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-          {apiMessage(payloadQuery.error)}
+          {apiErrorMessage(payloadQuery.error)}
         </div>
       </div>
     )
@@ -292,7 +309,11 @@ function RelevanceReview() {
           ) : null}
 
           <Button
-            disabled={submitMutation.isPending || completionMessage !== null}
+            disabled={
+              submitMutation.isPending ||
+              completionMessage !== null ||
+              !isReviewActionAllowed(payload.allowed_actions, "grade_relevance")
+            }
             onClick={submitReview}
             type="button"
           >

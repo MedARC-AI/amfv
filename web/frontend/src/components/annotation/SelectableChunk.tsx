@@ -5,6 +5,16 @@ import type { ChunkSummary, EvidenceSpan } from "@/client"
 import type { DocumentSearchMatch } from "@/lib/documentSearch"
 import { codeUnitRangeToEvidenceSpan } from "@/lib/offsets"
 import { cn } from "@/lib/utils"
+import {
+  DocumentSelectionController,
+  isSearchSelectionGesture,
+  useDocumentSelectionController,
+} from "./documentSelectionController"
+import {
+  codePointOffsetToCodeUnitOffset,
+  flattenSelectableBlocks,
+  parseMarkdownBlocks,
+} from "./markdownBlocks"
 
 type SelectedEvidenceSpan = EvidenceSpan & {
   id?: string
@@ -33,26 +43,12 @@ type SelectableChunkProps = {
   readOnly?: boolean
 }
 
-type SelectableBlock = {
-  key: string
-  srcStart: number
-  text: string
-}
-
 export type BlockSelection = {
   additive: boolean
   range: boolean
   rangeSpans: EvidenceSpan[]
   span: EvidenceSpan
 }
-
-type ListItem = { srcStart: number; text: string }
-type TableCell = { srcStart: number; text: string }
-type Block =
-  | { kind: "heading"; level: number; srcStart: number; text: string }
-  | { kind: "list"; srcStart: number; items: ListItem[] }
-  | { kind: "table"; srcStart: number; rows: TableCell[][] }
-  | { kind: "paragraph"; srcStart: number; text: string }
 
 type SelectableTextProps = {
   chunk: ChunkSummary
@@ -78,20 +74,8 @@ type SelectionOverlayRect = {
   width: number
 }
 
-let blockDragActive = false
-let blockDragSession = 0
 const EMPTY_SELECTED_EVIDENCE_SPANS: SelectedEvidenceSpan[] = []
 const EMPTY_SEARCH_MATCHES: DocumentSearchMatch[] = []
-
-function codePointOffsetToCodeUnitOffset(
-  text: string,
-  codePointOffset: number,
-): number {
-  if (codePointOffset < 0) {
-    return 0
-  }
-  return Array.from(text).slice(0, codePointOffset).join("").length
-}
 
 function evidenceAnchorId(chunkId: number, start: number, end: number): string {
   return `evidence-${chunkId}-${start}-${end}`
@@ -130,158 +114,6 @@ function sourceOffsetFromBoundary(boundary: SelectionBoundary): number | null {
   beforeBoundary.selectNodeContents(sourceElement)
   beforeBoundary.setEnd(boundary.node, boundary.offset)
   return srcStart + beforeBoundary.toString().length
-}
-
-function isSearchSelectionEvent(
-  event: React.SyntheticEvent<HTMLElement>,
-): boolean {
-  const nativeEvent = event.nativeEvent
-  return "altKey" in nativeEvent && Boolean(nativeEvent.altKey)
-}
-
-/**
- * Parse the stored markdown into block-level pieces while tracking each piece's
- * offset in the original text. `chunk.text` stays the source of truth, so the
- * rendered text of every selectable element equals the slice of `chunk.text`
- * starting at its `srcStart`. That keeps evidence offsets exact even though the
- * markdown markers (`#`, `-`) are not shown.
- *
- * Blocks are separated by exactly "\n\n" (see the backend chunker), and no block
- * contains an internal blank line, so offsets are reconstructable by walking the
- * split and adding 2 for each separator.
- */
-function splitTableRow(
-  row: string,
-  rowStart: number,
-): Array<{ srcStart: number; text: string }> {
-  const contentStart = row.startsWith("|") ? 1 : 0
-  const contentEnd = row.endsWith("|") ? row.length - 1 : row.length
-  const cells: Array<{ srcStart: number; text: string }> = []
-  let cellStart = contentStart
-
-  for (let index = contentStart; index < contentEnd; index += 1) {
-    if (row[index] === "|" && row[index - 1] !== "\\") {
-      cells.push(trimCell(row.slice(cellStart, index), rowStart + cellStart))
-      cellStart = index + 1
-    }
-  }
-  cells.push(trimCell(row.slice(cellStart, contentEnd), rowStart + cellStart))
-  return cells
-}
-
-function trimCell(
-  text: string,
-  srcStart: number,
-): { srcStart: number; text: string } {
-  const leading = /^\s*/.exec(text)?.[0].length ?? 0
-  const trimmed = text.trim()
-  return { srcStart: srcStart + leading, text: trimmed }
-}
-
-function isSeparatorRow(row: Array<{ text: string }>): boolean {
-  return row.length > 0 && row.every((cell) => /^:?-{3,}:?$/.test(cell.text))
-}
-
-function parseTable(source: string, srcStart: number): Block | null {
-  const lines = source.split("\n")
-  if (lines.length < 3) {
-    return null
-  }
-
-  let lineStart = srcStart
-  const rows = lines.map((line) => {
-    const row = splitTableRow(line, lineStart)
-    lineStart += line.length + 1
-    return row
-  })
-
-  if (!isSeparatorRow(rows[1])) {
-    return null
-  }
-
-  const tableRows: TableCell[][] = [rows[0], ...rows.slice(2)]
-  return { kind: "table", srcStart, rows: tableRows }
-}
-
-function parseBlocks(source: string): Block[] {
-  const blocks: Block[] = []
-  let offset = 0
-  for (const part of source.split("\n\n")) {
-    const start = offset
-    offset += part.length + 2
-
-    const heading = /^(#{1,6})\s+/.exec(part)
-    if (heading) {
-      const marker = heading[0]
-      blocks.push({
-        kind: "heading",
-        level: heading[1].length,
-        srcStart: start + marker.length,
-        text: part.slice(marker.length),
-      })
-      continue
-    }
-
-    const table = parseTable(part, start)
-    if (table) {
-      blocks.push(table)
-      continue
-    }
-
-    const bullet = /^[-*]\s+/.exec(part)
-    if (bullet) {
-      const item: ListItem = {
-        srcStart: start + bullet[0].length,
-        text: part.slice(bullet[0].length),
-      }
-      const previous = blocks[blocks.length - 1]
-      if (previous?.kind === "list") {
-        previous.items.push(item)
-      } else {
-        blocks.push({ kind: "list", srcStart: item.srcStart, items: [item] })
-      }
-      continue
-    }
-
-    if (part.length > 0) {
-      blocks.push({ kind: "paragraph", srcStart: start, text: part })
-    }
-  }
-  return blocks
-}
-
-function flattenSelectableBlocks(blocks: Block[]): SelectableBlock[] {
-  const selectableBlocks: SelectableBlock[] = []
-  for (const block of blocks) {
-    if (block.kind === "list") {
-      for (const item of block.items) {
-        selectableBlocks.push({
-          key: `list-${item.srcStart}`,
-          srcStart: item.srcStart,
-          text: item.text,
-        })
-      }
-      continue
-    }
-    if (block.kind === "table") {
-      block.rows.forEach((row, rowIndex) => {
-        row.forEach((cell, cellIndex) => {
-          selectableBlocks.push({
-            key: `table-${rowIndex}-${cellIndex}-${cell.srcStart}`,
-            srcStart: cell.srcStart,
-            text: cell.text,
-          })
-        })
-      })
-      continue
-    }
-    selectableBlocks.push({
-      key: `${block.kind}-${block.srcStart}`,
-      srcStart: block.srcStart,
-      text: block.text,
-    })
-  }
-  return selectableBlocks
 }
 
 const headingClass: Record<number, string> = {
@@ -484,7 +316,10 @@ function SelectableChunkView({
   selectionMode = "exact",
   className,
 }: SelectableChunkProps) {
-  const blocks = React.useMemo(() => parseBlocks(chunk.text), [chunk.text])
+  const blocks = React.useMemo(
+    () => parseMarkdownBlocks(chunk.text),
+    [chunk.text],
+  )
   const selectableBlocks = React.useMemo(
     () => flattenSelectableBlocks(blocks),
     [blocks],
@@ -499,6 +334,12 @@ function SelectableChunkView({
     React.useState<SelectionOverlayRect | null>(null)
   const [searchSelectionActive, setSearchSelectionActive] =
     React.useState(false)
+  const inheritedSelectionController = useDocumentSelectionController()
+  const localSelectionControllerRef = React.useRef<DocumentSelectionController>(
+    new DocumentSelectionController(),
+  )
+  const selectionController =
+    inheritedSelectionController ?? localSelectionControllerRef.current
 
   const setBlockRef = React.useCallback(
     (srcStart: number) => (element: HTMLElement | null) => {
@@ -514,7 +355,7 @@ function SelectableChunkView({
   const commitSearchSelection = React.useCallback(
     (event: React.SyntheticEvent<HTMLElement>) => {
       setSearchSelectionActive(false)
-      if (!onSearchSelect || !isSearchSelectionEvent(event)) {
+      if (!onSearchSelect || !isSearchSelectionGesture(event.nativeEvent)) {
         return false
       }
       const root = event.currentTarget
@@ -551,7 +392,7 @@ function SelectableChunkView({
 
   const commitExactSelection = React.useCallback(
     (event: React.SyntheticEvent<HTMLElement>) => {
-      if (isSearchSelectionEvent(event)) {
+      if (isSearchSelectionGesture(event.nativeEvent)) {
         return
       }
       if (readOnly) {
@@ -607,7 +448,7 @@ function SelectableChunkView({
 
   const commit = React.useCallback(
     (srcStart: number) => (event: React.SyntheticEvent<HTMLElement>) => {
-      if (isSearchSelectionEvent(event)) {
+      if (isSearchSelectionGesture(event.nativeEvent)) {
         return
       }
       if (readOnly) {
@@ -719,29 +560,6 @@ function SelectableChunkView({
     [blockRangeSpans, chunk.id, chunk.text, onBlockSelect, onSelect, readOnly],
   )
 
-  const dragSelectedKeysRef = React.useRef<Set<string>>(new Set())
-  const dragSessionRef = React.useRef(0)
-
-  const selectBlockOnce = React.useCallback(
-    (
-      srcStart: number,
-      text: string,
-      event?: React.PointerEvent<HTMLElement>,
-    ) => {
-      if (dragSessionRef.current !== blockDragSession) {
-        dragSessionRef.current = blockDragSession
-        dragSelectedKeysRef.current = new Set()
-      }
-      const key = `${chunk.id}-${srcStart}-${text.length}`
-      if (dragSelectedKeysRef.current.has(key)) {
-        return true
-      }
-      dragSelectedKeysRef.current.add(key)
-      return commitBlock(srcStart, text, event)
-    },
-    [chunk.id, commitBlock],
-  )
-
   const startBlockDrag = React.useCallback(
     (srcStart: number, text: string) =>
       (event: React.PointerEvent<HTMLElement>) => {
@@ -755,23 +573,30 @@ function SelectableChunkView({
           return
         }
         event.preventDefault()
-        blockDragActive = true
-        blockDragSession += 1
-        dragSessionRef.current = blockDragSession
-        dragSelectedKeysRef.current = new Set()
-        if (!selectBlockOnce(srcStart, text, event)) {
-          blockDragActive = false
+        const key = `${chunk.id}-${srcStart}-${text.length}`
+        if (!selectionController.begin(key)) {
+          return
+        }
+        if (!commitBlock(srcStart, text, event)) {
+          selectionController.end()
           return
         }
         window.addEventListener(
           "pointerup",
           () => {
-            blockDragActive = false
+            selectionController.end()
           },
           { once: true },
         )
       },
-    [onSearchSelect, readOnly, selectBlockOnce, selectionMode],
+    [
+      chunk.id,
+      commitBlock,
+      onSearchSelect,
+      readOnly,
+      selectionController,
+      selectionMode,
+    ],
   )
 
   const continueBlockDrag = React.useCallback(
@@ -780,16 +605,20 @@ function SelectableChunkView({
         if (
           selectionMode !== "block" ||
           readOnly ||
-          !blockDragActive ||
+          !selectionController.isDragging ||
           event.buttons !== 1
         ) {
           return
         }
-        if (!selectBlockOnce(srcStart, text, event)) {
-          blockDragActive = false
+        const key = `${chunk.id}-${srcStart}-${text.length}`
+        if (!selectionController.visit(key)) {
+          return
+        }
+        if (!commitBlock(srcStart, text, event)) {
+          selectionController.end()
         }
       },
-    [readOnly, selectBlockOnce, selectionMode],
+    [chunk.id, commitBlock, readOnly, selectionController, selectionMode],
   )
 
   const selectedBlockSpan = React.useCallback(

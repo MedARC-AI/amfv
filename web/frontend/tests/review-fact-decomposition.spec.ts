@@ -18,6 +18,9 @@ test("submits a fact-decomposition review with fact calls and rubric", async ({
   await expect(
     orderedFacts.getByText("A distractor answer should not be listed."),
   ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Submit fact review" }),
+  ).toBeEnabled()
 
   await page.getByTestId("rubric-independently_verifiable").click()
   await page.getByRole("option", { name: "Pass" }).click()

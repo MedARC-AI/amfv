@@ -6,10 +6,18 @@ test("submits a relevance review for a retrieved passage", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Relevance Review" }),
   ).toBeVisible()
+  const claimReview = page.getByRole("button", {
+    name: "Claim relevance review",
+  })
+  await expect(claimReview).toBeVisible()
+  await claimReview.click()
   await expect(
     page.getByText("Which selected answer appears in the E2E document?"),
   ).toBeVisible()
   await expect(page.getByText("The selected answer is Baker.")).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Submit relevance" }),
+  ).toBeEnabled()
 
   await page.getByTestId("grade-select").click()
   await page.getByRole("option", { name: "Highly relevant" }).click()

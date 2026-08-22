@@ -20,6 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { isReviewActionAllowed } from "@/reviewCapabilities"
+import { apiErrorMessage } from "@/utils"
 
 export const Route = createFileRoute("/_layout/review/fact-decomposition")({
   component: FactDecompositionReview,
@@ -42,32 +44,6 @@ const confidences: Array<{ value: JudgmentConfidence; label: string }> = [
   { value: "EASY_CALL", label: "Easy call" },
   { value: "DELIBERATED", label: "Deliberated" },
 ]
-
-function apiMessage(error: unknown): string {
-  if (error && typeof error === "object" && "body" in error) {
-    const body = (error as { body?: { detail?: unknown } }).body
-    if (typeof body?.detail === "string") {
-      return body.detail
-    }
-    if (Array.isArray(body?.detail)) {
-      return body.detail
-        .map((entry) => {
-          if (entry && typeof entry === "object" && "message" in entry) {
-            return String((entry as { message: unknown }).message)
-          }
-          if (entry && typeof entry === "object" && "msg" in entry) {
-            return String((entry as { msg: unknown }).msg)
-          }
-          return String(entry)
-        })
-        .join("; ")
-    }
-  }
-  if (error instanceof Error) {
-    return error.message
-  }
-  return "Request failed"
-}
 
 function optionLabel(value: string): string {
   return value
@@ -157,11 +133,15 @@ function FactDecompositionReview() {
       )
       setErrorMessage(null)
     },
-    onError: (error) => setErrorMessage(apiMessage(error)),
+    onError: (error) => setErrorMessage(apiErrorMessage(error)),
   })
 
   const submitReview = () => {
-    if (!payload || completionMessage) {
+    if (
+      !payload ||
+      completionMessage ||
+      !isReviewActionAllowed(payload.allowed_actions, "save_review")
+    ) {
       return
     }
     submitMutation.mutate({
@@ -186,7 +166,7 @@ function FactDecompositionReview() {
     return (
       <div className="flex flex-col gap-3">
         <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-          {apiMessage(nextQuery.error)}
+          {apiErrorMessage(nextQuery.error)}
         </div>
       </div>
     )
@@ -206,7 +186,7 @@ function FactDecompositionReview() {
     return (
       <div className="flex flex-col gap-3">
         <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-          {apiMessage(payloadQuery.error)}
+          {apiErrorMessage(payloadQuery.error)}
         </div>
       </div>
     )
@@ -383,7 +363,11 @@ function FactDecompositionReview() {
           ) : null}
 
           <Button
-            disabled={submitMutation.isPending || completionMessage !== null}
+            disabled={
+              submitMutation.isPending ||
+              completionMessage !== null ||
+              !isReviewActionAllowed(payload.allowed_actions, "save_review")
+            }
             onClick={submitReview}
             type="button"
           >

@@ -42,7 +42,7 @@ async function selectEvidenceText(page: Page, selectedText: string) {
 
 test("previews and submits one retrieval batch with selected gold evidence", async ({
   page,
-}) => {
+}, testInfo) => {
   await chooseDataset(page)
   const documentPicker = page.getByRole("button", { name: /^Select document/ })
   const sourceDocument = page.getByRole("button", {
@@ -57,6 +57,32 @@ test("previews and submits one retrieval batch with selected gold evidence", asy
     await documentPicker.click()
   }
   await sourceDocument.click()
+
+  await expect(
+    page.locator("[data-chunk-id]").filter({ hasText: "Baker" }).first(),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Search document text" }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Copy Markdown" }),
+  ).toBeVisible()
+  await page.getByRole("button", { name: "Search document text" }).click()
+  await page
+    .getByRole("searchbox", { name: "Search document text" })
+    .fill("Baker")
+  await expect(page.locator('[data-search-active="true"]')).toHaveText("Baker")
+  await page.screenshot({
+    path: testInfo.outputPath("retrieval-create-desktop.png"),
+    fullPage: true,
+  })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.locator("[data-chunk-id]").first().scrollIntoViewIfNeeded()
+  await page.screenshot({
+    path: testInfo.outputPath("retrieval-create-mobile.png"),
+    fullPage: true,
+  })
+  await page.setViewportSize({ width: 1280, height: 720 })
 
   await selectEvidenceText(page, "Baker")
   await expect(page.getByLabel("Expected answer")).toHaveValue("Baker")

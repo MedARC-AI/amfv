@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { ExternalLink, Loader2, ZoomIn, ZoomOut } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import * as React from "react"
 
 import {
@@ -11,19 +11,18 @@ import {
   type RetrievalReviewSubmit,
   ReviewService,
 } from "@/client"
-import { CopyDocumentMarkdownButton } from "@/components/annotation/CopyDocumentMarkdownButton"
-import { DocumentSearchControl } from "@/components/annotation/DocumentSearchControl"
+import { DocumentEvidenceViewer } from "@/components/annotation/DocumentEvidenceViewer"
 import { SelectableChunk } from "@/components/annotation/SelectableChunk"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import {
-  findDocumentSearchMatches,
-  searchMatchesByChunk,
-} from "@/lib/documentSearch"
 import { evalItemDomId } from "@/lib/evalItemPalette"
 import { cn } from "@/lib/utils"
-import { sourceDocumentUrl } from "@/utils"
+import {
+  isReviewActionAllowed,
+  retrievalReviewAction,
+} from "@/reviewCapabilities"
+import { apiErrorMessage, hasApiErrorStatus } from "@/utils"
 
 export const Route = createFileRoute("/_layout/review/retrieval")({
   component: RetrievalReview,
@@ -121,69 +120,8 @@ const AUTHOR_EVIDENCE_BLOCK_CLASS = "border-primary/20 bg-primary/5"
 const TRAP_EVIDENCE_MARK_CLASS = "bg-destructive/10 ring-destructive/20"
 const TRAP_EVIDENCE_BLOCK_CLASS = "border-destructive/20 bg-destructive/5"
 
-function apiMessage(error: unknown): string {
-  if (error && typeof error === "object" && "body" in error) {
-    const body = (error as { body?: { detail?: unknown } }).body
-    if (typeof body?.detail === "string") {
-      return body.detail
-    }
-    if (Array.isArray(body?.detail)) {
-      return body.detail
-        .map((entry) => {
-          if (entry && typeof entry === "object" && "message" in entry) {
-            return String((entry as { message: unknown }).message)
-          }
-          if (entry && typeof entry === "object" && "msg" in entry) {
-            return String((entry as { msg: unknown }).msg)
-          }
-          return String(entry)
-        })
-        .join("; ")
-    }
-  }
-  if (error instanceof Error) {
-    return error.message
-  }
-  return "Request failed"
-}
-
 function evidenceAnchorId(span: EvidenceSpan): string {
   return `evidence-${span.chunk_id}-${span.start}-${span.end}`
-}
-
-function scrollableAncestor(element: HTMLElement): HTMLElement | null {
-  let node = element.parentElement
-  while (node && node !== document.body) {
-    const overflowY = getComputedStyle(node).overflowY
-    if (
-      (overflowY === "auto" || overflowY === "scroll") &&
-      node.scrollHeight > node.clientHeight
-    ) {
-      return node
-    }
-    node = node.parentElement
-  }
-  return null
-}
-
-function scrollWithinContainer(element: HTMLElement): void {
-  const container = scrollableAncestor(element)
-  if (!container) {
-    return
-  }
-  const containerRect = container.getBoundingClientRect()
-  const elementRect = element.getBoundingClientRect()
-  if (
-    elementRect.top >= containerRect.top &&
-    elementRect.bottom <= containerRect.bottom
-  ) {
-    return
-  }
-  const offset =
-    elementRect.top -
-    containerRect.top -
-    (container.clientHeight - elementRect.height) / 2
-  container.scrollBy({ top: offset, behavior: "smooth" })
 }
 
 function EvidenceList({
@@ -396,166 +334,6 @@ function allPayloadChunks(
   return [...chunksById.values()]
 }
 
-type RetrievalReviewDocumentViewerProps = {
-  committedSpansByChunk: Map<number, CommittedEvidenceSpan[]>
-  document: DocumentDetail | undefined
-  fallbackChunks: ChunkSummary[]
-  onCommittedSelect: (itemId: string) => void
-  selectionInstruction: React.ReactNode
-  selectionMode: "exact" | "block"
-}
-
-const RetrievalReviewDocumentViewer = React.memo(
-  function RetrievalReviewDocumentViewer({
-    committedSpansByChunk,
-    document,
-    fallbackChunks,
-    onCommittedSelect,
-    selectionInstruction,
-    selectionMode,
-  }: RetrievalReviewDocumentViewerProps) {
-    const [activeSearchMatchIndex, setActiveSearchMatchIndex] =
-      React.useState(0)
-    const [searchOpen, setSearchOpen] = React.useState(false)
-    const [searchQuery, setSearchQuery] = React.useState("")
-    const [textSize, setTextSize] = React.useState(1)
-    const sourceUrl = sourceDocumentUrl(document)
-    const chunks = document?.chunks ?? fallbackChunks
-    const textSizeClass =
-      textSize === 0 ? "text-sm" : textSize === 1 ? "text-base" : "text-lg"
-    const searchMatches = React.useMemo(
-      () => findDocumentSearchMatches(chunks, searchQuery),
-      [chunks, searchQuery],
-    )
-    const searchMatchesByChunkId = React.useMemo(
-      () => searchMatchesByChunk(searchMatches),
-      [searchMatches],
-    )
-    const boundedActiveSearchMatchIndex =
-      searchMatches.length === 0
-        ? 0
-        : Math.min(activeSearchMatchIndex, searchMatches.length - 1)
-    const handleSearchSelect = React.useCallback((text: string) => {
-      setSearchQuery(text)
-      setActiveSearchMatchIndex(0)
-      setSearchOpen(true)
-    }, [])
-
-    React.useEffect(() => {
-      if (activeSearchMatchIndex !== boundedActiveSearchMatchIndex) {
-        setActiveSearchMatchIndex(boundedActiveSearchMatchIndex)
-      }
-    }, [activeSearchMatchIndex, boundedActiveSearchMatchIndex])
-
-    React.useEffect(() => {
-      if (searchMatches.length === 0) {
-        return
-      }
-      const element = globalThis.document.querySelector<HTMLElement>(
-        `[data-search-match-index="${boundedActiveSearchMatchIndex}"]`,
-      )
-      if (element) {
-        scrollWithinContainer(element)
-      }
-    }, [boundedActiveSearchMatchIndex, searchMatches.length])
-
-    if (chunks.length === 0) {
-      return (
-        <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-          No chunks were attached to this retrieval item.
-        </div>
-      )
-    }
-
-    return (
-      <div className="relative max-w-5xl space-y-4">
-        <div className="sticky top-4 z-10 float-right -mr-14 hidden flex-col gap-2 lg:flex">
-          <DocumentSearchControl
-            activeIndex={boundedActiveSearchMatchIndex}
-            onActiveIndexChange={setActiveSearchMatchIndex}
-            onOpenChange={setSearchOpen}
-            onQueryChange={setSearchQuery}
-            open={searchOpen}
-            query={searchQuery}
-            totalMatches={searchMatches.length}
-          />
-          <CopyDocumentMarkdownButton
-            chunks={chunks}
-            document={document}
-            sourceUrl={sourceUrl}
-          />
-          <Button
-            aria-label="Increase document text size"
-            disabled={textSize === 2}
-            onClick={() => setTextSize((current) => Math.min(2, current + 1))}
-            size="icon-sm"
-            type="button"
-            variant="outline"
-          >
-            <ZoomIn />
-          </Button>
-          <Button
-            aria-label="Decrease document text size"
-            disabled={textSize === 0}
-            onClick={() => setTextSize((current) => Math.max(0, current - 1))}
-            size="icon-sm"
-            type="button"
-            variant="outline"
-          >
-            <ZoomOut />
-          </Button>
-        </div>
-        <div className="rounded-md border border-primary/30 bg-primary/5 p-4 text-base text-foreground">
-          <div className="mb-1 font-semibold text-primary">Instructions</div>
-          {selectionInstruction}
-        </div>
-        <div className="rounded-md border bg-background">
-          {document ? (
-            <div className="border-b p-4 text-3xl font-bold tracking-tight">
-              {sourceUrl ? (
-                <a
-                  className="group inline-flex items-start gap-2 underline-offset-4 hover:text-primary hover:underline"
-                  href={sourceUrl}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  {document.title}
-                  <ExternalLink
-                    aria-hidden
-                    className="mt-1.5 size-5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary"
-                  />
-                </a>
-              ) : (
-                document.title
-              )}
-            </div>
-          ) : null}
-          <div className="space-y-4 p-4">
-            {chunks.map((chunk) => (
-              <SelectableChunk
-                activeSearchMatchIndex={boundedActiveSearchMatchIndex}
-                className={textSizeClass}
-                chunk={chunk}
-                committedSpans={
-                  committedSpansByChunk.get(chunk.id) ?? EMPTY_EVIDENCE_SPANS
-                }
-                key={chunk.id}
-                onCommittedSelect={onCommittedSelect}
-                onSelect={() => false}
-                onSearchSelect={handleSearchSelect}
-                readOnly
-                searchMatches={searchMatchesByChunkId.get(chunk.id)}
-                selectedSpans={EMPTY_EVIDENCE_SPANS}
-                selectionMode={selectionMode}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-    )
-  },
-)
-
 function RetrievalReview() {
   const queryClient = useQueryClient()
   const [rubricValues, setRubricValues] = React.useState<RubricValues>({
@@ -586,6 +364,21 @@ function RetrievalReview() {
         mode: "ITEM_AUDIT",
       }),
     retry: false,
+  })
+
+  const claimMutation = useMutation({
+    mutationFn: () =>
+      ReviewService.claimNextReviewTask({
+        requestBody: {
+          eval_type: "RETRIEVAL",
+          mode: "ITEM_AUDIT",
+        },
+      }),
+    onSuccess: (recommendation) => {
+      setErrorMessage(null)
+      queryClient.setQueryData(["review-next", "retrieval"], recommendation)
+    },
+    onError: (error) => setErrorMessage(apiErrorMessage(error)),
   })
 
   const assignmentId = nextQuery.data?.assignment_id ?? null
@@ -711,7 +504,7 @@ function RetrievalReview() {
       setErrorMessage(null)
       queryClient.invalidateQueries({ queryKey: ["review-next", "retrieval"] })
     },
-    onError: (error) => setErrorMessage(apiMessage(error)),
+    onError: (error) => setErrorMessage(apiErrorMessage(error)),
   })
 
   const locateEvidenceSpan = React.useCallback(
@@ -740,7 +533,7 @@ function RetrievalReview() {
     if (!element) {
       return
     }
-    scrollWithinContainer(element)
+    element.scrollIntoView({ behavior: "smooth", block: "center" })
     element.classList.add("ring-2", "ring-offset-2", "ring-primary")
     window.setTimeout(() => {
       element.classList.remove("ring-2", "ring-offset-2", "ring-primary")
@@ -793,17 +586,25 @@ function RetrievalReview() {
     setErrorMessage(null)
   }
 
+  const requiredReviewAction = retrievalReviewAction(acceptAsGold)
   const canSubmit =
     rubricValues.question_validity !== null &&
     rubricValues.evidence_quality !== null &&
     rubricValues.answer_correctness !== null &&
     rubricValues.answer_faithfulness !== null &&
     acceptAsGold !== null &&
+    requiredReviewAction !== null &&
+    isReviewActionAllowed(payload?.allowed_actions, requiredReviewAction) &&
     !submitMutation.isPending &&
     completionMessage === null
 
   const submitReview = () => {
-    if (!payload || !canSubmit) {
+    if (
+      !payload ||
+      !canSubmit ||
+      requiredReviewAction === null ||
+      !isReviewActionAllowed(payload.allowed_actions, requiredReviewAction)
+    ) {
       return
     }
     const {
@@ -840,11 +641,11 @@ function RetrievalReview() {
     )
   }
 
-  if (nextQuery.isError) {
+  if (nextQuery.isError && !hasApiErrorStatus(nextQuery.error, 404)) {
     return (
       <div className="flex flex-col gap-3">
         <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-          {apiMessage(nextQuery.error)}
+          {apiErrorMessage(nextQuery.error)}
         </div>
       </div>
     )
@@ -854,8 +655,29 @@ function RetrievalReview() {
     return (
       <div className="flex flex-col gap-3">
         <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-          No retrieval review tasks are available.
+          No retrieval review assignment is currently held by you. Claim the
+          next available task to begin reviewing.
         </div>
+        {errorMessage ? (
+          <div
+            className="rounded-md border border-destructive/40 p-3 text-sm"
+            role="alert"
+          >
+            {errorMessage}
+          </div>
+        ) : null}
+        <Button
+          disabled={claimMutation.isPending}
+          onClick={() => {
+            setErrorMessage(null)
+            claimMutation.mutate()
+          }}
+          type="button"
+        >
+          {claimMutation.isPending
+            ? "Claiming retrieval review"
+            : "Claim retrieval review"}
+        </Button>
       </div>
     )
   }
@@ -864,7 +686,7 @@ function RetrievalReview() {
     return (
       <div className="flex flex-col gap-3">
         <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-          {apiMessage(payloadQuery.error)}
+          {apiErrorMessage(payloadQuery.error)}
         </div>
       </div>
     )
@@ -991,14 +813,20 @@ function RetrievalReview() {
               </div>
               <div className="grid grid-cols-2 rounded-md border bg-background p-1">
                 {[
-                  { label: "Yes", value: true },
-                  { label: "No", value: false },
+                  { action: "accept", label: "Yes", value: true },
+                  { action: "reject", label: "No", value: false },
                 ].map((option) => (
                   <label className="block" key={option.label}>
                     <input
                       aria-label={option.label}
                       checked={acceptAsGold === option.value}
                       className="sr-only"
+                      disabled={
+                        !isReviewActionAllowed(
+                          payload.allowed_actions,
+                          option.action,
+                        )
+                      }
                       name="accept-as-gold"
                       onChange={() => setGoldDecision(option.value)}
                       type="radio"
@@ -1009,6 +837,10 @@ function RetrievalReview() {
                         acceptAsGold === option.value
                           ? "bg-primary text-primary-foreground shadow-xs"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                        !isReviewActionAllowed(
+                          payload.allowed_actions,
+                          option.action,
+                        ) && "cursor-not-allowed opacity-50",
                       )}
                     >
                       {option.label}
@@ -1050,14 +882,38 @@ function RetrievalReview() {
         </aside>
 
         <section className="space-y-6">
-          <RetrievalReviewDocumentViewer
-            committedSpansByChunk={committedSpansByChunk}
+          <DocumentEvidenceViewer
+            chunks={activeDocument?.chunks ?? fallbackChunks}
             document={activeDocument}
-            fallbackChunks={fallbackChunks}
-            onCommittedSelect={scrollToReviewItem}
-            selectionInstruction={<ReviewInstructions />}
-            selectionMode={selectionMode}
-          />
+            emptyMessage="No chunks were attached to this retrieval item."
+            instructions={<ReviewInstructions />}
+          >
+            {({
+              activeSearchMatchIndex,
+              onSearchSelect,
+              searchMatchesByChunkId,
+              textSizeClass,
+            }) =>
+              (activeDocument?.chunks ?? fallbackChunks).map((chunk) => (
+                <SelectableChunk
+                  activeSearchMatchIndex={activeSearchMatchIndex}
+                  className={textSizeClass}
+                  chunk={chunk}
+                  committedSpans={
+                    committedSpansByChunk.get(chunk.id) ?? EMPTY_EVIDENCE_SPANS
+                  }
+                  key={chunk.id}
+                  onCommittedSelect={scrollToReviewItem}
+                  onSearchSelect={onSearchSelect}
+                  onSelect={() => false}
+                  readOnly
+                  searchMatches={searchMatchesByChunkId.get(chunk.id)}
+                  selectedSpans={EMPTY_EVIDENCE_SPANS}
+                  selectionMode={selectionMode}
+                />
+              ))
+            }
+          </DocumentEvidenceViewer>
         </section>
       </div>
     </div>

@@ -1,15 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import {
-  ExternalLink,
-  Loader2,
-  Pencil,
-  RotateCcw,
-  Trash2,
-  X,
-  ZoomIn,
-  ZoomOut,
-} from "lucide-react"
+import { Loader2, Pencil, Trash2, X } from "lucide-react"
 import * as React from "react"
 import { toast } from "sonner"
 
@@ -17,24 +8,19 @@ import {
   ApiError,
   type CreateRetrievalDraftSubmit,
   CreateService,
-  type DocumentDetail,
   type DocumentSummary,
   type EvidenceSpan,
   type RetrievalCategory,
   type RetrievalSubmissionBatchResponse,
   type ValidationPreview,
 } from "@/client"
-import { CopyDocumentMarkdownButton } from "@/components/annotation/CopyDocumentMarkdownButton"
-import { DocumentSearchControl } from "@/components/annotation/DocumentSearchControl"
 import {
   EvidenceTray,
   type EvidenceTraySpan,
 } from "@/components/annotation/EvidenceTray"
-import {
-  type BlockSelection,
-  SelectableChunk,
-} from "@/components/annotation/SelectableChunk"
+import type { BlockSelection } from "@/components/annotation/SelectableChunk"
 import { ValidationMessages } from "@/components/annotation/ValidationMessages"
+import { RetrievalEvidenceDocument as RetrievalEvidenceDocumentFeature } from "@/components/Create/RetrievalEvidenceDocument"
 import SourceDocumentDialog from "@/components/Create/SourceDocumentDialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -46,13 +32,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  findDocumentSearchMatches,
-  searchMatchesByChunk,
-} from "@/lib/documentSearch"
 import { evalItemColor, evalItemDomId } from "@/lib/evalItemPalette"
 import { cn } from "@/lib/utils"
-import { apiErrorMessage, sourceDocumentUrl } from "@/utils"
+import { apiErrorMessage, ProductMessageError } from "@/utils"
 export const Route = createFileRoute("/_layout/create/retrieval")({
   component: RetrievalCreate,
   head: () => ({
@@ -109,7 +91,6 @@ class PreviewRejectedError extends Error {
   }
 }
 
-const EMPTY_EVIDENCE_SPANS: EvidenceSpan[] = []
 const EMPTY_COMMITTED_SPANS_BY_CHUNK = new Map<
   number,
   CommittedEvidenceSpan[]
@@ -279,18 +260,6 @@ const AutoResizeTextarea = React.forwardRef<
     />
   )
 })
-
-function useStableCallback<T extends (...args: never[]) => unknown>(
-  callback: T,
-): T {
-  const callbackRef = React.useRef(callback)
-
-  React.useLayoutEffect(() => {
-    callbackRef.current = callback
-  }, [callback])
-
-  return React.useCallback(((...args) => callbackRef.current(...args)) as T, [])
-}
 
 /**
  * Compact, clickable summary of the documents currently in the working set.
@@ -747,200 +716,6 @@ function RetrievalControlPanel({
   )
 }
 
-type RetrievalDocumentViewerProps = {
-  canUndoEvidence: boolean
-  committedSpansByChunk: Map<number, CommittedEvidenceSpan[]>
-  document: DocumentDetail | undefined
-  onCommittedSelect: (itemId: string) => void
-  onConfirmEvidenceSelection?: () => void
-  onSelectBlockEvidence: (selection: BlockSelection) => boolean | undefined
-  onRemoveEvidence: (span: EvidenceSpan & { id?: string }) => void
-  onSelectEvidence: (span: EvidenceSpan) => boolean | undefined
-  onUndoEvidence: () => void
-  selectedSpansByChunk: Map<number, RetrievalEvidenceSpan[]>
-  selectionInstruction: string
-  selectionMode: "exact" | "block"
-}
-
-const RetrievalDocumentViewer = React.memo(function RetrievalDocumentViewer({
-  canUndoEvidence,
-  committedSpansByChunk,
-  document,
-  onCommittedSelect,
-  onConfirmEvidenceSelection,
-  onSelectBlockEvidence,
-  onRemoveEvidence,
-  onSelectEvidence,
-  onUndoEvidence,
-  selectedSpansByChunk,
-  selectionInstruction,
-  selectionMode,
-}: RetrievalDocumentViewerProps) {
-  const [activeSearchMatchIndex, setActiveSearchMatchIndex] = React.useState(0)
-  const [searchOpen, setSearchOpen] = React.useState(false)
-  const [searchQuery, setSearchQuery] = React.useState("")
-  const [textSize, setTextSize] = React.useState(1)
-  const handleCommittedSelect = useStableCallback(onCommittedSelect)
-  const handleSelectBlockEvidence = useStableCallback(onSelectBlockEvidence)
-  const handleRemoveEvidence = useStableCallback(onRemoveEvidence)
-  const handleSelectEvidence = useStableCallback(onSelectEvidence)
-  const handleUndoEvidence = useStableCallback(onUndoEvidence)
-  const handleConfirmEvidenceSelection = useStableCallback(() => {
-    onConfirmEvidenceSelection?.()
-  })
-  const handleSearchSelect = React.useCallback((text: string) => {
-    setSearchQuery(text)
-    setActiveSearchMatchIndex(0)
-    setSearchOpen(true)
-  }, [])
-  const chunks = document?.chunks ?? []
-  const searchMatches = React.useMemo(
-    () => findDocumentSearchMatches(chunks, searchQuery),
-    [chunks, searchQuery],
-  )
-  const searchMatchesByChunkId = React.useMemo(
-    () => searchMatchesByChunk(searchMatches),
-    [searchMatches],
-  )
-  const boundedActiveSearchMatchIndex =
-    searchMatches.length === 0
-      ? 0
-      : Math.min(activeSearchMatchIndex, searchMatches.length - 1)
-
-  React.useEffect(() => {
-    if (activeSearchMatchIndex !== boundedActiveSearchMatchIndex) {
-      setActiveSearchMatchIndex(boundedActiveSearchMatchIndex)
-    }
-  }, [activeSearchMatchIndex, boundedActiveSearchMatchIndex])
-
-  React.useEffect(() => {
-    if (searchMatches.length === 0) {
-      return
-    }
-    const element = globalThis.document.querySelector<HTMLElement>(
-      `[data-search-match-index="${boundedActiveSearchMatchIndex}"]`,
-    )
-    if (element) {
-      scrollWithinContainer(element)
-    }
-  }, [boundedActiveSearchMatchIndex, searchMatches.length])
-
-  if (!document) {
-    return (
-      <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-        Select a source document to highlight evidence.
-      </div>
-    )
-  }
-
-  const sourceUrl = sourceDocumentUrl(document)
-  const textSizeClass =
-    textSize === 0 ? "text-sm" : textSize === 1 ? "text-base" : "text-lg"
-
-  return (
-    <div className="relative max-w-5xl space-y-4">
-      <div className="sticky top-4 z-10 float-right -mr-14 hidden flex-col gap-2 lg:flex">
-        <Button
-          aria-label="Undo evidence change"
-          disabled={!canUndoEvidence}
-          onClick={handleUndoEvidence}
-          size="icon-sm"
-          type="button"
-          variant="outline"
-        >
-          <RotateCcw />
-        </Button>
-        <DocumentSearchControl
-          activeIndex={boundedActiveSearchMatchIndex}
-          onActiveIndexChange={setActiveSearchMatchIndex}
-          onOpenChange={setSearchOpen}
-          onQueryChange={setSearchQuery}
-          open={searchOpen}
-          query={searchQuery}
-          totalMatches={searchMatches.length}
-        />
-        <CopyDocumentMarkdownButton
-          chunks={chunks}
-          document={document}
-          sourceUrl={sourceUrl}
-        />
-        <Button
-          aria-label="Increase document text size"
-          disabled={textSize === 2}
-          onClick={() => setTextSize((current) => Math.min(2, current + 1))}
-          size="icon-sm"
-          type="button"
-          variant="outline"
-        >
-          <ZoomIn />
-        </Button>
-        <Button
-          aria-label="Decrease document text size"
-          disabled={textSize === 0}
-          onClick={() => setTextSize((current) => Math.max(0, current - 1))}
-          size="icon-sm"
-          type="button"
-          variant="outline"
-        >
-          <ZoomOut />
-        </Button>
-      </div>
-      <div className="rounded-md border border-primary/30 bg-primary/5 p-4 text-base text-foreground">
-        <div className="mb-1 font-semibold text-primary">Instructions</div>
-        {selectionInstruction}
-      </div>
-      <div className="rounded-md border bg-background">
-        <div className="border-b p-4 text-3xl font-bold tracking-tight">
-          {sourceUrl ? (
-            <a
-              className="group inline-flex items-start gap-2 underline-offset-4 hover:text-primary hover:underline"
-              href={sourceUrl}
-              rel="noreferrer"
-              target="_blank"
-            >
-              {document.title}
-              <ExternalLink
-                aria-hidden
-                className="mt-1.5 size-5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary"
-              />
-            </a>
-          ) : (
-            document.title
-          )}
-        </div>
-        <div className="space-y-4 p-4">
-          {chunks.map((chunk) => (
-            <SelectableChunk
-              activeSearchMatchIndex={boundedActiveSearchMatchIndex}
-              className={textSizeClass}
-              chunk={chunk}
-              committedSpans={
-                committedSpansByChunk.get(chunk.id) ?? EMPTY_EVIDENCE_SPANS
-              }
-              key={chunk.id}
-              onCommittedSelect={handleCommittedSelect}
-              onBlockSelect={handleSelectBlockEvidence}
-              onConfirmSelection={
-                onConfirmEvidenceSelection
-                  ? handleConfirmEvidenceSelection
-                  : undefined
-              }
-              onRemove={handleRemoveEvidence}
-              onSelect={handleSelectEvidence}
-              onSearchSelect={handleSearchSelect}
-              selectionMode={selectionMode}
-              searchMatches={searchMatchesByChunkId.get(chunk.id)}
-              selectedSpans={
-                selectedSpansByChunk.get(chunk.id) ?? EMPTY_EVIDENCE_SPANS
-              }
-            />
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-})
-
 function RetrievalCreate() {
   const [datasetId, setDatasetId] = React.useState<number | null>(null)
   const [selectedDocumentIds, setSelectedDocumentIds] = React.useState<
@@ -1161,7 +936,7 @@ function RetrievalCreate() {
             await CreateService.readRetrievalBatch({ requestId })
           return { previews, receipt, reconciled: true }
         } catch (_reconciliationError) {
-          throw new Error(
+          throw new ProductMessageError(
             "Submission outcome is unknown. It was not retried automatically; reconcile the saved receipt before sending another batch.",
           )
         }
@@ -1657,7 +1432,7 @@ function RetrievalCreate() {
         />
 
         <section className="space-y-6">
-          <RetrievalDocumentViewer
+          <RetrievalEvidenceDocumentFeature
             canUndoEvidence={undoStack.length > 0}
             committedSpansByChunk={committedSpansByChunk}
             document={activeDocumentQuery.data}
