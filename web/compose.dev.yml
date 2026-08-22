@@ -5,8 +5,8 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     build:
-      context: .
-      dockerfile: backend/Dockerfile
+      context: ..
+      dockerfile: web/backend/Dockerfile
     command:
       - fastapi
       - dev
@@ -19,14 +19,14 @@ services:
       watch:
         - path: ./backend
           action: sync
-          target: /app/backend
+          target: /app/web/backend
           ignore:
             - ./backend/.venv
             - .venv
         - path: ./backend/pyproject.toml
           action: rebuild
     volumes:
-      - ./backend/htmlcov:/app/backend/htmlcov
+      - ./backend/htmlcov:/app/web/backend/htmlcov
     environment:
       ENVIRONMENT: "local"
       SMTP_HOST: "mailcatcher"

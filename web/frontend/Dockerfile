@@ -1,5 +1,5 @@
 # Stage 0, "build-stage", based on Bun, to build and compile the frontend
-FROM oven/bun:1 AS build-stage
+FROM oven/bun:1.4.0 AS build-stage
 
 WORKDIR /app
 
@@ -9,7 +9,7 @@ COPY frontend/package.json /app/frontend/
 
 WORKDIR /app/frontend
 
-RUN bun install
+RUN bun install --frozen-lockfile
 
 COPY ./frontend /app/frontend
 ARG VITE_API_URL

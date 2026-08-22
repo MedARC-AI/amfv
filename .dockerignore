@@ -1,0 +1,16 @@
+.git
+.worktrees
+.venv
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/node_modules
+**/dist
+**/htmlcov
+**/playwright-report
+**/test-results
+**/*.db
+baseline
+training
+research

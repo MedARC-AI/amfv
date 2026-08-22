@@ -179,6 +179,7 @@ jobs:
         run: |
           cp .env.example .env
           AMFV_DOCKER_UID=1000 AMFV_DOCKER_GID=1000 docker compose -f compose.yml -f compose.dev.yml config --quiet
+          AMFV_DOCKER_UID=1000 AMFV_DOCKER_GID=1000 docker compose -f compose.yml -f compose.dev.yml build prestart backend frontend playwright
 
       - name: Install Chromium system dependencies
         working-directory: web/frontend
