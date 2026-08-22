@@ -1,6 +1,7 @@
 import json
 import uuid
-from collections.abc import AsyncIterator
+from collections import defaultdict
+from collections.abc import AsyncIterator, Sequence
 from itertools import combinations
 from typing import Any
 
@@ -37,6 +38,7 @@ from app.schemas import (
     AdminModerationAction,
     AdminTaskGenerationResult,
     AdminUserMetric,
+    AdminUserMetricPage,
     ChunkSummary,
     DatasetCreate,
     DatasetSummary,
@@ -48,15 +50,13 @@ from app.schemas import (
 )
 from app.services import document_import
 from app.services.agreement import (
+    agreement_summaries,
     cohen_kappa,
-    dataset_agreement,
     dataset_judgments_for_all,
-    reviewer_mean_kappa,
+    reviewer_mean_kappa_from_judgments,
 )
 from app.services.documents import (
     create_document_with_chunks,
-    documents_for_chunks,
-    resolve_item_chunks,
 )
 
 router = APIRouter(
@@ -68,6 +68,9 @@ router = APIRouter(
 IMPORT_READ_CHUNK_BYTES = 64 * 1024
 MAX_IMPORT_ERROR_DETAILS = 100
 MAX_IMPORT_ERROR_MESSAGE_CHARS = 1_024
+DEFAULT_ADMIN_PAGE_SIZE = 100
+MAX_ADMIN_METRIC_PAGE_SIZE = 500
+MAX_ADMIN_EXPORT_PAGE_SIZE = 1_000
 
 
 class ImportArtifactTooLargeError(ValueError):
@@ -207,12 +210,12 @@ async def import_admin_documents(
                 continue
             try:
                 payload = _decode_jsonl_object(raw_line)
-                row = document_import.parse_scraped_document_row(
+                row = document_import.parse_source_document_row(
                     payload,
                     max_content_bytes=settings.DOCUMENT_IMPORT_MAX_CONTENT_BYTES,
                     max_serialized_metadata_bytes=settings.DOCUMENT_IMPORT_MAX_METADATA_BYTES,
                 )
-                result = document_import.import_scraped_document(
+                result = document_import.import_source_document(
                     session,
                     dataset=dataset,
                     row=row,
@@ -323,19 +326,15 @@ def read_agreement_metrics(
     dataset_id: int | None = None,
     reviewer_kind: ReviewerKind | None = None,
 ) -> Any:
-    if dataset_id is None:
-        datasets = session.exec(select(col(Dataset.id)).order_by(col(Dataset.id))).all()
-        summaries = []
-        for current_dataset_id in datasets:
-            assert current_dataset_id is not None
-            summaries.extend(
-                dataset_agreement(
-                    session, current_dataset_id, reviewer_kind=reviewer_kind
-                )
-            )
-    else:
+    if dataset_id is not None:
         _get_dataset_or_404(session, dataset_id)
-        summaries = dataset_agreement(session, dataset_id, reviewer_kind=reviewer_kind)
+    summaries = agreement_summaries(
+        dataset_judgments_for_all(
+            session,
+            dataset_id=dataset_id,
+            reviewer_kind=reviewer_kind,
+        )
+    )
     return [
         AdminAgreementMetric(
             dimension=summary.dimension,
@@ -346,10 +345,31 @@ def read_agreement_metrics(
     ]
 
 
-@router.get("/metrics/users", response_model=list[AdminUserMetric])
-def read_user_metrics(session: SessionDep, dataset_id: int | None = None) -> Any:
-    users = session.exec(select(User).order_by(col(User.email))).all()
-    return [_user_metric(session, user, dataset_id=dataset_id) for user in users]
+@router.get("/metrics/users", response_model=AdminUserMetricPage)
+def read_user_metrics(
+    session: SessionDep,
+    dataset_id: int | None = None,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(
+        default=DEFAULT_ADMIN_PAGE_SIZE,
+        ge=1,
+        le=MAX_ADMIN_METRIC_PAGE_SIZE,
+    ),
+) -> Any:
+    if dataset_id is not None:
+        _get_dataset_or_404(session, dataset_id)
+    total = session.exec(select(func.count(col(User.id)))).one()
+    users = session.exec(
+        select(User).order_by(col(User.email)).offset(offset).limit(limit)
+    ).all()
+    items = _user_metrics(session, users, dataset_id=dataset_id)
+    return AdminUserMetricPage(
+        offset=offset,
+        limit=limit,
+        total=total,
+        next_offset=offset + len(users) if offset + len(users) < total else None,
+        items=items,
+    )
 
 
 @router.get(
@@ -402,15 +422,31 @@ def ingest_dataset() -> Any:
 
 
 @router.get("/export", response_model=AdminExport)
-def export_dataset(session: SessionDep, dataset_id: int | None = None) -> Any:
+def export_dataset(
+    session: SessionDep,
+    dataset_id: int | None = None,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(
+        default=DEFAULT_ADMIN_PAGE_SIZE,
+        ge=1,
+        le=MAX_ADMIN_EXPORT_PAGE_SIZE,
+    ),
+) -> Any:
     statement = select(EvalItem).order_by(col(EvalItem.dataset_id), col(EvalItem.id))
+    count_statement = select(func.count(col(EvalItem.id)))
     if dataset_id is not None:
         _get_dataset_or_404(session, dataset_id)
         statement = statement.where(col(EvalItem.dataset_id) == dataset_id)
-    items = session.exec(statement).all()
+        count_statement = count_statement.where(col(EvalItem.dataset_id) == dataset_id)
+    total = session.exec(count_statement).one()
+    items = session.exec(statement.offset(offset).limit(limit)).all()
     return AdminExport(
         dataset_id=dataset_id,
-        items=[_export_item(session, item) for item in items],
+        offset=offset,
+        limit=limit,
+        total=total,
+        next_offset=offset + len(items) if offset + len(items) < total else None,
+        items=_export_items(session, items),
     )
 
 
@@ -553,125 +589,224 @@ def _moderate_item(
     return item
 
 
-def _export_item(session: SessionDep, item: EvalItem) -> dict:
-    facts = session.exec(
+def _export_items(session: SessionDep, items: Sequence[EvalItem]) -> list[dict]:
+    """Serialize one bounded export page with a fixed query count."""
+    item_ids = [item.id for item in items if item.id is not None]
+    if not item_ids:
+        return []
+
+    facts_by_item: defaultdict[int, list[EvalFact]] = defaultdict(list)
+    for fact in session.exec(
         select(EvalFact)
-        .where(col(EvalFact.item_id) == item.id)
-        .order_by(col(EvalFact.position))
-    ).all()
-    chunks = resolve_item_chunks(session, item)
-    documents = documents_for_chunks(session, chunks)
-    review_task_count = session.exec(
-        select(func.count(col(ReviewTask.id))).where(
-            col(ReviewTask.item_a_id) == item.id
-        )
-    ).one()
-    retrieval_reviews = session.exec(
-        select(RetrievalQAReview)
-        .where(col(RetrievalQAReview.item_id) == item.id)
-        .order_by(col(RetrievalQAReview.id))
-    ).all()
-    return {
-        "id": item.id,
-        "dataset_id": item.dataset_id,
-        "eval_type": item.eval_type,
-        "status": item.status,
-        "prompt_text": item.prompt_text,
-        "expected_answer": item.expected_answer,
-        "category": item.category,
-        "evidence_spans": item.evidence_spans or [],
-        "evidence_chunks": [
-            {
-                "id": chunk.id,
-                "document_id": chunk.document_id,
-                "external_id": chunk.external_id,
-                "position": chunk.position,
-                "text": chunk.text,
-            }
-            for chunk in chunks
-        ],
-        "evidence_documents": [
-            {
-                "id": document.id,
-                "external_id": document.external_id,
-                "title": document.title,
-            }
-            for document in documents
-        ],
-        "facts": [
-            {
-                "fact_uuid": fact.fact_uuid,
-                "fact_text": fact.fact_text,
-                "polarity": fact.polarity,
-                "position": fact.position,
-            }
-            for fact in facts
-        ],
-        "review_task_count": review_task_count,
-        "retrieval_reviews": [
-            {
-                "id": review.id,
-                "assignment_id": review.assignment_id,
-                "user_id": str(review.user_id),
-                "question_validity": review.question_validity,
-                "evidence_quality": review.evidence_quality,
-                "answer_correctness": review.answer_correctness,
-                "answer_faithfulness": review.answer_faithfulness,
-                "notes": review.notes,
-                "verdict": review.verdict,
-                "skipped": review.skipped,
-                "skip_reason": review.skip_reason,
-            }
-            for review in retrieval_reviews
-        ],
+        .where(col(EvalFact.item_id).in_(item_ids))
+        .order_by(col(EvalFact.item_id), col(EvalFact.position))
+    ).all():
+        facts_by_item[fact.item_id].append(fact)
+
+    chunk_ids_by_item = {
+        item.id: _item_chunk_ids(item) for item in items if item.id is not None
     }
+    all_chunk_ids = {
+        chunk_id for chunk_ids in chunk_ids_by_item.values() for chunk_id in chunk_ids
+    }
+    chunks_by_id = (
+        {
+            chunk.id: chunk
+            for chunk in session.exec(
+                select(Chunk).where(col(Chunk.id).in_(all_chunk_ids))
+            ).all()
+            if chunk.id is not None
+        }
+        if all_chunk_ids
+        else {}
+    )
+    document_ids = {chunk.document_id for chunk in chunks_by_id.values()}
+    documents_by_id = (
+        {
+            document.id: document
+            for document in session.exec(
+                select(Document).where(col(Document.id).in_(document_ids))
+            ).all()
+            if document.id is not None
+        }
+        if document_ids
+        else {}
+    )
+    task_counts = dict(
+        session.exec(
+            select(col(ReviewTask.item_a_id), func.count(col(ReviewTask.id)))
+            .where(col(ReviewTask.item_a_id).in_(item_ids))
+            .group_by(col(ReviewTask.item_a_id))
+        ).all()
+    )
+    reviews_by_item: defaultdict[int, list[RetrievalQAReview]] = defaultdict(list)
+    for review in session.exec(
+        select(RetrievalQAReview)
+        .where(col(RetrievalQAReview.item_id).in_(item_ids))
+        .order_by(col(RetrievalQAReview.item_id), col(RetrievalQAReview.id))
+    ).all():
+        reviews_by_item[review.item_id].append(review)
+
+    rows = []
+    for item in items:
+        assert item.id is not None
+        chunks = [
+            chunks_by_id[chunk_id]
+            for chunk_id in sorted(chunk_ids_by_item[item.id])
+            if chunk_id in chunks_by_id
+        ]
+        documents = [
+            documents_by_id[document_id]
+            for document_id in sorted({chunk.document_id for chunk in chunks})
+            if document_id in documents_by_id
+        ]
+        rows.append(
+            {
+                "id": item.id,
+                "dataset_id": item.dataset_id,
+                "eval_type": item.eval_type,
+                "status": item.status,
+                "prompt_text": item.prompt_text,
+                "expected_answer": item.expected_answer,
+                "category": item.category,
+                "evidence_spans": item.evidence_spans or [],
+                "evidence_chunks": [
+                    {
+                        "id": chunk.id,
+                        "document_id": chunk.document_id,
+                        "external_id": chunk.external_id,
+                        "position": chunk.position,
+                        "text": chunk.text,
+                    }
+                    for chunk in chunks
+                ],
+                "evidence_documents": [
+                    {
+                        "id": document.id,
+                        "external_id": document.external_id,
+                        "title": document.title,
+                    }
+                    for document in documents
+                ],
+                "facts": [
+                    {
+                        "fact_uuid": fact.fact_uuid,
+                        "fact_text": fact.fact_text,
+                        "polarity": fact.polarity,
+                        "position": fact.position,
+                    }
+                    for fact in facts_by_item[item.id]
+                ],
+                "review_task_count": task_counts.get(item.id, 0),
+                "retrieval_reviews": [
+                    {
+                        "id": review.id,
+                        "assignment_id": review.assignment_id,
+                        "user_id": str(review.user_id),
+                        "question_validity": review.question_validity,
+                        "evidence_quality": review.evidence_quality,
+                        "answer_correctness": review.answer_correctness,
+                        "answer_faithfulness": review.answer_faithfulness,
+                        "notes": review.notes,
+                        "verdict": review.verdict,
+                        "skipped": review.skipped,
+                        "skip_reason": review.skip_reason,
+                    }
+                    for review in reviews_by_item[item.id]
+                ],
+            }
+        )
+    return rows
 
 
-def _user_metric(
+def _item_chunk_ids(item: EvalItem) -> set[int]:
+    chunk_ids: set[int] = set()
+    for value in [*(item.gold_chunk_ids or []), *(item.trap_chunk_ids or [])]:
+        if isinstance(value, int):
+            chunk_ids.add(value)
+        elif isinstance(value, str) and value.isdigit():
+            chunk_ids.add(int(value))
+    for span in item.evidence_spans or []:
+        if not isinstance(span, dict):
+            continue
+        value = span.get("chunk_id")
+        if isinstance(value, int):
+            chunk_ids.add(value)
+        elif isinstance(value, str) and value.isdigit():
+            chunk_ids.add(int(value))
+    return chunk_ids
+
+
+def _user_metrics(
     session: SessionDep,
-    user: User,
+    users: Sequence[User],
     *,
     dataset_id: int | None,
-) -> AdminUserMetric:
-    authored_statement = select(func.count(col(EvalItem.id))).where(
-        col(EvalItem.author_user_id) == user.id
+) -> list[AdminUserMetric]:
+    """Load one bounded user page using grouped activity queries."""
+    user_ids = [user.id for user in users if user.id is not None]
+    if not user_ids:
+        return []
+
+    authored = select(col(EvalItem.author_user_id), func.count(col(EvalItem.id))).where(
+        col(EvalItem.author_user_id).in_(user_ids)
     )
-    fact_decomp_review_statement = select(func.count(col(FactDecompReview.id))).where(
-        col(FactDecompReview.user_id) == user.id
-    )
-    retrieval_qa_review_statement = select(func.count(col(RetrievalQAReview.id))).where(
-        col(RetrievalQAReview.user_id) == user.id
-    )
-    relevance_statement = select(func.count(col(RelevanceJudgment.id))).where(
-        col(RelevanceJudgment.user_id) == user.id
-    )
+    fact_reviews = select(
+        col(FactDecompReview.user_id), func.count(col(FactDecompReview.id))
+    ).where(col(FactDecompReview.user_id).in_(user_ids))
+    retrieval_reviews = select(
+        col(RetrievalQAReview.user_id), func.count(col(RetrievalQAReview.id))
+    ).where(col(RetrievalQAReview.user_id).in_(user_ids))
+    relevance = select(
+        col(RelevanceJudgment.user_id), func.count(col(RelevanceJudgment.id))
+    ).where(col(RelevanceJudgment.user_id).in_(user_ids))
     if dataset_id is not None:
-        _get_dataset_or_404(session, dataset_id)
-        authored_statement = authored_statement.where(
-            col(EvalItem.dataset_id) == dataset_id
-        )
-        fact_decomp_review_statement = fact_decomp_review_statement.join(
+        authored = authored.where(col(EvalItem.dataset_id) == dataset_id)
+        fact_reviews = fact_reviews.join(
             ReviewTask, col(FactDecompReview.task_id) == col(ReviewTask.id)
         ).where(col(ReviewTask.dataset_id) == dataset_id)
-        retrieval_qa_review_statement = retrieval_qa_review_statement.join(
+        retrieval_reviews = retrieval_reviews.join(
             EvalItem, col(RetrievalQAReview.item_id) == col(EvalItem.id)
         ).where(col(EvalItem.dataset_id) == dataset_id)
-        relevance_statement = relevance_statement.join(
+        relevance = relevance.join(
             PooledCandidate,
             col(RelevanceJudgment.candidate_id) == col(PooledCandidate.id),
         ).where(col(PooledCandidate.dataset_id) == dataset_id)
-    mean_kappa, overlap = reviewer_mean_kappa(
-        session, user.id, min_overlap=1, dataset_id=dataset_id
+
+    authored_counts = dict(
+        session.exec(authored.group_by(col(EvalItem.author_user_id))).all()
     )
-    return AdminUserMetric(
-        user_id=str(user.id),
-        email=user.email,
-        role=user.role.value,
-        reviewer_kind=user.reviewer_kind.value,
-        authored_items=session.exec(authored_statement).one(),
-        fact_decomp_reviews=session.exec(fact_decomp_review_statement).one(),
-        retrieval_qa_reviews=session.exec(retrieval_qa_review_statement).one(),
-        relevance_judgments=session.exec(relevance_statement).one(),
-        mean_kappa=mean_kappa,
-        kappa_overlap=overlap,
+    fact_review_counts = dict(
+        session.exec(fact_reviews.group_by(col(FactDecompReview.user_id))).all()
     )
+    retrieval_review_counts = dict(
+        session.exec(retrieval_reviews.group_by(col(RetrievalQAReview.user_id))).all()
+    )
+    relevance_counts = dict(
+        session.exec(relevance.group_by(col(RelevanceJudgment.user_id))).all()
+    )
+    judgments = dataset_judgments_for_all(session, dataset_id=dataset_id)
+
+    rows = []
+    for user in users:
+        assert user.id is not None
+        mean_kappa, overlap = reviewer_mean_kappa_from_judgments(
+            judgments,
+            user.id,
+            min_overlap=1,
+        )
+        rows.append(
+            AdminUserMetric(
+                user_id=str(user.id),
+                email=user.email,
+                role=user.role.value,
+                reviewer_kind=user.reviewer_kind.value,
+                authored_items=authored_counts.get(user.id, 0),
+                fact_decomp_reviews=fact_review_counts.get(user.id, 0),
+                retrieval_qa_reviews=retrieval_review_counts.get(user.id, 0),
+                relevance_judgments=relevance_counts.get(user.id, 0),
+                mean_kappa=mean_kappa,
+                kappa_overlap=overlap,
+            )
+        )
+    return rows

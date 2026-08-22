@@ -1794,7 +1794,10 @@ def test_create_source_document_detail_returns_chunks_and_enforces_scope(
     assert detail.status_code == 200
     body = detail.json()
     assert body["external_id"] == "detail-doc"
-    assert body["source_url"] == "https://www.nice.org.uk/guidance/ng235/advice/why-this-is-important"
+    assert (
+        body["source_url"]
+        == "https://www.nice.org.uk/guidance/ng235/advice/why-this-is-important"
+    )
     assert body["content"] == "First paragraph.\n\nSecond paragraph with emoji 😀."
     assert [chunk["position"] for chunk in body["chunks"]] == [0]
     assert body["chunks"][0]["text"] == body["content"]
@@ -2270,8 +2273,10 @@ def test_admin_user_metrics_count_dataset_activity(
         headers=superuser_token_headers,
     )
     assert metrics.status_code == 200
+    payload = metrics.json()
+    assert payload["total"] >= 2
     row = next(
-        row for row in metrics.json() if row["email"] == "metrics-user@example.com"
+        row for row in payload["items"] if row["email"] == "metrics-user@example.com"
     )
     assert row["authored_items"] == 1
     assert row["fact_decomp_reviews"] == 1

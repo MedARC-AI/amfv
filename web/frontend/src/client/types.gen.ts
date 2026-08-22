@@ -11,6 +11,10 @@ export type AdminExport = {
     items?: Array<{
         [key: string]: unknown;
     }>;
+    limit: number;
+    next_offset?: (number | null);
+    offset: number;
+    total: number;
 };
 
 export type AdminInterUserAgreementMetric = {
@@ -61,6 +65,14 @@ export type AdminUserMetric = {
     reviewer_kind: string;
     role: string;
     user_id: string;
+};
+
+export type AdminUserMetricPage = {
+    items?: Array<AdminUserMetric>;
+    limit: number;
+    next_offset?: (number | null);
+    offset: number;
+    total: number;
 };
 
 export type AssignmentKind = 'REGULAR' | 'DOUBLE' | 'CALIBRATION' | 'TRAP';
@@ -689,6 +701,8 @@ export type AdminToggleAdminDocumentResponse = (DocumentSummary);
 
 export type AdminExportDatasetData = {
     datasetId?: (number | null);
+    limit?: number;
+    offset?: number;
 };
 
 export type AdminExportDatasetResponse = (AdminExport);
@@ -732,9 +746,11 @@ export type AdminReadInterUserAgreementResponse = (Array<AdminInterUserAgreement
 
 export type AdminReadUserMetricsData = {
     datasetId?: (number | null);
+    limit?: number;
+    offset?: number;
 };
 
-export type AdminReadUserMetricsResponse = (Array<AdminUserMetric>);
+export type AdminReadUserMetricsResponse = (AdminUserMetricPage);
 
 export type AdminReadAdminUsersResponse = (unknown);
 

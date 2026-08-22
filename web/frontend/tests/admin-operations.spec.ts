@@ -32,11 +32,18 @@ test("admin can moderate items, generate tasks, and preview exports", async ({
   await page.getByRole("tab", { name: "Export" }).click()
   await page.getByTestId("admin-export-dataset").click()
   await page.getByRole("option", { name: "E2E Retrieval" }).click()
-  await page.getByRole("button", { name: "Load export" }).click()
+  await page.getByRole("button", { name: "Load export page" }).click()
   await expect(
-    page.getByRole("heading", { name: "Export payload", exact: true }),
+    page.getByRole("heading", { name: "Export page preview", exact: true }),
   ).toBeVisible()
-  await expect(page.locator("textarea")).toHaveValue(
-    /Which selected answer appears in the E2E document/,
-  )
+  await expect(
+    page.getByText("Which selected answer appears in the E2E document?"),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Download current export page" }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("navigation", { name: "Export pages" }),
+  ).toBeVisible()
+  await expect(page.locator("textarea")).toHaveCount(0)
 })

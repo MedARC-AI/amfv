@@ -13,22 +13,63 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { apiErrorMessage } from "@/utils"
+
+const EXPORT_PAGE_SIZE = 50
+
+type ExportRequest = {
+  datasetId: number | null
+  offset: number
+}
+
+function pageRange(offset: number, itemCount: number, total: number): string {
+  if (total === 0) {
+    return "No export records"
+  }
+  return `Records ${offset + 1}-${offset + itemCount} of ${total}`
+}
+
+function downloadPage(exportData: AdminExport) {
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+    type: "application/json",
+  })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = `amfv-export-${exportData.dataset_id ?? "all"}-offset-${exportData.offset}.json`
+  document.body.append(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
 
 export default function ExportAdmin() {
   const [datasetId, setDatasetId] = useState("all")
   const [exportData, setExportData] = useState<AdminExport | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const datasetsQuery = useQuery({
     queryKey: ["admin-datasets"],
     queryFn: () => AdminService.readAdminDatasets(),
   })
   const exportDataset = useMutation({
-    mutationFn: () =>
+    mutationFn: ({ datasetId, offset }: ExportRequest) =>
       AdminService.exportDataset({
-        datasetId: datasetId === "all" ? null : Number(datasetId),
+        datasetId,
+        offset,
+        limit: EXPORT_PAGE_SIZE,
       }),
-    onSuccess: setExportData,
+    onSuccess: (data) => {
+      setExportData(data)
+      setErrorMessage(null)
+    },
+    onError: (error) => setErrorMessage(apiErrorMessage(error)),
   })
-  const json = exportData ? JSON.stringify(exportData, null, 2) : ""
+
+  const selectedDatasetId = datasetId === "all" ? null : Number(datasetId)
+  const items = exportData?.items ?? []
+  const loadPage = (offset: number) => {
+    exportDataset.mutate({ datasetId: selectedDatasetId, offset })
+  }
 
   return (
     <div className="grid gap-6 xl:grid-cols-[0.75fr_1.25fr]">
@@ -38,7 +79,7 @@ export default function ExportAdmin() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Export</h1>
             <p className="text-muted-foreground text-sm">
-              Preview dataset-scoped export payloads
+              Preview and download one bounded export page at a time
             </p>
           </div>
         </div>
@@ -46,12 +87,19 @@ export default function ExportAdmin() {
           className="flex flex-col gap-4"
           onSubmit={(event) => {
             event.preventDefault()
-            exportDataset.mutate()
+            loadPage(0)
           }}
         >
           <div className="grid gap-2">
             <Label>Dataset</Label>
-            <Select value={datasetId} onValueChange={setDatasetId}>
+            <Select
+              onValueChange={(value) => {
+                setDatasetId(value)
+                setExportData(null)
+                setErrorMessage(null)
+              }}
+              value={datasetId}
+            >
               <SelectTrigger data-testid="admin-export-dataset">
                 <SelectValue />
               </SelectTrigger>
@@ -65,35 +113,108 @@ export default function ExportAdmin() {
               </SelectContent>
             </Select>
           </div>
-          <Button type="submit" disabled={exportDataset.isPending}>
-            Load export
+          <Button disabled={exportDataset.isPending} type="submit">
+            {exportDataset.isPending
+              ? "Loading export page"
+              : "Load export page"}
           </Button>
-          {exportDataset.isError ? (
-            <p className="text-destructive text-sm">Could not load export.</p>
+          {errorMessage ? (
+            <p className="text-destructive text-sm" role="alert">
+              {errorMessage}
+            </p>
           ) : null}
         </form>
       </section>
 
       <section className="rounded-md border p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-base font-semibold tracking-normal">
-            Export payload
-          </h2>
+          <div>
+            <h2 className="text-base font-semibold tracking-normal">
+              Export page preview
+            </h2>
+            {exportData ? (
+              <p aria-live="polite" className="text-muted-foreground text-sm">
+                {pageRange(exportData.offset, items.length, exportData.total)}
+              </p>
+            ) : null}
+          </div>
           {exportData ? (
-            <Badge variant="secondary">
-              {(exportData.items ?? []).length} items
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary">{items.length} records on page</Badge>
+              <Button
+                aria-label="Download current export page"
+                onClick={() => downloadPage(exportData)}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Download />
+                Download page
+              </Button>
+            </div>
           ) : null}
         </div>
         {exportData ? (
-          <textarea
-            readOnly
-            className="border-input min-h-96 w-full rounded-md border bg-transparent px-3 py-2 font-mono text-xs shadow-xs outline-none"
-            value={json}
-          />
+          <div className="space-y-4">
+            {items.length > 0 ? (
+              <ol className="max-h-[32rem] space-y-3 overflow-auto pr-1">
+                {items.map((item, index) => (
+                  <li
+                    className="rounded-md border bg-muted/20 p-3"
+                    key={exportData.offset + index}
+                  >
+                    <div className="text-muted-foreground text-xs">
+                      Record {exportData.offset + index + 1}
+                    </div>
+                    <pre className="mt-2 overflow-auto whitespace-pre-wrap break-words font-mono text-xs">
+                      {JSON.stringify(item, null, 2)}
+                    </pre>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                This export page has no records.
+              </p>
+            )}
+            <nav
+              aria-label="Export pages"
+              className="flex flex-wrap items-center justify-between gap-3 border-t pt-4"
+            >
+              <Button
+                disabled={exportDataset.isPending || exportData.offset === 0}
+                onClick={() =>
+                  loadPage(Math.max(0, exportData.offset - exportData.limit))
+                }
+                type="button"
+                variant="outline"
+              >
+                Previous page
+              </Button>
+              <Button
+                disabled={
+                  exportDataset.isPending ||
+                  exportData.next_offset === null ||
+                  exportData.next_offset === undefined
+                }
+                onClick={() => {
+                  if (
+                    exportData.next_offset !== null &&
+                    exportData.next_offset !== undefined
+                  ) {
+                    loadPage(exportData.next_offset)
+                  }
+                }}
+                type="button"
+                variant="outline"
+              >
+                Next page
+              </Button>
+            </nav>
+          </div>
         ) : (
           <p className="text-muted-foreground text-sm">
-            Load an export to inspect the JSON payload.
+            Load an export page to inspect up to {EXPORT_PAGE_SIZE} records.
           </p>
         )}
       </section>

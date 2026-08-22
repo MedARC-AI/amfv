@@ -18,8 +18,8 @@ from sqlmodel import Session
 from app.core.config import settings
 from app.models import Dataset
 from app.services.document_import import (
-    import_scraped_document,
-    parse_scraped_document_row,
+    import_source_document,
+    parse_source_document_row,
 )
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -106,7 +106,9 @@ def test_retirement_refuses_cached_guidance_without_a_materialized_document(
         connection.execute(sa.text("DELETE FROM document WHERE id = 1"))
     engine.dispose()
 
-    with pytest.raises(RuntimeError, match="cached guidance lacks a materialized document"):
+    with pytest.raises(
+        RuntimeError, match="cached guidance lacks a materialized document"
+    ):
         command.upgrade(config, "0005_drop_nice_scraper_tables")
 
 
@@ -285,10 +287,10 @@ def _assert_canonical_fixture_reimport_is_unchanged(
         with Session(engine) as session:
             dataset = session.get(Dataset, 1)
             assert dataset is not None
-            result = import_scraped_document(
+            result = import_source_document(
                 session,
                 dataset=dataset,
-                row=parse_scraped_document_row(row),
+                row=parse_source_document_row(row),
                 dry_run=False,
             )
             assert result.status == "unchanged"

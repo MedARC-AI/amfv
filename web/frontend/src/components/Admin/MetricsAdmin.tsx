@@ -6,9 +6,10 @@ import {
   type AdminAgreementMetric,
   type AdminInterUserAgreementMetric,
   AdminService,
-  type AdminUserMetric,
+  type AdminUserMetricPage,
   type ReviewerKind,
 } from "@/client"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -18,21 +19,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { apiErrorMessage } from "@/utils"
+
+const USER_METRICS_PAGE_SIZE = 50
 
 export default function MetricsAdmin() {
   const [datasetId, setDatasetId] = useState("all")
   const [reviewerKind, setReviewerKind] = useState<ReviewerKind | "all">("all")
   const [minOverlap, setMinOverlap] = useState(1)
+  const [userMetricsOffset, setUserMetricsOffset] = useState(0)
   const datasetIdParam = datasetId === "all" ? null : Number(datasetId)
   const datasetsQuery = useQuery({
     queryKey: ["admin-datasets"],
     queryFn: () => AdminService.readAdminDatasets(),
   })
   const userMetricsQuery = useQuery({
-    queryKey: ["admin-user-metrics", datasetId],
+    queryKey: ["admin-user-metrics", datasetId, userMetricsOffset],
     queryFn: () =>
       AdminService.readUserMetrics({
         datasetId: datasetIdParam,
+        offset: userMetricsOffset,
+        limit: USER_METRICS_PAGE_SIZE,
       }),
   })
   const agreementQuery = useQuery({
@@ -67,7 +74,13 @@ export default function MetricsAdmin() {
         <div className="grid gap-4 md:grid-cols-3">
           <div className="grid gap-2">
             <Label>Dataset</Label>
-            <Select value={datasetId} onValueChange={setDatasetId}>
+            <Select
+              onValueChange={(value) => {
+                setDatasetId(value)
+                setUserMetricsOffset(0)
+              }}
+              value={datasetId}
+            >
               <SelectTrigger data-testid="admin-metrics-dataset">
                 <SelectValue />
               </SelectTrigger>
@@ -119,9 +132,24 @@ export default function MetricsAdmin() {
           User metrics
         </h2>
         <UserMetricsTable
-          rows={userMetricsQuery.data ?? []}
+          page={userMetricsQuery.data}
           loading={userMetricsQuery.isLoading}
-          error={userMetricsQuery.isError}
+          errorMessage={
+            userMetricsQuery.isError
+              ? apiErrorMessage(userMetricsQuery.error)
+              : null
+          }
+          onNextPage={() => {
+            const nextOffset = userMetricsQuery.data?.next_offset
+            if (nextOffset !== null && nextOffset !== undefined) {
+              setUserMetricsOffset(nextOffset)
+            }
+          }}
+          onPreviousPage={() => {
+            const offset = userMetricsQuery.data?.offset ?? 0
+            const limit = userMetricsQuery.data?.limit ?? USER_METRICS_PAGE_SIZE
+            setUserMetricsOffset(Math.max(0, offset - limit))
+          }}
         />
       </section>
 
@@ -153,63 +181,100 @@ export default function MetricsAdmin() {
 }
 
 function UserMetricsTable({
-  rows,
+  page,
   loading,
-  error,
+  errorMessage,
+  onNextPage,
+  onPreviousPage,
 }: {
-  rows: AdminUserMetric[]
+  page: AdminUserMetricPage | undefined
   loading: boolean
-  error: boolean
+  errorMessage: string | null
+  onNextPage: () => void
+  onPreviousPage: () => void
 }) {
   if (loading) {
     return <p className="text-muted-foreground text-sm">Loading user metrics</p>
   }
-  if (error) {
+  if (errorMessage) {
     return (
-      <p className="text-destructive text-sm">Could not load user metrics.</p>
+      <p className="text-destructive text-sm" role="alert">
+        {errorMessage}
+      </p>
     )
   }
+  const rows = page?.items ?? []
+  const pageOffset = page?.offset ?? 0
+  const total = page?.total ?? 0
   if (rows.length === 0) {
     return <p className="text-muted-foreground text-sm">No user metrics yet.</p>
   }
   return (
-    <div className="overflow-auto">
-      <table className="w-full min-w-[760px] text-sm">
-        <thead className="text-muted-foreground text-left">
-          <tr className="border-b">
-            <th className="py-2 pr-4 font-medium">User</th>
-            <th className="py-2 pr-4 font-medium">Role</th>
-            <th className="py-2 pr-4 font-medium">Kind</th>
-            <th className="py-2 pr-4 text-right font-medium">Authored</th>
-            <th className="py-2 pr-4 text-right font-medium">Fact reviews</th>
-            <th className="py-2 pr-4 text-right font-medium">Retrieval QA</th>
-            <th className="py-2 pr-4 text-right font-medium">Relevance</th>
-            <th className="py-2 text-right font-medium">Mean kappa</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.user_id} className="border-b last:border-0">
-              <td className="py-2 pr-4">{row.email}</td>
-              <td className="py-2 pr-4">{row.role}</td>
-              <td className="py-2 pr-4">{row.reviewer_kind}</td>
-              <td className="py-2 pr-4 text-right">{row.authored_items}</td>
-              <td className="py-2 pr-4 text-right">
-                {row.fact_decomp_reviews}
-              </td>
-              <td className="py-2 pr-4 text-right">
-                {row.retrieval_qa_reviews}
-              </td>
-              <td className="py-2 pr-4 text-right">
-                {row.relevance_judgments}
-              </td>
-              <td className="py-2 text-right">
-                {formatMetric(row.mean_kappa)}
-              </td>
+    <div className="space-y-4">
+      <p aria-live="polite" className="text-muted-foreground text-sm">
+        Showing {pageOffset + 1}-{pageOffset + rows.length} of {total} users
+      </p>
+      <div className="overflow-auto">
+        <table className="w-full min-w-[760px] text-sm">
+          <thead className="text-muted-foreground text-left">
+            <tr className="border-b">
+              <th className="py-2 pr-4 font-medium">User</th>
+              <th className="py-2 pr-4 font-medium">Role</th>
+              <th className="py-2 pr-4 font-medium">Kind</th>
+              <th className="py-2 pr-4 text-right font-medium">Authored</th>
+              <th className="py-2 pr-4 text-right font-medium">Fact reviews</th>
+              <th className="py-2 pr-4 text-right font-medium">Retrieval QA</th>
+              <th className="py-2 pr-4 text-right font-medium">Relevance</th>
+              <th className="py-2 text-right font-medium">Mean kappa</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.user_id} className="border-b last:border-0">
+                <td className="py-2 pr-4">{row.email}</td>
+                <td className="py-2 pr-4">{row.role}</td>
+                <td className="py-2 pr-4">{row.reviewer_kind}</td>
+                <td className="py-2 pr-4 text-right">{row.authored_items}</td>
+                <td className="py-2 pr-4 text-right">
+                  {row.fact_decomp_reviews}
+                </td>
+                <td className="py-2 pr-4 text-right">
+                  {row.retrieval_qa_reviews}
+                </td>
+                <td className="py-2 pr-4 text-right">
+                  {row.relevance_judgments}
+                </td>
+                <td className="py-2 text-right">
+                  {formatMetric(row.mean_kappa)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <nav
+        aria-label="User metrics pages"
+        className="flex flex-wrap items-center justify-between gap-3"
+      >
+        <Button
+          disabled={page?.offset === 0}
+          onClick={onPreviousPage}
+          type="button"
+          variant="outline"
+        >
+          Previous page
+        </Button>
+        <Button
+          disabled={
+            page?.next_offset === null || page?.next_offset === undefined
+          }
+          onClick={onNextPage}
+          type="button"
+          variant="outline"
+        >
+          Next page
+        </Button>
+      </nav>
     </div>
   )
 }

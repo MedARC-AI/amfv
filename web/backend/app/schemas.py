@@ -98,7 +98,7 @@ class ChunkSummary(SQLModel):
     position: int
 
 
-class ScrapedDocumentImportRow(BaseModel):
+class SourceDocumentImportRow(BaseModel):
     """One versioned source-document row accepted by the generic importer."""
 
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -150,9 +150,7 @@ class DocumentImportSummary(SQLModel):
 RetrievalReviewAction = Literal["accept", "reject"]
 FactDecompReviewAction = Literal["save_review"]
 RelevanceReviewAction = Literal["grade_relevance"]
-ReviewAction = (
-    RetrievalReviewAction | FactDecompReviewAction | RelevanceReviewAction
-)
+ReviewAction = RetrievalReviewAction | FactDecompReviewAction | RelevanceReviewAction
 
 
 class ReviewTaskPayload(SQLModel):
@@ -500,6 +498,10 @@ class AdminTaskGenerationResult(SQLModel):
 
 class AdminExport(SQLModel):
     dataset_id: int | None = None
+    offset: int
+    limit: int
+    total: int
+    next_offset: int | None = None
     items: list[dict] = Field(default_factory=list)
 
 
@@ -520,6 +522,14 @@ class AdminUserMetric(SQLModel):
     relevance_judgments: int
     mean_kappa: float | None = None
     kappa_overlap: int = 0
+
+
+class AdminUserMetricPage(SQLModel):
+    offset: int
+    limit: int
+    total: int
+    next_offset: int | None = None
+    items: list[AdminUserMetric] = Field(default_factory=list)
 
 
 class AdminInterUserAgreementMetric(SQLModel):

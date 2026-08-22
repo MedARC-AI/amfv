@@ -47,8 +47,32 @@ export const AdminExportSchema = {
             },
             title: 'Items',
             type: 'array'
+        },
+        limit: {
+            title: 'Limit',
+            type: 'integer'
+        },
+        next_offset: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Next Offset'
+        },
+        offset: {
+            title: 'Offset',
+            type: 'integer'
+        },
+        total: {
+            title: 'Total',
+            type: 'integer'
         }
     },
+    required: ['offset', 'limit', 'total'],
     title: 'AdminExport',
     type: 'object'
 } as const;
@@ -252,6 +276,44 @@ export const AdminUserMetricSchema = {
     },
     required: ['user_id', 'email', 'role', 'reviewer_kind', 'authored_items', 'fact_decomp_reviews', 'retrieval_qa_reviews', 'relevance_judgments'],
     title: 'AdminUserMetric',
+    type: 'object'
+} as const;
+
+export const AdminUserMetricPageSchema = {
+    properties: {
+        items: {
+            items: {
+                '$ref': '#/components/schemas/AdminUserMetric'
+            },
+            title: 'Items',
+            type: 'array'
+        },
+        limit: {
+            title: 'Limit',
+            type: 'integer'
+        },
+        next_offset: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Next Offset'
+        },
+        offset: {
+            title: 'Offset',
+            type: 'integer'
+        },
+        total: {
+            title: 'Total',
+            type: 'integer'
+        }
+    },
+    required: ['offset', 'limit', 'total'],
+    title: 'AdminUserMetricPage',
     type: 'object'
 } as const;
 

@@ -12,7 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
 from app.models import Dataset, Document, EvalType
-from app.schemas import ScrapedDocumentImportRow
+from app.schemas import SourceDocumentImportRow
 from app.services.documents import create_document_with_chunks
 
 DEFAULT_MAX_DOCUMENT_CONTENT_BYTES = 16 * 1024 * 1024
@@ -30,12 +30,12 @@ class DocumentImportResult:
     status: Literal["created", "unchanged"]
 
 
-def parse_scraped_document_row(
+def parse_source_document_row(
     payload: object,
     *,
     max_content_bytes: int = DEFAULT_MAX_DOCUMENT_CONTENT_BYTES,
     max_serialized_metadata_bytes: int = DEFAULT_MAX_SERIALIZED_METADATA_BYTES,
-) -> ScrapedDocumentImportRow:
+) -> SourceDocumentImportRow:
     """Validate one decoded JSON object against the frozen v1 import contract.
 
     Args:
@@ -54,7 +54,7 @@ def parse_scraped_document_row(
             f"unsupported schema_version {version}; expected 1"
         )
     try:
-        row = ScrapedDocumentImportRow.model_validate(payload)
+        row = SourceDocumentImportRow.model_validate(payload)
     except ValidationError as exc:
         raise DocumentImportRowError(_validation_message(exc)) from exc
     _validate_row_size_limits(
@@ -65,11 +65,11 @@ def parse_scraped_document_row(
     return row
 
 
-def import_scraped_document(
+def import_source_document(
     session: Session,
     *,
     dataset: Dataset,
-    row: ScrapedDocumentImportRow,
+    row: SourceDocumentImportRow,
     dry_run: bool,
 ) -> DocumentImportResult:
     """Create or identify one source document without silently replacing text.
@@ -148,13 +148,13 @@ def _existing_document(
     ).first()
 
 
-def _source_metadata(row: ScrapedDocumentImportRow) -> dict:
+def _source_metadata(row: SourceDocumentImportRow) -> dict:
     """Preserve producer metadata while retaining the contract's section count."""
     return {**row.metadata, "section_count": row.section_count}
 
 
 def _validate_row_size_limits(
-    row: ScrapedDocumentImportRow,
+    row: SourceDocumentImportRow,
     *,
     max_content_bytes: int,
     max_serialized_metadata_bytes: int,
@@ -195,7 +195,7 @@ __all__ = [
     "DocumentImportRowError",
     "DEFAULT_MAX_DOCUMENT_CONTENT_BYTES",
     "DEFAULT_MAX_SERIALIZED_METADATA_BYTES",
-    "import_scraped_document",
-    "parse_scraped_document_row",
+    "import_source_document",
+    "parse_source_document_row",
     "source_content_hash",
 ]

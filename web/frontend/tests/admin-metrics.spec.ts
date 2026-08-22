@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test"
 
+import { firstSuperuser } from "./config.ts"
+
 test("admin can inspect user metrics and agreement sections", async ({
   page,
 }) => {
@@ -9,9 +11,13 @@ test("admin can inspect user metrics and agreement sections", async ({
   await expect(
     page.getByRole("heading", { name: "Metrics", exact: true }),
   ).toBeVisible()
-  await expect(page.getByText("e2e-annotator@example.com")).toBeVisible()
+  await expect(page.getByText(firstSuperuser)).toBeVisible()
   await expect(
     page.getByRole("heading", { name: "User metrics", exact: true }),
+  ).toBeVisible()
+  await expect(page.getByText(/Showing 1-\d+ of \d+ users/)).toBeVisible()
+  await expect(
+    page.getByRole("navigation", { name: "User metrics pages" }),
   ).toBeVisible()
   await expect(
     page.getByRole("heading", { name: "Agreement", exact: true }),
@@ -26,7 +32,7 @@ test("admin can inspect user metrics and agreement sections", async ({
 
   await page.getByTestId("admin-metrics-dataset").click()
   await page.getByRole("option", { name: "E2E Retrieval" }).click()
-  await expect(page.getByText("e2e-annotator@example.com")).toBeVisible()
+  await expect(page.getByText(firstSuperuser)).toBeVisible()
 
   await page.getByTestId("admin-metrics-reviewer-kind").click()
   await page.getByRole("option", { name: "Human" }).click()

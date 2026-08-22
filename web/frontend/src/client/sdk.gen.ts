@@ -176,6 +176,8 @@ export class AdminService {
      * Export Dataset
      * @param data The data for the request.
      * @param data.datasetId
+     * @param data.offset
+     * @param data.limit
      * @returns AdminExport Successful Response
      * @throws ApiError
      */
@@ -184,7 +186,9 @@ export class AdminService {
             method: 'GET',
             url: '/api/v1/admin/export',
             query: {
-                dataset_id: data.datasetId
+                dataset_id: data.datasetId,
+                offset: data.offset,
+                limit: data.limit
             },
             errors: {
                 422: 'Validation Error'
@@ -320,7 +324,9 @@ export class AdminService {
      * Read User Metrics
      * @param data The data for the request.
      * @param data.datasetId
-     * @returns AdminUserMetric Successful Response
+     * @param data.offset
+     * @param data.limit
+     * @returns AdminUserMetricPage Successful Response
      * @throws ApiError
      */
     public static readUserMetrics(data: AdminReadUserMetricsData = {}): CancelablePromise<AdminReadUserMetricsResponse> {
@@ -328,7 +334,9 @@ export class AdminService {
             method: 'GET',
             url: '/api/v1/admin/metrics/users',
             query: {
-                dataset_id: data.datasetId
+                dataset_id: data.datasetId,
+                offset: data.offset,
+                limit: data.limit
             },
             errors: {
                 422: 'Validation Error'

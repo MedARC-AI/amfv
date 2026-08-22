@@ -28,14 +28,19 @@ class AgreementSummary:
     n: int
 
 
-def cohen_kappa(left: dict[str, str], right: dict[str, str], min_overlap: int = 1) -> tuple[float | None, int]:
+def cohen_kappa(
+    left: dict[str, str], right: dict[str, str], min_overlap: int = 1
+) -> tuple[float | None, int]:
     keys = sorted(set(left) & set(right))
     if len(keys) < min_overlap:
         return None, len(keys)
     observed = sum(1 for key in keys if left[key] == right[key]) / len(keys)
     left_counts = Counter(left[key] for key in keys)
     right_counts = Counter(right[key] for key in keys)
-    expected = sum((left_counts[label] / len(keys)) * (right_counts[label] / len(keys)) for label in set(left_counts) | set(right_counts))
+    expected = sum(
+        (left_counts[label] / len(keys)) * (right_counts[label] / len(keys))
+        for label in set(left_counts) | set(right_counts)
+    )
     if expected == 1:
         return (1.0 if observed == 1 else 0.0), len(keys)
     return (observed - expected) / (1 - expected), len(keys)
@@ -45,7 +50,9 @@ def krippendorff_alpha_nominal(items: JudgmentMap) -> tuple[float | None, int]:
     return _krippendorff_alpha(items, lambda a, b: 0.0 if a == b else 1.0)
 
 
-def krippendorff_alpha_ordinal(items: JudgmentMap, order: list[str]) -> tuple[float | None, int]:
+def krippendorff_alpha_ordinal(
+    items: JudgmentMap, order: list[str]
+) -> tuple[float | None, int]:
     rank = {value: idx for idx, value in enumerate(order)}
     return _krippendorff_alpha(items, lambda a, b: float((rank[a] - rank[b]) ** 2))
 
@@ -56,6 +63,13 @@ def dataset_agreement(
     reviewer_kind: ReviewerKind | None = None,
 ) -> list[AgreementSummary]:
     by_dimension = dataset_judgments(session, dataset_id, reviewer_kind=reviewer_kind)
+    return agreement_summaries(by_dimension)
+
+
+def agreement_summaries(
+    by_dimension: dict[str, JudgmentMap],
+) -> list[AgreementSummary]:
+    """Summarize a previously loaded judgment set without issuing queries."""
     summaries = []
     for dimension, items in sorted(by_dimension.items()):
         if dimension == "relevance_grade":
@@ -75,6 +89,20 @@ def reviewer_mean_kappa(
     dataset_id: int | None = None,
 ) -> tuple[float | None, int]:
     by_dimension = dataset_judgments_for_all(session, dataset_id=dataset_id)
+    return reviewer_mean_kappa_from_judgments(
+        by_dimension,
+        user_id,
+        min_overlap=min_overlap,
+    )
+
+
+def reviewer_mean_kappa_from_judgments(
+    by_dimension: dict[str, JudgmentMap],
+    user_id: UUID,
+    *,
+    min_overlap: int,
+) -> tuple[float | None, int]:
+    """Compute one reviewer's mean kappa from a shared judgment snapshot."""
     kappas: list[float] = []
     overlap_total = 0
     for judgments in by_dimension.values():
@@ -83,7 +111,9 @@ def reviewer_mean_kappa(
         for item_key, labels in judgments.items():
             if user_id not in labels:
                 continue
-            rest = [label for reviewer_id, label in labels.items() if reviewer_id != user_id]
+            rest = [
+                label for reviewer_id, label in labels.items() if reviewer_id != user_id
+            ]
             if not rest:
                 continue
             reviewer_labels[item_key] = labels[user_id]
@@ -97,8 +127,12 @@ def reviewer_mean_kappa(
     return sum(kappas) / len(kappas), overlap_total
 
 
-def dataset_judgments(session: Session, dataset_id: int, reviewer_kind: ReviewerKind | None = None) -> dict[str, JudgmentMap]:
-    all_judgments = dataset_judgments_for_all(session, dataset_id=dataset_id, reviewer_kind=reviewer_kind)
+def dataset_judgments(
+    session: Session, dataset_id: int, reviewer_kind: ReviewerKind | None = None
+) -> dict[str, JudgmentMap]:
+    all_judgments = dataset_judgments_for_all(
+        session, dataset_id=dataset_id, reviewer_kind=reviewer_kind
+    )
     return all_judgments
 
 
@@ -109,16 +143,20 @@ def dataset_judgments_for_all(
     reviewer_kind: ReviewerKind | None = None,
 ) -> dict[str, JudgmentMap]:
     output: dict[str, JudgmentMap] = defaultdict(lambda: defaultdict(dict))
-    statement = select(FactDecompReview, ReviewTask, EvalItem).join(
-        ReviewTask, col(FactDecompReview.task_id) == col(ReviewTask.id)
-    ).join(
-        EvalItem,
-        col(ReviewTask.item_a_id) == col(EvalItem.id),
+    statement = (
+        select(FactDecompReview, ReviewTask, EvalItem)
+        .join(ReviewTask, col(FactDecompReview.task_id) == col(ReviewTask.id))
+        .join(
+            EvalItem,
+            col(ReviewTask.item_a_id) == col(EvalItem.id),
+        )
     )
     if dataset_id is not None:
         statement = statement.where(col(ReviewTask.dataset_id) == dataset_id)
     if reviewer_kind is not None:
-        statement = statement.where(col(FactDecompReview.reviewer_kind) == reviewer_kind)
+        statement = statement.where(
+            col(FactDecompReview.reviewer_kind) == reviewer_kind
+        )
     for review, task, item in session.exec(statement).all():
         if review.item_revision != item.revision:
             continue
@@ -139,7 +177,10 @@ def dataset_judgments_for_all(
     if dataset_id is not None:
         item_statement = item_statement.where(col(EvalItem.dataset_id) == dataset_id)
     for judgment, item in session.exec(item_statement).all():
-        if judgment.skipped or (reviewer_kind is not None and user_kinds.get(judgment.user_id) != reviewer_kind):
+        if judgment.skipped or (
+            reviewer_kind is not None
+            and user_kinds.get(judgment.user_id) != reviewer_kind
+        ):
             continue
         for dimension, value in (
             ("question_validity", judgment.question_validity),
@@ -148,25 +189,40 @@ def dataset_judgments_for_all(
             ("answer_faithfulness", judgment.answer_faithfulness),
         ):
             if value is not None:
-                output[f"item_{dimension}"][f"item:{item.id}"][judgment.user_id] = str(value)
+                output[f"item_{dimension}"][f"item:{item.id}"][judgment.user_id] = str(
+                    value
+                )
         if judgment.verdict:
-            output["item_verdict"][f"item:{item.id}"][judgment.user_id] = judgment.verdict.value
+            output["item_verdict"][f"item:{item.id}"][judgment.user_id] = (
+                judgment.verdict.value
+            )
     relevance_statement = select(RelevanceJudgment, PooledCandidate).join(
         PooledCandidate, col(RelevanceJudgment.candidate_id) == col(PooledCandidate.id)
     )
     if dataset_id is not None:
-        relevance_statement = relevance_statement.where(col(PooledCandidate.dataset_id) == dataset_id)
+        relevance_statement = relevance_statement.where(
+            col(PooledCandidate.dataset_id) == dataset_id
+        )
     for judgment, candidate in session.exec(relevance_statement).all():
         if judgment.skipped or judgment.grade is None:
             continue
-        if reviewer_kind is not None and user_kinds.get(judgment.user_id) != reviewer_kind:
+        if (
+            reviewer_kind is not None
+            and user_kinds.get(judgment.user_id) != reviewer_kind
+        ):
             continue
-        output["relevance_grade"][f"candidate:{candidate.id}"][judgment.user_id] = str(judgment.grade)
+        output["relevance_grade"][f"candidate:{candidate.id}"][judgment.user_id] = str(
+            judgment.grade
+        )
     return output
 
 
 def _user_kinds(session: Session) -> dict[UUID, ReviewerKind]:
-    return {user.id: user.reviewer_kind for user in session.exec(select(User)).all() if user.id is not None}
+    return {
+        user.id: user.reviewer_kind
+        for user in session.exec(select(User)).all()
+        if user.id is not None
+    }
 
 
 def _krippendorff_alpha(items: JudgmentMap, distance) -> tuple[float | None, int]:
