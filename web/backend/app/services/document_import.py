@@ -89,10 +89,10 @@ def import_source_document(
         session, dataset_id=dataset.id, external_id=row.external_id
     )
     if existing is not None:
-        if existing.content == row.content:
+        if _matches_canonical_source(existing, row):
             return DocumentImportResult(status="unchanged")
         raise DocumentImportRowError(
-            "external_id already exists with different content; replacement is not enabled"
+            "external_id already exists with different content or provenance; replacement is not enabled"
         )
     if dry_run:
         return DocumentImportResult(status="created")
@@ -117,7 +117,9 @@ def import_source_document(
             dataset_id=dataset.id,
             external_id=row.external_id,
         )
-        if raced_document is not None and raced_document.content == row.content:
+        if raced_document is not None and _matches_canonical_source(
+            raced_document, row
+        ):
             return DocumentImportResult(status="unchanged")
         raise DocumentImportRowError("document could not be saved") from exc
     return DocumentImportResult(status="created")
@@ -151,6 +153,46 @@ def _existing_document(
 def _source_metadata(row: SourceDocumentImportRow) -> dict:
     """Preserve producer metadata while retaining the contract's section count."""
     return {**row.metadata, "section_count": row.section_count}
+
+
+def _matches_canonical_source(
+    document: Document,
+    row: SourceDocumentImportRow,
+) -> bool:
+    """Require both offset-bearing text and its provenance to be identical."""
+
+    return (
+        document.content == row.content
+        and document.title == row.title
+        and document.source == row.source
+        and document.source_url == str(row.url)
+        and _matches_source_metadata(document.source_metadata, row)
+        and document.source_content_hash == source_content_hash(row.content)
+    )
+
+
+def _matches_source_metadata(
+    persisted: dict | None,
+    row: SourceDocumentImportRow,
+) -> bool:
+    canonical = _source_metadata(row)
+    if persisted == canonical:
+        return True
+    # Migration 0004 had only the retired cache's identity fields available.
+    # Treat that one explicit shape as equivalent to the producer fixture; no
+    # other provenance differences are silently accepted.
+    reference = row.metadata.get("ref")
+    slug = row.metadata.get("slug")
+    return (
+        isinstance(reference, str)
+        and isinstance(slug, str)
+        and persisted
+        == {
+            "legacy_cache": True,
+            "ref": reference,
+            "slug": slug,
+        }
+    )
 
 
 def _validate_row_size_limits(

@@ -199,6 +199,34 @@ def test_import_rejects_unknown_versions_extra_fields_and_changed_content(
     assert "different content" in conflict.json()["errors"][0]["message"]
     assert _documents_for_dataset(db, dataset)[0].content == row["content"]
 
+    provenance_changes = [
+        {**row, "title": f"{row['title']} corrected"},
+        {**row, "source": "corrected-source"},
+        {**row, "url": f"{row['url']}/corrected"},
+        {**row, "metadata": {**row["metadata"], "corrected": True}},
+        {**row, "section_count": row["section_count"] + 1},
+    ]
+    provenance_conflicts = _post_import(
+        client,
+        superuser_token_headers,
+        dataset,
+        _jsonl(*provenance_changes),
+    )
+    assert provenance_conflicts.status_code == 200
+    assert provenance_conflicts.json()["unchanged"] == 0
+    assert provenance_conflicts.json()["rejected"] == len(provenance_changes)
+    assert all(
+        "different content or provenance" in error["message"]
+        for error in provenance_conflicts.json()["errors"]
+    )
+    persisted = _documents_for_dataset(db, dataset)[0]
+    assert persisted.title == row["title"]
+    assert persisted.source_url == row["url"]
+    assert persisted.source_metadata == {
+        **row["metadata"],
+        "section_count": row["section_count"],
+    }
+
 
 def test_import_isolates_bad_rows_and_dry_run_rolls_back_provisional_documents(
     client: TestClient,
