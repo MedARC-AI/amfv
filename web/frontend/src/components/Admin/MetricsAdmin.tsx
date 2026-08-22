@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { BarChart3 } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import {
   type AdminAgreementMetric,
@@ -22,12 +22,15 @@ import {
 import { apiErrorMessage } from "@/utils"
 
 const USER_METRICS_PAGE_SIZE = 50
+const MAX_AGREEMENT_JUDGMENTS = 2000
 
 export default function MetricsAdmin() {
   const [datasetId, setDatasetId] = useState("all")
   const [reviewerKind, setReviewerKind] = useState<ReviewerKind | "all">("all")
   const [minOverlap, setMinOverlap] = useState(1)
   const [userMetricsOffset, setUserMetricsOffset] = useState(0)
+  const [leftUserId, setLeftUserId] = useState("")
+  const [rightUserId, setRightUserId] = useState("")
   const datasetIdParam = datasetId === "all" ? null : Number(datasetId)
   const datasetsQuery = useQuery({
     queryKey: ["admin-datasets"],
@@ -42,22 +45,76 @@ export default function MetricsAdmin() {
         limit: USER_METRICS_PAGE_SIZE,
       }),
   })
+  const pagedUsers = useMemo(
+    () => userMetricsQuery.data?.items ?? [],
+    [userMetricsQuery.data?.items],
+  )
+  const pagedUserIds = useMemo(
+    () => pagedUsers.map((user) => user.user_id),
+    [pagedUsers],
+  )
+
+  useEffect(() => {
+    const nextLeftUserId = pagedUserIds.includes(leftUserId)
+      ? leftUserId
+      : (pagedUserIds[0] ?? "")
+    const nextRightUserId =
+      pagedUserIds.includes(rightUserId) && rightUserId !== nextLeftUserId
+        ? rightUserId
+        : (pagedUserIds.find((userId) => userId !== nextLeftUserId) ?? "")
+    setLeftUserId(nextLeftUserId)
+    setRightUserId(nextRightUserId)
+  }, [leftUserId, pagedUserIds, rightUserId])
+
+  const hasDistinctReviewers =
+    leftUserId.length > 0 &&
+    rightUserId.length > 0 &&
+    leftUserId !== rightUserId
   const agreementQuery = useQuery({
     queryKey: ["admin-agreement", datasetId, reviewerKind],
     queryFn: () =>
       AdminService.readAgreementMetrics({
         datasetId: datasetIdParam,
+        maxJudgments: MAX_AGREEMENT_JUDGMENTS,
         reviewerKind: reviewerKind === "all" ? null : reviewerKind,
       }),
   })
   const interUserQuery = useQuery({
-    queryKey: ["admin-inter-user-agreement", datasetId, minOverlap],
+    queryKey: [
+      "admin-inter-user-agreement",
+      datasetId,
+      leftUserId,
+      rightUserId,
+      minOverlap,
+    ],
     queryFn: () =>
       AdminService.readInterUserAgreement({
         datasetId: datasetIdParam,
+        leftUserId,
+        maxJudgments: MAX_AGREEMENT_JUDGMENTS,
         minOverlap,
+        rightUserId,
       }),
+    enabled: hasDistinctReviewers,
   })
+
+  const selectLeftReviewer = (userId: string) => {
+    setLeftUserId(userId)
+    if (userId === rightUserId) {
+      setRightUserId(
+        pagedUsers.find((user) => user.user_id !== userId)?.user_id ?? "",
+      )
+    }
+  }
+
+  const selectRightReviewer = (userId: string) => {
+    setRightUserId(userId)
+    if (userId === leftUserId) {
+      setLeftUserId(
+        pagedUsers.find((user) => user.user_id !== userId)?.user_id ?? "",
+      )
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -158,10 +215,17 @@ export default function MetricsAdmin() {
           <h2 className="mb-4 text-base font-semibold tracking-normal">
             Agreement
           </h2>
+          <p className="mb-4 text-muted-foreground text-sm">
+            Limited to {MAX_AGREEMENT_JUDGMENTS.toLocaleString()} judgments.
+          </p>
           <AgreementTable
             rows={agreementQuery.data ?? []}
             loading={agreementQuery.isLoading}
-            error={agreementQuery.isError}
+            errorMessage={
+              agreementQuery.isError
+                ? apiErrorMessage(agreementQuery.error)
+                : null
+            }
           />
         </section>
 
@@ -169,10 +233,65 @@ export default function MetricsAdmin() {
           <h2 className="mb-4 text-base font-semibold tracking-normal">
             Inter-user agreement
           </h2>
+          <div className="mb-4 grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label>Left reviewer</Label>
+              <Select
+                disabled={pagedUsers.length < 2}
+                onValueChange={selectLeftReviewer}
+                value={leftUserId || undefined}
+              >
+                <SelectTrigger
+                  aria-label="Left reviewer"
+                  data-testid="admin-metrics-left-reviewer"
+                >
+                  <SelectValue placeholder="Choose reviewer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {pagedUsers.map((user) => (
+                    <SelectItem key={user.user_id} value={user.user_id}>
+                      {user.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>Right reviewer</Label>
+              <Select
+                disabled={pagedUsers.length < 2}
+                onValueChange={selectRightReviewer}
+                value={rightUserId || undefined}
+              >
+                <SelectTrigger
+                  aria-label="Right reviewer"
+                  data-testid="admin-metrics-right-reviewer"
+                >
+                  <SelectValue placeholder="Choose reviewer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {pagedUsers.map((user) => (
+                    <SelectItem key={user.user_id} value={user.user_id}>
+                      {user.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <p className="mb-4 text-muted-foreground text-sm">
+            Uses at most {MAX_AGREEMENT_JUDGMENTS.toLocaleString()} judgments
+            from the currently visible user page.
+          </p>
           <InterUserAgreementTable
+            available={hasDistinctReviewers}
             rows={interUserQuery.data ?? []}
             loading={interUserQuery.isLoading}
-            error={interUserQuery.isError}
+            errorMessage={
+              interUserQuery.isError
+                ? apiErrorMessage(interUserQuery.error)
+                : null
+            }
           />
         </section>
       </div>
@@ -215,7 +334,7 @@ function UserMetricsTable({
         Showing {pageOffset + 1}-{pageOffset + rows.length} of {total} users
       </p>
       <div className="overflow-auto">
-        <table className="w-full min-w-[760px] text-sm">
+        <table className="w-full min-w-[680px] text-sm">
           <thead className="text-muted-foreground text-left">
             <tr className="border-b">
               <th className="py-2 pr-4 font-medium">User</th>
@@ -225,7 +344,6 @@ function UserMetricsTable({
               <th className="py-2 pr-4 text-right font-medium">Fact reviews</th>
               <th className="py-2 pr-4 text-right font-medium">Retrieval QA</th>
               <th className="py-2 pr-4 text-right font-medium">Relevance</th>
-              <th className="py-2 text-right font-medium">Mean kappa</th>
             </tr>
           </thead>
           <tbody>
@@ -243,9 +361,6 @@ function UserMetricsTable({
                 </td>
                 <td className="py-2 pr-4 text-right">
                   {row.relevance_judgments}
-                </td>
-                <td className="py-2 text-right">
-                  {formatMetric(row.mean_kappa)}
                 </td>
               </tr>
             ))}
@@ -282,17 +397,21 @@ function UserMetricsTable({
 function AgreementTable({
   rows,
   loading,
-  error,
+  errorMessage,
 }: {
   rows: AdminAgreementMetric[]
   loading: boolean
-  error: boolean
+  errorMessage: string | null
 }) {
   if (loading) {
     return <p className="text-muted-foreground text-sm">Loading agreement</p>
   }
-  if (error) {
-    return <p className="text-destructive text-sm">Could not load agreement.</p>
+  if (errorMessage) {
+    return (
+      <p className="text-destructive text-sm" role="alert">
+        {errorMessage}
+      </p>
+    )
   }
   if (rows.length === 0) {
     return (
@@ -329,14 +448,23 @@ function AgreementTable({
 }
 
 function InterUserAgreementTable({
+  available,
   rows,
   loading,
-  error,
+  errorMessage,
 }: {
+  available: boolean
   rows: AdminInterUserAgreementMetric[]
   loading: boolean
-  error: boolean
+  errorMessage: string | null
 }) {
+  if (!available) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        Choose two distinct reviewers from this page to compare them.
+      </p>
+    )
+  }
   if (loading) {
     return (
       <p className="text-muted-foreground text-sm">
@@ -344,10 +472,10 @@ function InterUserAgreementTable({
       </p>
     )
   }
-  if (error) {
+  if (errorMessage) {
     return (
-      <p className="text-destructive text-sm">
-        Could not load inter-user agreement.
+      <p className="text-destructive text-sm" role="alert">
+        {errorMessage}
       </p>
     )
   }

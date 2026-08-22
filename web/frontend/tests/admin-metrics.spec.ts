@@ -27,6 +27,16 @@ test("admin can inspect user metrics and agreement sections", async ({
   await expect(
     page.getByRole("heading", { name: "Inter-user agreement", exact: true }),
   ).toBeVisible()
+  await expect(
+    page.getByRole("combobox", { name: "Left reviewer" }),
+  ).toBeEnabled()
+  await expect(
+    page.getByRole("combobox", { name: "Right reviewer" }),
+  ).toBeEnabled()
+  await expect(page.getByText("Uses at most 2,000 judgments")).toBeVisible()
+  await expect(
+    page.getByRole("columnheader", { name: "Mean kappa" }),
+  ).toHaveCount(0)
   await expect(page.getByText("No agreement rows yet.")).toBeVisible()
   await expect(
     page.getByText("No inter-user agreement rows yet."),
