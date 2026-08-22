@@ -133,7 +133,7 @@ export const DocumentEvidenceViewer = React.memo(
 
     return (
       <div className="relative max-w-5xl space-y-4" ref={rootRef}>
-        <div className="sticky top-4 z-10 float-right -mr-14 hidden flex-col gap-2 lg:flex">
+        <div className="sticky top-2 z-10 flex flex-wrap items-center gap-2 rounded-md border bg-background/95 p-2 shadow-sm sm:float-right sm:ml-4 sm:w-auto sm:flex-col sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none lg:-mr-14">
           {toolbarAction}
           <DocumentSearchControl
             activeIndex={boundedActiveSearchMatchIndex}

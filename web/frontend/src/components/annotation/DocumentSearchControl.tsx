@@ -88,7 +88,7 @@ export function DocumentSearchControl({
         <Search />
       </Button>
       {searchOpen ? (
-        <div className="absolute right-10 top-0 z-20 flex w-80 items-center gap-1 rounded-md border bg-background p-2 shadow-lg">
+        <div className="absolute right-0 top-10 z-20 flex w-[min(20rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] items-center gap-1 rounded-md border bg-background p-2 shadow-lg">
           <Search
             aria-hidden
             className="size-4 shrink-0 text-muted-foreground"

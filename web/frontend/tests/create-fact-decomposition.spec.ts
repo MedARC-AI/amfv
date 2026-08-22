@@ -43,6 +43,19 @@ async function selectEvidenceText(page: Page, selectedText: string) {
   }, selectedText)
 }
 
+async function fillRequiredDraft(page: Page, suffix: string) {
+  await chooseDataset(page)
+  await chooseSourceDocument(page)
+  await page.getByRole("button", { name: "Use document text" }).click()
+  await page
+    .getByLabel("Source text")
+    .fill(`Baker appears in the E2E source. Fact recovery ${suffix}.`)
+  await page.getByLabel("Fact 1").fill(`Baker is saved in ${suffix}.`)
+  await page
+    .getByLabel("Fact 2")
+    .fill("A distractor answer should not be listed.")
+}
+
 test("saves one fact-decomposition draft twice, then submits that same item", async ({
   page,
 }) => {
@@ -59,6 +72,22 @@ test("saves one fact-decomposition draft twice, then submits that same item", as
     .fill(
       `Baker appears in the E2E source. Café and emoji 😀 are available for offset checks. Run ${runSuffix}.`,
     )
+
+  const draftRequests: Array<Record<string, unknown>> = []
+  let submissionRequest: Record<string, unknown> | undefined
+  await page.route("**/api/v1/create/fact-decomp/draft", async (route) => {
+    draftRequests.push(
+      route.request().postDataJSON() as Record<string, unknown>,
+    )
+    await route.continue()
+  })
+  await page.route("**/api/v1/create/fact-decomp/submit", async (route) => {
+    submissionRequest = route.request().postDataJSON() as Record<
+      string,
+      unknown
+    >
+    await route.continue()
+  })
 
   await page.getByLabel("Fact 1").fill("Baker appears in the E2E source.")
   await page
@@ -90,4 +119,177 @@ test("saves one fact-decomposition draft twice, then submits that same item", as
   await expect(
     page.getByText(new RegExp(`Submitted item ${firstItemId}\\.`)),
   ).toBeVisible()
+  expect(draftRequests).toHaveLength(2)
+  for (const request of draftRequests) {
+    expect(request).not.toHaveProperty("status")
+    expect(request).toHaveProperty("request_id", expect.any(String))
+  }
+  expect(submissionRequest).not.toHaveProperty("status")
+  expect(submissionRequest).toHaveProperty("request_id", expect.any(String))
+  expect(
+    new Set([
+      ...draftRequests.map((request) => request.request_id),
+      submissionRequest?.request_id,
+    ]).size,
+  ).toBe(3)
+})
+
+test("does not report a first fact draft as saved when the request fails before commit", async ({
+  page,
+}) => {
+  await fillRequiredDraft(page, `${Date.now()}`)
+  await page.route("**/api/v1/create/fact-decomp/draft", async (route) => {
+    await route.abort("failed")
+  })
+
+  await page.getByRole("button", { name: "Save draft" }).click()
+
+  await expect(
+    page.getByText(
+      "Draft save outcome is unknown. It was not retried automatically; do not assume the draft was saved.",
+    ),
+  ).toBeVisible()
+  await expect(page.getByText(/Draft saved as item \d+/)).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Save draft" })).toBeDisabled()
+  await expect(page.getByRole("button", { name: "Submit" })).toBeDisabled()
+})
+
+test("checks the receipt after a server failure before reporting a fact draft outcome", async ({
+  page,
+}) => {
+  await fillRequiredDraft(page, `${Date.now()}`)
+  let receiptRead = false
+  await page.route("**/api/v1/create/fact-decomp/draft", async (route) => {
+    await route.fulfill({
+      body: JSON.stringify({ detail: "untrusted server detail" }),
+      contentType: "application/json",
+      status: 500,
+    })
+  })
+  await page.route("**/api/v1/create/fact-decomp/receipts/*", async (route) => {
+    receiptRead = true
+    await route.continue()
+  })
+
+  await page.getByRole("button", { name: "Save draft" }).click()
+
+  await expect(
+    page.getByText(
+      "Draft save outcome is unknown. It was not retried automatically; do not assume the draft was saved.",
+    ),
+  ).toBeVisible()
+  expect(receiptRead).toBe(true)
+  await expect(page.getByRole("button", { name: "Save draft" })).toBeDisabled()
+})
+
+test("recovers a first fact save after its response is lost", async ({
+  page,
+}) => {
+  await fillRequiredDraft(page, `${Date.now()}`)
+  let persistedResponse: { id?: number; item_revision?: number } | undefined
+  await page.route("**/api/v1/create/fact-decomp/draft", async (route) => {
+    const response = await route.fetch()
+    expect(response.ok()).toBe(true)
+    persistedResponse = await response.json()
+    await route.abort("failed")
+  })
+
+  await page.getByRole("button", { name: "Save draft" }).click()
+
+  await expect(
+    page.getByText(/Draft \d+ was recovered at revision 1\./),
+  ).toBeVisible()
+  expect(persistedResponse).toMatchObject({
+    id: expect.any(Number),
+    item_revision: 1,
+  })
+  await expect(
+    page.getByText(
+      new RegExp(
+        `Draft ${persistedResponse?.id} was recovered at revision ${persistedResponse?.item_revision}\\.`,
+      ),
+    ),
+  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Save draft" })).toBeEnabled()
+  await expect(page.getByRole("button", { name: "Submit" })).toBeEnabled()
+})
+
+test("keeps an uncertain fact draft locked when its receipt does not match", async ({
+  page,
+}) => {
+  await fillRequiredDraft(page, `${Date.now()}`)
+  await page.route("**/api/v1/create/fact-decomp/draft", async (route) => {
+    const response = await route.fetch()
+    expect(response.ok()).toBe(true)
+    await route.abort("failed")
+  })
+  await page.route("**/api/v1/create/fact-decomp/receipts/*", async (route) => {
+    const response = await route.fetch()
+    expect(response.ok()).toBe(true)
+    const receipt = await response.json()
+    await route.fulfill({
+      response,
+      json: { ...receipt, request_id: "mismatched-receipt" },
+    })
+  })
+
+  await page.getByRole("button", { name: "Save draft" }).click()
+
+  await expect(
+    page.getByText(
+      "Draft save outcome is unknown. It was not retried automatically; do not assume the draft was saved.",
+    ),
+  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Save draft" })).toBeDisabled()
+  await expect(page.getByRole("button", { name: "Submit" })).toBeDisabled()
+})
+
+test("recovers a later fact save after its response is lost", async ({
+  page,
+}) => {
+  const suffix = `${Date.now()}`
+  await fillRequiredDraft(page, suffix)
+  await page.getByRole("button", { name: "Save draft" }).click()
+  const firstSave = page.getByText(/Draft saved as item \d+ \(revision 1\)\./)
+  await expect(firstSave).toBeVisible()
+  const firstItemId = (await firstSave.textContent())?.match(/item (\d+)/)?.[1]
+  expect(firstItemId).toBeTruthy()
+
+  const revisedFact = `Baker is the exact later save ${suffix}.`
+  await page.getByLabel("Fact 1").fill(revisedFact)
+
+  let persistedResponse:
+    | {
+        facts?: Array<{ fact_text?: string }>
+        item_revision?: number
+        prompt_text?: string
+      }
+    | undefined
+  await page.route("**/api/v1/create/fact-decomp/draft", async (route) => {
+    const response = await route.fetch()
+    expect(response.ok()).toBe(true)
+    persistedResponse = await response.json()
+    await route.abort("failed")
+  })
+
+  await page.getByRole("button", { name: "Save draft" }).click()
+
+  await expect(
+    page.getByText(
+      new RegExp(
+        `Draft ${firstItemId ?? "\\d+"} was recovered at revision 2\\.`,
+      ),
+    ),
+  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Save draft" })).toBeEnabled()
+  await expect(page.getByRole("button", { name: "Submit" })).toBeEnabled()
+  expect(persistedResponse).toMatchObject({
+    item_revision: 2,
+    prompt_text: `Baker appears in the E2E source. Fact recovery ${suffix}.`,
+  })
+  expect(persistedResponse?.facts).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ fact_text: revisedFact }),
+    ]),
+  )
 })

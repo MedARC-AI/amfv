@@ -533,7 +533,9 @@ function SelectableChunkView({
     (
       srcStart: number,
       text: string,
-      event?: React.PointerEvent<HTMLElement>,
+      event?:
+        | React.KeyboardEvent<HTMLElement>
+        | React.PointerEvent<HTMLElement>,
     ) => {
       if (readOnly) {
         return false
@@ -558,6 +560,38 @@ function SelectableChunkView({
       return onSelect(span) !== false
     },
     [blockRangeSpans, chunk.id, chunk.text, onBlockSelect, onSelect, readOnly],
+  )
+
+  const activateBlock = React.useCallback(
+    (srcStart: number, text: string) =>
+      (event: React.KeyboardEvent<HTMLElement>) => {
+        if (
+          selectionMode !== "block" ||
+          (event.key !== "Enter" && event.key !== " ")
+        ) {
+          return
+        }
+        event.preventDefault()
+        commitBlock(srcStart, text, event)
+      },
+    [commitBlock, selectionMode],
+  )
+
+  const blockInteractionProps = React.useCallback(
+    (srcStart: number, text: string, selected: boolean) => {
+      if (selectionMode !== "block" || readOnly) {
+        return {}
+      }
+      return {
+        "aria-label": `Select evidence block: ${text}`,
+        "aria-pressed": selected,
+        "data-evidence-block": "true",
+        onKeyDown: activateBlock(srcStart, text),
+        role: "button",
+        tabIndex: 0,
+      }
+    },
+    [activateBlock, readOnly, selectionMode],
   )
 
   const startBlockDrag = React.useCallback(
@@ -747,7 +781,7 @@ function SelectableChunkView({
                 : "selection:bg-primary/25",
             )
           : cn(
-              "relative cursor-pointer rounded-md border border-transparent px-2 py-1.5 transition hover:border-primary/30 hover:bg-primary/5",
+              "relative cursor-pointer rounded-md border border-transparent px-2 py-1.5 outline-none transition hover:border-primary/30 hover:bg-primary/5 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
               searchSelectionActive && "selection:bg-amber-300/70",
             )
   const selectedBlock = "border-transparent bg-primary/15"
@@ -850,7 +884,7 @@ function SelectableChunkView({
           width: selectionOverlayRect.width,
         }}
       >
-        <div className="pointer-events-auto absolute -right-11 top-0 flex flex-col gap-1">
+        <div className="pointer-events-auto absolute right-1 top-1 flex flex-col gap-1 sm:-right-11 sm:top-0">
           {onConfirmSelection && selectedBlockCount > 1 ? (
             <button
               aria-label="Confirm selected evidence"
@@ -913,6 +947,7 @@ function SelectableChunkView({
             const selected = Boolean(selectedSpan)
             return (
               <Tag
+                {...blockInteractionProps(block.srcStart, block.text, selected)}
                 className={cn(
                   headingClass[block.level] ?? headingClass[3],
                   selectable,
@@ -984,6 +1019,11 @@ function SelectableChunkView({
                   const anchorSpan = selectedSpan ?? committedSpan
                   return (
                     <li
+                      {...blockInteractionProps(
+                        item.srcStart,
+                        item.text,
+                        Boolean(selectedSpan),
+                      )}
                       className={cn(
                         selectable,
                         selectionMode === "block" &&
@@ -1069,6 +1109,11 @@ function SelectableChunkView({
                         const anchorSpan = selectedSpan ?? committedSpan
                         return (
                           <th
+                            {...blockInteractionProps(
+                              cell.srcStart,
+                              cell.text,
+                              Boolean(selectedSpan),
+                            )}
                             className={cn(
                               "whitespace-normal break-words border-b px-3 py-2 font-semibold align-top [overflow-wrap:anywhere]",
                               selectable,
@@ -1149,6 +1194,11 @@ function SelectableChunkView({
                           const anchorSpan = selectedSpan ?? committedSpan
                           return (
                             <td
+                              {...blockInteractionProps(
+                                cell.srcStart,
+                                cell.text,
+                                Boolean(selectedSpan),
+                              )}
                               className={cn(
                                 "whitespace-normal break-words px-3 py-2 align-top [overflow-wrap:anywhere]",
                                 selectable,
@@ -1228,6 +1278,7 @@ function SelectableChunkView({
           const selected = Boolean(selectedSpan)
           return (
             <p
+              {...blockInteractionProps(block.srcStart, block.text, selected)}
               className={cn(
                 "leading-relaxed",
                 selectable,

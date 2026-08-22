@@ -35,6 +35,16 @@ export function hasApiErrorStatus(error: unknown, status: number): boolean {
   return isErrorResponse(error) && responseStatus(error) === status
 }
 
+/**
+ * A known 4xx response is an authoritative rejection of the submitted
+ * command. Missing or 5xx statuses can have happened after a proxy accepted
+ * the write, so callers with durable receipts must reconcile them first.
+ */
+export function isAuthoritativeClientError(error: unknown): boolean {
+  const status = isErrorResponse(error) ? responseStatus(error) : null
+  return status !== null && status >= 400 && status < 500
+}
+
 function validationMessage(body: unknown): string | null {
   if (!body || typeof body !== "object" || !("detail" in body)) {
     return null

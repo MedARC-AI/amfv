@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test"
 import {
   apiErrorMessage,
   hasApiErrorStatus,
+  isAuthoritativeClientError,
   ProductMessageError,
 } from "./utils"
 
@@ -54,5 +55,11 @@ describe("bounded product error messages", () => {
 
     expect(hasApiErrorStatus(emptyReadonlyLookup, 404)).toBe(true)
     expect(hasApiErrorStatus(emptyReadonlyLookup, 409)).toBe(false)
+  })
+
+  test("treats only known 4xx responses as authoritative rejections", () => {
+    expect(isAuthoritativeClientError({ status: 422 })).toBe(true)
+    expect(isAuthoritativeClientError({ status: 500 })).toBe(false)
+    expect(isAuthoritativeClientError(new Error("missing status"))).toBe(false)
   })
 })

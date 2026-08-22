@@ -867,7 +867,6 @@ function RetrievalCreate() {
   })
 
   const requestBody = (
-    status: "DRAFT" | "SUBMITTED",
     values: RetrievalFormValues,
     item?: AddedRetrievalEvalItem,
   ): CreateRetrievalDraftSubmit => ({
@@ -886,7 +885,6 @@ function RetrievalCreate() {
       (item?.category ?? category) === "ADVERSARIAL"
         ? values.whyNotAnswerable || null
         : null,
-    status,
   })
 
   const previewRetrievalItems = async (
@@ -895,7 +893,7 @@ function RetrievalCreate() {
     Promise.all(
       items.map((item) =>
         CreateService.previewRetrievalCreation({
-          requestBody: requestBody("DRAFT", item, item),
+          requestBody: requestBody(item, item),
         }),
       ),
     )
@@ -923,7 +921,7 @@ function RetrievalCreate() {
         const receipt = await CreateService.submitRetrievalBatch({
           requestBody: {
             request_id: requestId,
-            items: items.map((item) => requestBody("SUBMITTED", item, item)),
+            items: items.map((item) => requestBody(item, item)),
           },
         })
         return { previews, receipt, reconciled: false }
