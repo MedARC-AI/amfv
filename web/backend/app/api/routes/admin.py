@@ -16,6 +16,7 @@ from app.models import (
     Document,
     EvalFact,
     EvalItem,
+    EvalType,
     FactDecompReview,
     ItemStatus,
     PooledCandidate,
@@ -95,9 +96,21 @@ def read_admin_dataset(session: SessionDep, dataset_id: int) -> Any:
 def generate_dataset_tasks(session: SessionDep, dataset_id: int) -> Any:
     dataset = _get_dataset_or_404(session, dataset_id)
     assert dataset.id is not None
+    if dataset.eval_type != EvalType.FACT_DECOMP:
+        existing = session.exec(
+            select(func.count(col(ReviewTask.id))).where(
+                col(ReviewTask.dataset_id) == dataset.id
+            )
+        ).one()
+        return AdminTaskGenerationResult(
+            dataset_id=dataset.id,
+            created=0,
+            existing=existing,
+        )
     item_ids = session.exec(
         select(col(EvalItem.id)).where(
             col(EvalItem.dataset_id) == dataset.id,
+            col(EvalItem.eval_type) == EvalType.FACT_DECOMP,
             col(EvalItem.status) == ItemStatus.ACTIVE,
             col(EvalItem.is_active) == True,  # noqa: E712
         )
@@ -448,6 +461,11 @@ def _export_item(session: SessionDep, item: EvalItem) -> dict:
     review_task_count = session.exec(
         select(func.count(col(ReviewTask.id))).where(col(ReviewTask.item_a_id) == item.id)
     ).one()
+    retrieval_reviews = session.exec(
+        select(RetrievalQAReview)
+        .where(col(RetrievalQAReview.item_id) == item.id)
+        .order_by(col(RetrievalQAReview.id))
+    ).all()
     return {
         "id": item.id,
         "dataset_id": item.dataset_id,
@@ -485,6 +503,22 @@ def _export_item(session: SessionDep, item: EvalItem) -> dict:
             for fact in facts
         ],
         "review_task_count": review_task_count,
+        "retrieval_reviews": [
+            {
+                "id": review.id,
+                "assignment_id": review.assignment_id,
+                "user_id": str(review.user_id),
+                "question_validity": review.question_validity,
+                "evidence_quality": review.evidence_quality,
+                "answer_correctness": review.answer_correctness,
+                "answer_faithfulness": review.answer_faithfulness,
+                "notes": review.notes,
+                "verdict": review.verdict,
+                "skipped": review.skipped,
+                "skip_reason": review.skip_reason,
+            }
+            for review in retrieval_reviews
+        ],
     }
 
 

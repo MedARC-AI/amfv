@@ -64,7 +64,7 @@ def test_home_summary_returns_counts_and_does_not_reserve(
     db.add(retrieval_dataset)
     db.add(fact_dataset)
     db.flush()
-    reviewer.current_dataset_id = retrieval_dataset.id
+    reviewer.retrieval_dataset_id = retrieval_dataset.id
     db.add(reviewer)
 
     document = create_document_with_chunks(
@@ -241,7 +241,7 @@ def test_home_summary_matches_assignment_gating_without_reserving(
     db.add(other_reviewer)
     db.add(dataset)
     db.flush()
-    reviewer.current_dataset_id = dataset.id
+    reviewer.retrieval_dataset_id = dataset.id
     db.add(reviewer)
 
     document = create_document_with_chunks(
@@ -294,6 +294,10 @@ def test_home_summary_matches_assignment_gating_without_reserving(
             assignment_id=completed_assignment.id,
             item_id=regular_item.id,
             user_id=other_reviewer.id,
+            question_validity=4,
+            evidence_quality=4,
+            answer_correctness=4,
+            answer_faithfulness=4,
             verdict=ItemVerdict.ACCEPT,
         )
     )
@@ -365,7 +369,7 @@ def test_home_summary_skips_stale_existing_relevance_assignment(
     db.add(author)
     db.add(dataset)
     db.flush()
-    reviewer.current_dataset_id = dataset.id
+    reviewer.retrieval_dataset_id = dataset.id
     db.add(reviewer)
     document = create_document_with_chunks(
         db,
@@ -424,7 +428,7 @@ def test_home_summary_skips_stale_existing_relevance_assignment(
     assert assignment_count_after == assignment_count_before
 
 
-def test_retrieval_next_reuses_assignment_and_payload_is_typed(
+def test_retrieval_get_next_is_read_only_and_claim_is_idempotent(
     client: TestClient,
     normal_user_token_headers: dict[str, str],
     db: Session,
@@ -442,7 +446,7 @@ def test_retrieval_next_reuses_assignment_and_payload_is_typed(
     db.add(author)
     db.add(dataset)
     db.flush()
-    reviewer.current_dataset_id = dataset.id
+    reviewer.retrieval_dataset_id = dataset.id
     db.add(reviewer)
     document = create_document_with_chunks(
         db,
@@ -478,9 +482,18 @@ def test_retrieval_next_reuses_assignment_and_payload_is_typed(
     db.add(item)
     db.commit()
 
-    first = client.get(
+    assignment_count_before = db.exec(select(func.count(Assignment.id))).one()
+    read_before_claim = client.get(
         f"{settings.API_V1_STR}/review/next?eval_type=RETRIEVAL",
         headers=normal_user_token_headers,
+    )
+    assert read_before_claim.status_code == 404
+    assert db.exec(select(func.count(Assignment.id))).one() == assignment_count_before
+
+    first = client.post(
+        f"{settings.API_V1_STR}/review/claim",
+        headers=normal_user_token_headers,
+        json={"eval_type": "RETRIEVAL", "mode": "ITEM_AUDIT"},
     )
     assert first.status_code == 200
     recommendation = first.json()
@@ -495,6 +508,7 @@ def test_retrieval_next_reuses_assignment_and_payload_is_typed(
     assert second.status_code == 200
     assert second.json()["assignment_id"] == recommendation["assignment_id"]
     assert second.json()["reservation_state"] == "existing"
+    assert db.exec(select(func.count(Assignment.id))).one() == assignment_count_before + 1
 
     payload = client.get(
         f"{settings.API_V1_STR}/review/retrieval/{recommendation['assignment_id']}",
@@ -507,7 +521,7 @@ def test_retrieval_next_reuses_assignment_and_payload_is_typed(
     assert body["item"]["id"] == item.id
     assert body["gold_evidence_spans"][0]["text"] == "Falcon"
     assert body["documents"][0]["chunks"][0]["text"] == "The answer is Falcon."
-    assert body["allowed_actions"] == ["accept", "reject", "needs_review"]
+    assert body["allowed_actions"] == ["accept", "reject"]
 
 
 def test_retrieval_review_rejects_wrong_user_and_completed_assignment(
@@ -543,6 +557,8 @@ def test_retrieval_review_rejects_wrong_user_and_completed_assignment(
         mode=AssignmentMode.ITEM_AUDIT,
         target_id=item.id,
         kind=AssignmentKind.REGULAR,
+        released_at=datetime.now(timezone.utc),
+        release_reason="Fixture assignment is no longer live",
     )
     completed_assignment = Assignment(
         dataset_id=dataset.id,
@@ -559,6 +575,10 @@ def test_retrieval_review_rejects_wrong_user_and_completed_assignment(
             assignment_id=completed_assignment.id,
             item_id=item.id,
             user_id=reviewer.id,
+            question_validity=4,
+            evidence_quality=4,
+            answer_correctness=4,
+            answer_faithfulness=4,
             verdict=ItemVerdict.ACCEPT,
         )
     )
@@ -627,7 +647,7 @@ def test_retrieval_review_rejects_mismatched_assignment_dataset(
     assert response.status_code == 404
 
 
-def test_retrieval_next_skips_stale_existing_assignment(
+def test_retrieval_get_next_does_not_mutate_stale_assignments(
     client: TestClient,
     normal_user_token_headers: dict[str, str],
     db: Session,
@@ -653,7 +673,7 @@ def test_retrieval_next_skips_stale_existing_assignment(
     db.add(author)
     db.add(dataset)
     db.flush()
-    reviewer.current_dataset_id = dataset.id
+    reviewer.retrieval_dataset_id = dataset.id
     db.add(reviewer)
     stale_item = EvalItem(
         dataset_id=dataset.id,
@@ -688,13 +708,20 @@ def test_retrieval_next_skips_stale_existing_assignment(
         f"{settings.API_V1_STR}/review/next?eval_type=RETRIEVAL",
         headers=normal_user_token_headers,
     )
-    assert response.status_code == 200
-    body = response.json()
+    assert response.status_code == 404
+    db.refresh(stale_assignment)
+    assert stale_assignment.completed_at is None
+
+    claimed = client.post(
+        f"{settings.API_V1_STR}/review/claim",
+        headers=normal_user_token_headers,
+        json={"eval_type": "RETRIEVAL", "mode": "ITEM_AUDIT"},
+    )
+    assert claimed.status_code == 200
+    body = claimed.json()
     assert body["reservation_state"] == "created"
     assert body["item_id"] == active_item.id
     assert body["assignment_id"] != stale_assignment.id
-    db.refresh(stale_assignment)
-    assert stale_assignment.completed_at is not None
 
 
 def test_retrieval_review_submit_persists_judgment_and_completes_assignment(
@@ -765,16 +792,14 @@ def test_retrieval_review_submit_persists_judgment_and_completes_assignment(
         select(RetrievalQAReview).where(RetrievalQAReview.assignment_id == assignment.id)
     ).first()
     assert judgment is not None
-    assert judgment.verdict is None
+    assert judgment.verdict == ItemVerdict.ACCEPT
     assert judgment.confidence is None
-    assert judgment.checks == {
-        "question_validity": 4,
-        "evidence_quality": 4,
-        "answer_correctness": 3,
-        "answer_faithfulness": 4,
-        "accept_as_gold": True,
-        "notes": "Looks good.",
-    }
+    assert judgment.question_validity == 4
+    assert judgment.evidence_quality == 4
+    assert judgment.answer_correctness == 3
+    assert judgment.answer_faithfulness == 4
+    assert judgment.notes == "Looks good."
+    assert judgment.checks is None
     assert judgment.span is None
     db.refresh(assignment)
     assert assignment.completed_at is not None
@@ -877,7 +902,7 @@ def test_fact_decomp_next_selects_task_without_placeholder_review(
     db.add(author)
     db.add(dataset)
     db.flush()
-    reviewer.current_dataset_id = dataset.id
+    reviewer.fact_decomp_dataset_id = dataset.id
     db.add(reviewer)
     document = create_document_with_chunks(
         db,
@@ -999,7 +1024,7 @@ def test_fact_decomp_next_skips_self_and_previously_reviewed_tasks(
     db.add(other_author)
     db.add(dataset)
     db.flush()
-    reviewer.current_dataset_id = dataset.id
+    reviewer.fact_decomp_dataset_id = dataset.id
     db.add(reviewer)
     self_item = EvalItem(
         dataset_id=dataset.id,
@@ -1299,7 +1324,7 @@ def test_relevance_next_and_payload_use_pooled_candidate(
     db.add(author)
     db.add(dataset)
     db.flush()
-    reviewer.current_dataset_id = dataset.id
+    reviewer.retrieval_dataset_id = dataset.id
     db.add(reviewer)
     document = create_document_with_chunks(
         db,
@@ -1331,9 +1356,10 @@ def test_relevance_next_and_payload_use_pooled_candidate(
     db.add(candidate)
     db.commit()
 
-    response = client.get(
-        f"{settings.API_V1_STR}/review/next?eval_type=RETRIEVAL&mode=RELEVANCE",
+    response = client.post(
+        f"{settings.API_V1_STR}/review/claim",
         headers=normal_user_token_headers,
+        json={"eval_type": "RETRIEVAL", "mode": "RELEVANCE"},
     )
     assert response.status_code == 200
     recommendation = response.json()
@@ -1869,7 +1895,7 @@ def test_admin_can_create_dataset_document_and_toggle_document(
     assert db_document.is_active is False
 
 
-def test_admin_moderation_generates_tasks_and_exports_evidence(
+def test_admin_moderation_keeps_retrieval_task_generation_empty_and_exports_evidence(
     client: TestClient,
     superuser_token_headers: dict[str, str],
     db: Session,
@@ -1939,8 +1965,8 @@ def test_admin_moderation_generates_tasks_and_exports_evidence(
         headers=superuser_token_headers,
     )
     assert generated.status_code == 200
-    assert generated.json()["created"] == 1
-    assert db.exec(select(ReviewTask).where(ReviewTask.item_a_id == item.id)).first() is not None
+    assert generated.json()["created"] == 0
+    assert db.exec(select(ReviewTask).where(ReviewTask.item_a_id == item.id)).first() is None
 
     regenerated = client.post(
         f"{settings.API_V1_STR}/admin/datasets/{dataset.id}/generate-tasks",
@@ -1957,7 +1983,7 @@ def test_admin_moderation_generates_tasks_and_exports_evidence(
     export_item = exported.json()["items"][0]
     assert export_item["evidence_chunks"][0]["text"] == "The answer is Delta."
     assert export_item["evidence_documents"][0]["external_id"] == "doc-moderation"
-    assert export_item["review_task_count"] == 1
+    assert export_item["review_task_count"] == 0
 
     returned_to_draft = client.post(
         f"{settings.API_V1_STR}/admin/items/{item.id}/reject",

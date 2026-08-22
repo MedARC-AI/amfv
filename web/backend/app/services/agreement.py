@@ -141,9 +141,14 @@ def dataset_judgments_for_all(
     for judgment, item in session.exec(item_statement).all():
         if judgment.skipped or (reviewer_kind is not None and user_kinds.get(judgment.user_id) != reviewer_kind):
             continue
-        checks = (judgment.checks or {}).get("values", {})
-        for check_id, value in checks.items():
-            output[f"item_{check_id}"][f"item:{item.id}"][judgment.user_id] = str(value)
+        for dimension, value in (
+            ("question_validity", judgment.question_validity),
+            ("evidence_quality", judgment.evidence_quality),
+            ("answer_correctness", judgment.answer_correctness),
+            ("answer_faithfulness", judgment.answer_faithfulness),
+        ):
+            if value is not None:
+                output[f"item_{dimension}"][f"item:{item.id}"][judgment.user_id] = str(value)
         if judgment.verdict:
             output["item_verdict"][f"item:{item.id}"][judgment.user_id] = judgment.verdict.value
     relevance_statement = select(RelevanceJudgment, PooledCandidate).join(

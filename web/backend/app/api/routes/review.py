@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
@@ -16,12 +15,16 @@ from app.models import (
     EvalType,
     FactDecompReview,
     ItemStatus,
+    ItemVerdict,
     PooledCandidate,
     RelevanceJudgment,
     RetrievalQAReview,
     ReviewTask,
+    UserRole,
 )
 from app.schemas import (
+    AssignmentRelease,
+    AssignmentReleaseResponse,
     ChunkSummary,
     DocumentDetail,
     EvidenceSpan,
@@ -32,7 +35,9 @@ from app.schemas import (
     RelevanceReviewPayload,
     RelevanceReviewSubmit,
     RetrievalReviewPayload,
+    RetrievalReviewSubmission,
     RetrievalReviewSubmit,
+    ReviewClaimRequest,
     ReviewDataset,
     ReviewFact,
     ReviewItem,
@@ -40,10 +45,12 @@ from app.schemas import (
     ReviewSubmissionResponse,
 )
 from app.services.assignment import (
-    assignment_target_is_loadable,
+    claim_assignment,
     complete_assignment,
+    get_current_or_first_dataset_readonly,
     get_or_create_current_dataset,
-    select_assignment,
+    incomplete_loadable_assignments,
+    release_assignment,
 )
 from app.services.rubrics import FACT_DECOMP_DIMENSIONS, validate_fact_decomp_ratings
 
@@ -57,17 +64,88 @@ def read_next_review_task(
     eval_type: EvalType,
     mode: AssignmentMode = Query(default=AssignmentMode.ITEM_AUDIT),
 ) -> NextReviewRecommendation:
+    """Read an existing assignment or fact task without creating a claim."""
+
     if eval_type == EvalType.FACT_DECOMP:
         if mode != AssignmentMode.ITEM_AUDIT:
             raise HTTPException(
                 status_code=400,
                 detail="Fact-decomposition review does not use assignment mode",
             )
-        return _next_fact_decomp_review(session, current_user)
-    if mode == AssignmentMode.RELEVANCE:
-        return _next_assignment_review(session, current_user, mode=mode, kind="relevance")
-    return _next_assignment_review(
-        session, current_user, mode=AssignmentMode.ITEM_AUDIT, kind="retrieval_audit"
+        return _next_fact_decomp_review_readonly(session, current_user)
+    return _read_existing_assignment_review(session, current_user, mode=mode)
+
+
+@router.post("/claim", response_model=NextReviewRecommendation)
+def claim_next_review_task(
+    session: SessionDep,
+    body: ReviewClaimRequest,
+    current_user: CurrentUser,
+) -> NextReviewRecommendation:
+    """Claim the next eligible review slot through a POST-only mutation."""
+
+    if body.eval_type == EvalType.FACT_DECOMP:
+        if body.mode != AssignmentMode.ITEM_AUDIT:
+            raise HTTPException(
+                status_code=400,
+                detail="Fact-decomposition review does not use assignment mode",
+            )
+        dataset = get_or_create_current_dataset(
+            session,
+            current_user,
+            eval_type=EvalType.FACT_DECOMP,
+            dataset_id=body.dataset_id,
+        )
+        if dataset is None:
+            raise HTTPException(status_code=404, detail="No review tasks are available")
+        task = _select_fact_decomp_task(session, current_user, dataset)
+        if task is None:
+            raise HTTPException(status_code=404, detail="No review tasks are available")
+        session.commit()
+        return _fact_decomp_recommendation(session, dataset, task)
+
+    assignment, created = claim_assignment(
+        session,
+        current_user,
+        body.mode,
+        eval_type=EvalType.RETRIEVAL,
+        dataset_id=body.dataset_id,
+    )
+    if assignment is None:
+        raise HTTPException(status_code=404, detail="No review tasks are available")
+    session.commit()
+    session.refresh(assignment)
+    return _assignment_recommendation(session, assignment, created=created)
+
+
+@router.post(
+    "/assignments/{assignment_id}/release",
+    response_model=AssignmentReleaseResponse,
+)
+def release_review_assignment(
+    session: SessionDep,
+    assignment_id: int,
+    body: AssignmentRelease,
+    current_user: CurrentUser,
+) -> AssignmentReleaseResponse:
+    """Explicitly return one incomplete assignment slot to the queue."""
+
+    assignment = session.get(Assignment, assignment_id)
+    is_admin = current_user.is_superuser or current_user.role == UserRole.admin
+    if assignment is None:
+        raise HTTPException(status_code=404, detail="Review assignment not found")
+    if assignment.user_id != current_user.id and not is_admin:
+        raise HTTPException(status_code=403, detail="Cannot release another user's assignment")
+    try:
+        release_assignment(session, assignment, reason=body.reason)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    session.commit()
+    assert assignment.id is not None
+    assert assignment.release_reason is not None
+    return AssignmentReleaseResponse(
+        id=assignment.id,
+        release_reason=assignment.release_reason,
     )
 
 
@@ -98,9 +176,9 @@ def read_retrieval_review(
         chunks=[ChunkSummary.model_validate(chunk) for chunk in chunks],
         gold_evidence_spans=_item_spans(item, kind="gold"),
         trap_evidence_spans=_item_spans(item, kind="trap"),
-        allowed_actions=["accept", "reject", "needs_review"],
+        allowed_actions=["accept", "reject"],
         item_revision=item.revision,
-        existing_submission=existing.model_dump(mode="json") if existing else None,
+        existing_submission=_retrieval_submission_payload(existing) if existing else None,
     )
 
 
@@ -121,24 +199,26 @@ def submit_retrieval_review(
         select(RetrievalQAReview).where(RetrievalQAReview.assignment_id == assignment.id)
     ).first():
         raise HTTPException(status_code=409, detail="Review assignment already submitted")
-    checks = {
-        "question_validity": body.question_validity,
-        "evidence_quality": body.evidence_quality,
-        "answer_correctness": body.answer_correctness,
-        "answer_faithfulness": body.answer_faithfulness,
-        "accept_as_gold": body.accept_as_gold,
-        "notes": body.notes,
-    }
     assert assignment.id is not None
     assert item.id is not None
     judgment = RetrievalQAReview(
         assignment_id=assignment.id,
         item_id=item.id,
         user_id=current_user.id,
-        checks=checks,
+        question_validity=body.question_validity,
+        evidence_quality=body.evidence_quality,
+        answer_correctness=body.answer_correctness,
+        answer_faithfulness=body.answer_faithfulness,
+        notes=body.notes,
         span=None,
         confidence=None,
-        verdict=None,
+        verdict=(
+            None
+            if body.skipped
+            else ItemVerdict.ACCEPT if body.accept_as_gold else ItemVerdict.REJECT
+        ),
+        skipped=body.skipped,
+        skip_reason=body.skip_reason.strip() if body.skip_reason else None,
     )
     session.add(judgment)
     complete_assignment(session, assignment)
@@ -359,55 +439,71 @@ def submit_relevance_review(
     )
 
 
-def _next_assignment_review(
+def _read_existing_assignment_review(
     session: SessionDep,
     current_user: CurrentUser,
     *,
     mode: AssignmentMode,
-    kind: Literal["retrieval_audit", "fact_decomp", "relevance"],
 ) -> NextReviewRecommendation:
-    existing = _valid_existing_incomplete_assignment(session, current_user, mode)
-    assignment = existing or select_assignment(
-        session, current_user, mode, eval_type=EvalType.RETRIEVAL
-    )
-    if assignment is None:
-        raise HTTPException(status_code=404, detail="No review tasks are available")
-    session.commit()
-    session.refresh(assignment)
+    assignments = incomplete_loadable_assignments(session, current_user, mode=mode)
+    if not assignments:
+        raise HTTPException(status_code=404, detail="No existing review assignment")
+    return _assignment_recommendation(session, assignments[0], created=False)
+
+
+def _assignment_recommendation(
+    session: SessionDep,
+    assignment: Assignment,
+    *,
+    created: bool,
+) -> NextReviewRecommendation:
     assert assignment.id is not None
-    if mode == AssignmentMode.RELEVANCE:
+    if assignment.mode == AssignmentMode.RELEVANCE:
         candidate = session.get(PooledCandidate, assignment.target_id)
-        item_id = candidate.item_id if candidate else None
+        candidate_item_id = candidate.item_id if candidate is not None else None
         title = "Review retrieved passage relevance"
         review_url = f"/review/relevance/{assignment.id}"
+        kind: Literal["retrieval_audit", "fact_decomp", "relevance"] = "relevance"
     else:
-        item_id = assignment.target_id
+        candidate_item_id = assignment.target_id
         title = "Review retrieval item"
         review_url = f"/review/retrieval/{assignment.id}"
+        kind = "retrieval_audit"
     return NextReviewRecommendation(
         kind=kind,
         eval_type=EvalType.RETRIEVAL,
         dataset_id=assignment.dataset_id,
         title=title,
-        reason="Existing assignment" if existing else "Next available assignment",
+        reason="Next available assignment" if created else "Existing assignment",
         review_url=review_url,
-        reservation_state="existing" if existing else "created",
+        reservation_state="created" if created else "existing",
         assignment_id=assignment.id,
-        item_id=item_id,
+        item_id=candidate_item_id,
     )
 
 
-def _next_fact_decomp_review(
-    session: SessionDep, current_user: CurrentUser
+def _next_fact_decomp_review_readonly(
+    session: SessionDep,
+    current_user: CurrentUser,
 ) -> NextReviewRecommendation:
-    dataset = get_or_create_current_dataset(
-        session, current_user, eval_type=EvalType.FACT_DECOMP
+    dataset = get_current_or_first_dataset_readonly(
+        session,
+        current_user,
+        eval_type=EvalType.FACT_DECOMP,
     )
     if dataset is None:
         raise HTTPException(status_code=404, detail="No review tasks are available")
     task = _select_fact_decomp_task(session, current_user, dataset)
     if task is None:
         raise HTTPException(status_code=404, detail="No review tasks are available")
+    return _fact_decomp_recommendation(session, dataset, task)
+
+
+def _fact_decomp_recommendation(
+    session: SessionDep,
+    dataset: Dataset,
+    task: ReviewTask,
+) -> NextReviewRecommendation:
     item = session.get(EvalItem, task.item_a_id)
     if item is None:
         raise HTTPException(status_code=404, detail="Review item not found")
@@ -425,35 +521,6 @@ def _next_fact_decomp_review(
         task_id=task.id,
         item_id=item.id,
     )
-
-
-def _existing_incomplete_assignment(
-    session: SessionDep, current_user: CurrentUser, mode: AssignmentMode
-) -> Assignment | None:
-    return session.exec(
-        select(Assignment)
-        .join(Dataset, col(Assignment.dataset_id) == col(Dataset.id))
-        .where(
-            col(Assignment.user_id) == current_user.id,
-            col(Assignment.mode) == mode,
-            col(Assignment.completed_at).is_(None),
-            col(Dataset.is_active) == True,  # noqa: E712
-            col(Dataset.eval_type) == EvalType.RETRIEVAL,
-        )
-        .order_by(col(Assignment.assigned_at))
-    ).first()
-
-
-def _valid_existing_incomplete_assignment(
-    session: SessionDep, current_user: CurrentUser, mode: AssignmentMode
-) -> Assignment | None:
-    while existing := _existing_incomplete_assignment(session, current_user, mode):
-        if assignment_target_is_loadable(session, existing):
-            return existing
-        existing.completed_at = datetime.now(timezone.utc)
-        session.add(existing)
-        session.flush()
-    return None
 
 
 def _select_fact_decomp_task(
@@ -502,6 +569,8 @@ def _read_assignment_for_user(
         or assignment.mode != mode
     ):
         raise HTTPException(status_code=404, detail="Review assignment not found")
+    if assignment.released_at is not None:
+        raise HTTPException(status_code=409, detail="Review assignment has been released")
     if assignment.completed_at is not None:
         raise HTTPException(status_code=409, detail="Review assignment is complete")
     return assignment
@@ -621,6 +690,23 @@ def _document_detail(session: SessionDep, document: Document) -> DocumentDetail:
         content=document.content,
         paragraphs=document.paragraphs,
         chunks=[ChunkSummary.model_validate(chunk) for chunk in chunks],
+    )
+
+
+def _retrieval_submission_payload(
+    judgment: RetrievalQAReview,
+) -> RetrievalReviewSubmission:
+    assert judgment.id is not None
+    return RetrievalReviewSubmission(
+        id=judgment.id,
+        question_validity=judgment.question_validity,
+        evidence_quality=judgment.evidence_quality,
+        answer_correctness=judgment.answer_correctness,
+        answer_faithfulness=judgment.answer_faithfulness,
+        notes=judgment.notes,
+        verdict=judgment.verdict,
+        skipped=judgment.skipped,
+        skip_reason=judgment.skip_reason,
     )
 
 

@@ -3,7 +3,15 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from pydantic import EmailStr
-from sqlalchemy import JSON, Column, DateTime, Index, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    Column,
+    DateTime,
+    Index,
+    UniqueConstraint,
+    text,
+)
 from sqlmodel import Field, SQLModel
 
 
@@ -78,7 +86,6 @@ class JudgmentConfidence(str, Enum):
 class ItemVerdict(str, Enum):
     ACCEPT = "ACCEPT"
     REJECT = "REJECT"
-    NEEDS_REVIEW = "NEEDS_REVIEW"
 
 
 class NiceImportJobStatus(str, Enum):
@@ -154,7 +161,10 @@ class UpdatePassword(SQLModel):
 class User(UserBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     hashed_password: str
-    current_dataset_id: int | None = Field(
+    retrieval_dataset_id: int | None = Field(
+        default=None, foreign_key="dataset.id", nullable=True, index=True
+    )
+    fact_decomp_dataset_id: int | None = Field(
         default=None, foreign_key="dataset.id", nullable=True, index=True
     )
     dataset_streak_remaining: int = Field(default=0, nullable=False)
@@ -411,8 +421,26 @@ class PooledCandidate(TimestampMixin, table=True):
 
 class Assignment(TimestampMixin, table=True):
     __table_args__ = (
-        UniqueConstraint("mode", "target_id", "user_id", name="uq_assignment_mode_target_user"),
         Index("ix_assignment_queue", "dataset_id", "mode", "completed_at", "position"),
+        Index(
+            "uq_assignment_live_mode_target_user",
+            "mode",
+            "target_id",
+            "user_id",
+            unique=True,
+            sqlite_where=text("released_at IS NULL"),
+            postgresql_where=text("released_at IS NULL"),
+        ),
+        Index(
+            "uq_assignment_live_mode_target_slot",
+            "mode",
+            "target_id",
+            "slot",
+            unique=True,
+            sqlite_where=text("released_at IS NULL"),
+            postgresql_where=text("released_at IS NULL"),
+        ),
+        CheckConstraint("slot >= 0", name="ck_assignment_slot_nonnegative"),
     )
 
     id: int | None = Field(default=None, primary_key=True)
@@ -423,24 +451,81 @@ class Assignment(TimestampMixin, table=True):
     kind: AssignmentKind = Field(default=AssignmentKind.REGULAR, nullable=False, max_length=32)
     assigned_at: datetime = Field(default_factory=get_datetime_utc, nullable=False)
     completed_at: datetime | None = Field(default=None, nullable=True, index=True)
+    released_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),  # type: ignore
+        nullable=True,
+        index=True,
+    )
+    release_reason: str | None = Field(default=None, max_length=500)
+    slot: int = Field(default=0, ge=0, nullable=False)
     position: int = Field(default=0, nullable=False)
 
 
 class RetrievalQAReview(TimestampMixin, table=True):
     __tablename__ = "retrieval_qa_review"
-    __table_args__ = (UniqueConstraint("assignment_id", name="uq_retrieval_qa_review_assignment"),)
+    __table_args__ = (
+        UniqueConstraint("assignment_id", name="uq_retrieval_qa_review_assignment"),
+        CheckConstraint(
+            "question_validity IS NULL OR question_validity BETWEEN 1 AND 4",
+            name="ck_retrieval_qa_review_question_validity_range",
+        ),
+        CheckConstraint(
+            "evidence_quality IS NULL OR evidence_quality BETWEEN 1 AND 4",
+            name="ck_retrieval_qa_review_evidence_quality_range",
+        ),
+        CheckConstraint(
+            "answer_correctness IS NULL OR answer_correctness BETWEEN 1 AND 4",
+            name="ck_retrieval_qa_review_answer_correctness_range",
+        ),
+        CheckConstraint(
+            "answer_faithfulness IS NULL OR answer_faithfulness BETWEEN 1 AND 4",
+            name="ck_retrieval_qa_review_answer_faithfulness_range",
+        ),
+        CheckConstraint(
+            "("
+            "skipped = TRUE "
+            "AND skip_reason IS NOT NULL "
+            "AND length(trim(skip_reason)) > 0 "
+            "AND question_validity IS NULL "
+            "AND evidence_quality IS NULL "
+            "AND answer_correctness IS NULL "
+            "AND answer_faithfulness IS NULL "
+            "AND verdict IS NULL"
+            ") OR ("
+            "skipped = FALSE "
+            "AND skip_reason IS NULL "
+            "AND question_validity IS NOT NULL "
+            "AND question_validity BETWEEN 1 AND 4 "
+            "AND evidence_quality IS NOT NULL "
+            "AND evidence_quality BETWEEN 1 AND 4 "
+            "AND answer_correctness IS NOT NULL "
+            "AND answer_correctness BETWEEN 1 AND 4 "
+            "AND answer_faithfulness IS NOT NULL "
+            "AND answer_faithfulness BETWEEN 1 AND 4 "
+            "AND verdict IS NOT NULL "
+            "AND verdict IN ('ACCEPT', 'REJECT')"
+            ")",
+            name="ck_retrieval_qa_review_submission_shape",
+        ),
+    )
 
     id: int | None = Field(default=None, primary_key=True)
     assignment_id: int = Field(foreign_key="assignment.id", nullable=False, index=True)
     item_id: int = Field(foreign_key="eval_item.id", nullable=False, index=True)
     user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
     checks: dict | None = Field(default=None, sa_column=Column(JSON))
+    question_validity: int | None = Field(default=None, ge=1, le=4)
+    evidence_quality: int | None = Field(default=None, ge=1, le=4)
+    answer_correctness: int | None = Field(default=None, ge=1, le=4)
+    answer_faithfulness: int | None = Field(default=None, ge=1, le=4)
+    notes: str | None = Field(default=None)
     span: dict | None = Field(default=None, sa_column=Column(JSON))
     span_overlap: float | None = Field(default=None)
     confidence: JudgmentConfidence | None = Field(default=None, max_length=32)
     verdict: ItemVerdict | None = Field(default=None, max_length=32)
     skipped: bool = Field(default=False, nullable=False)
-    skip_reason: str | None = Field(default=None)
+    skip_reason: str | None = Field(default=None, max_length=500)
     started_at: datetime = Field(default_factory=get_datetime_utc, nullable=False)
     submitted_at: datetime = Field(default_factory=get_datetime_utc, nullable=False)
 

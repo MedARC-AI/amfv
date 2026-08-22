@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Literal
 
 from pydantic import model_validator
@@ -5,9 +7,11 @@ from sqlmodel import Field, SQLModel
 
 from app.models import (
     AssignmentKind,
+    AssignmentMode,
     EvalType,
     FactPolarity,
     ItemStatus,
+    ItemVerdict,
     JudgmentConfidence,
     NiceImportJobStatus,
     NiceImportLimit,
@@ -24,7 +28,7 @@ class EvidenceSpan(SQLModel):
     text: str = Field(min_length=1)
 
     @model_validator(mode="after")
-    def _validate_order(self) -> "EvidenceSpan":
+    def _validate_order(self) -> EvidenceSpan:
         if self.end <= self.start:
             raise ValueError("Evidence span end must be greater than start")
         return self
@@ -100,7 +104,7 @@ class NiceImportJobStatusResponse(SQLModel):
 class DocumentDetail(DocumentSummary):
     content: str
     paragraphs: list[dict] = Field(default_factory=list)
-    chunks: list["ChunkSummary"] = Field(default_factory=list)
+    chunks: list[ChunkSummary] = Field(default_factory=list)
 
 
 class ChunkSummary(SQLModel):
@@ -170,6 +174,32 @@ class NextReviewRecommendation(SQLModel):
     item_id: int | None = None
 
 
+class ReviewClaimRequest(SQLModel):
+    """Request one review claim in a selected evaluation dataset."""
+
+    eval_type: EvalType
+    mode: AssignmentMode = AssignmentMode.ITEM_AUDIT
+    dataset_id: int | None = None
+
+
+class AssignmentRelease(SQLModel):
+    """Record why an incomplete assignment is being returned to the queue."""
+
+    reason: str = Field(min_length=1, max_length=500)
+
+    @model_validator(mode="after")
+    def _validate_reason(self) -> AssignmentRelease:
+        if not self.reason.strip():
+            raise ValueError("Release reason must not be blank")
+        return self
+
+
+class AssignmentReleaseResponse(SQLModel):
+    id: int
+    released: bool = True
+    release_reason: str
+
+
 class RetrievalReviewPayload(SQLModel):
     kind: Literal["retrieval_audit"] = "retrieval_audit"
     dataset: ReviewDataset
@@ -181,7 +211,7 @@ class RetrievalReviewPayload(SQLModel):
     trap_evidence_spans: list[EvidenceSpan] = Field(default_factory=list)
     allowed_actions: list[str] = Field(default_factory=list)
     item_revision: int
-    existing_submission: dict | None = None
+    existing_submission: RetrievalReviewSubmission | None = None
 
 
 class FactDecompReviewPayload(SQLModel):
@@ -215,12 +245,48 @@ RubricScore = Literal[1, 2, 3, 4]
 
 
 class RetrievalReviewSubmit(SQLModel):
-    question_validity: RubricScore
-    evidence_quality: RubricScore
-    answer_correctness: RubricScore
-    answer_faithfulness: RubricScore
-    accept_as_gold: bool
+    question_validity: RubricScore | None = None
+    evidence_quality: RubricScore | None = None
+    answer_correctness: RubricScore | None = None
+    answer_faithfulness: RubricScore | None = None
+    accept_as_gold: bool | None = None
     notes: str | None = None
+    skipped: bool = False
+    skip_reason: str | None = Field(default=None, max_length=500)
+
+    @model_validator(mode="after")
+    def _validate_submission_shape(self) -> RetrievalReviewSubmit:
+        scores = (
+            self.question_validity,
+            self.evidence_quality,
+            self.answer_correctness,
+            self.answer_faithfulness,
+        )
+        if self.skipped:
+            if self.skip_reason is None or not self.skip_reason.strip():
+                raise ValueError("Skipped reviews require a skip_reason")
+            if self.accept_as_gold is not None or any(score is not None for score in scores):
+                raise ValueError("Skipped reviews cannot include rubric scores or a verdict")
+            return self
+        if self.skip_reason is not None:
+            raise ValueError("Non-skipped reviews cannot include a skip_reason")
+        if self.accept_as_gold is None or any(score is None for score in scores):
+            raise ValueError("Non-skipped reviews require every rubric score and accept_as_gold")
+        return self
+
+
+class RetrievalReviewSubmission(SQLModel):
+    """Canonical persisted retrieval-review state returned to a reviewer."""
+
+    id: int
+    question_validity: int | None = Field(default=None, ge=1, le=4)
+    evidence_quality: int | None = Field(default=None, ge=1, le=4)
+    answer_correctness: int | None = Field(default=None, ge=1, le=4)
+    answer_faithfulness: int | None = Field(default=None, ge=1, le=4)
+    notes: str | None = None
+    verdict: ItemVerdict | None = None
+    skipped: bool
+    skip_reason: str | None = None
 
 
 class RelevanceReviewSubmit(SQLModel):
