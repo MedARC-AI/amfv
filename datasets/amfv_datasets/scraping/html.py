@@ -23,8 +23,8 @@ class LinkMode(StrEnum):
 
 
 _MARKDOWN_CONVERTERS = {
-    LinkMode.KEEP: MarkdownConverter(bullets="-", heading_style="ATX"),
-    LinkMode.STRIP: MarkdownConverter(bullets="-", heading_style="ATX", strip=("a",)),
+    LinkMode.KEEP: MarkdownConverter(bullets="-", heading_style="ATX", sup_symbol="<sup>"),
+    LinkMode.STRIP: MarkdownConverter(bullets="-", heading_style="ATX", strip=("a",), sup_symbol="<sup>"),
 }
 
 
@@ -98,6 +98,7 @@ def html_to_markdown(
     *,
     link_mode: LinkMode = LinkMode.KEEP,
     base_url: str | None = None,
+    drop_numeric_citations: bool = True,
 ) -> str:
     """Convert HTML to markdown.
 
@@ -107,10 +108,13 @@ def html_to_markdown(
             visible text (default: LinkMode.KEEP).
         base_url: Base URL used to make kept relative links absolute (default:
             None).
+        drop_numeric_citations: Whether bracketed numeric citations are removed
+            from the generated markdown (default: True).
     """
-    source = _absolutize_links(html_text, base_url=base_url) if base_url and link_mode is LinkMode.KEEP else html_text
+    source = _absolutize_links(html_text, base_url=base_url) if base_url else html_text
     markdown = _MARKDOWN_CONVERTERS[link_mode].convert(source)
-    markdown = _NUMERIC_CITATION_RE.sub("", markdown)
+    if drop_numeric_citations:
+        markdown = _NUMERIC_CITATION_RE.sub("", markdown)
     lines = [line.rstrip() for line in markdown.splitlines()]
     return _BLANK_LINES_RE.sub("\n\n", "\n".join(lines)).strip()
 
