@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import asdict
 from enum import StrEnum
 from itertools import chain
@@ -25,8 +26,9 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-from amfv_datasets.scraping.base import ScrapedDocument, ScrapeRun
+from amfv_datasets.scraping.base import ScrapedDocument, ScrapeError, ScrapeRun
 from amfv_datasets.scraping.html import LinkMode
+from amfv_datasets.scraping.icrc import scrape_icrc
 from amfv_datasets.scraping.nice import scrape_nice
 
 
@@ -39,9 +41,69 @@ class Scraper(Protocol):
 
 
 ALL_SOURCES = "all"
+MAX_MANIFEST_BYTES = 16 * 1024 * 1024
+GLOBAL_PERMISSION_ID_ENV = "AMFV_PERMISSION_ID"
+ICRC_MANIFEST_ENV = "AMFV_ICRC_MANIFEST"
+ICRC_PERMISSION_ID_ENV = "AMFV_ICRC_PERMISSION_ID"
+
+
+def _permission_id() -> str:
+    value = os.environ.get(ICRC_PERMISSION_ID_ENV, "").strip() or os.environ.get(GLOBAL_PERMISSION_ID_ENV, "").strip()
+    if not value:
+        raise ScrapeError(
+            f"Source configuration requires {ICRC_PERMISSION_ID_ENV} or the shared {GLOBAL_PERMISSION_ID_ENV}"
+        )
+    return value
+
+
+def _icrc_manifest() -> list[str]:
+    manifest_value = os.environ.get(ICRC_MANIFEST_ENV, "").strip()
+    if not manifest_value:
+        raise ScrapeError(f"ICRC collection mode requires {ICRC_MANIFEST_ENV}; direct --url mode does not")
+    path = Path(manifest_value).expanduser()
+    try:
+        size = path.stat().st_size
+    except OSError as error:
+        raise ScrapeError(f"Could not read ICRC manifest: {error}") from error
+    if not path.is_file() or size > MAX_MANIFEST_BYTES:
+        raise ScrapeError(f"ICRC manifest must be a file no larger than {MAX_MANIFEST_BYTES} bytes: {path}")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise ScrapeError(f"Could not parse ICRC manifest: {error}") from error
+    if isinstance(payload, Mapping):
+        payload = payload.get("documents") or payload.get("urls")
+    if not isinstance(payload, list):
+        raise ScrapeError("ICRC manifest must be an array or contain a documents/urls array")
+    urls: list[str] = []
+    for item in payload:
+        if isinstance(item, str):
+            url = item
+        elif isinstance(item, Mapping):
+            value = item.get("url") or item.get("source_url")
+            url = value if isinstance(value, str) else None
+        else:
+            url = None
+        if not url:
+            raise ScrapeError("ICRC manifest entries must contain an official URL")
+        urls.append(url)
+    return urls
+
+
+def _scrape_icrc_configured(*, documents: int | None, link_mode: LinkMode, url: str | None) -> ScrapeRun:
+    return scrape_icrc(
+        documents=documents,
+        link_mode=link_mode,
+        url=url,
+        authorized=True,
+        permission_id=_permission_id(),
+        manifest=None if url is not None else _icrc_manifest(),
+    )
+
 
 SCRAPERS: dict[str, Scraper] = {
     "nice": scrape_nice,
+    "icrc": _scrape_icrc_configured,
 }
 """Scraper entry point by source name. Adding a source is an import and an entry here."""
 
@@ -133,7 +195,7 @@ def write_markdown_files(documents: Iterable[ScrapedDocument], output_path: Path
 
 def _expand_source(source: str) -> tuple[str, ...]:
     if source == ALL_SOURCES:
-        return tuple(SCRAPERS)
+        return tuple(name for name in SCRAPERS if name != "icrc")
     if source not in SCRAPERS:
         raise typer.BadParameter(f"unknown source {source!r}; choose from {', '.join([ALL_SOURCES, *SCRAPERS])}")
     return (source,)
@@ -165,7 +227,7 @@ def run(
     """
     parsed_documents = _parse_documents(documents)
     scrape_run = scrape_documents(source, documents=parsed_documents, link_mode=link_mode, url=url)
-    scraped_documents = scrape_run.documents
+    scraped_documents = iter(scrape_run)
     if progress:
         scraped_documents = _progress_documents(scraped_documents, total=scrape_run.total)
     if output_format is OutputFormat.JSONL:
@@ -179,7 +241,14 @@ def run(
             raise typer.BadParameter("--output is required when --format markdown")
         count = write_markdown_files(scraped_documents, output_path)
     target = url or source
-    typer.echo(f"scraped {count} documents from {target}", err=True)
+    timing = scrape_run.timing.as_dict()
+    elapsed_seconds = (timing["elapsed_ms"] or 0) / 1000
+    average_ms = timing["average_document_ms"]
+    average_label = "n/a" if average_ms is None else f"{average_ms:.0f} ms/document"
+    typer.echo(
+        f"scraped {count} documents from {target} in {elapsed_seconds:.3f}s ({average_label})",
+        err=True,
+    )
 
 
 def _progress_columns(*, total: int | None) -> tuple[ProgressColumn, ...]:

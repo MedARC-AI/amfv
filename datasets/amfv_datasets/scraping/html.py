@@ -3,16 +3,22 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 from enum import StrEnum
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from lxml import html as lxml_html
 from markdownify import MarkdownConverter
 
 _NUMERIC_CITATION_RE = re.compile(r"\[\d+\]")
+_UNSAFE_CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 _WHITESPACE_RE = re.compile(r"\s+")
 _BLANK_LINES_RE = re.compile(r"\n{3,}")
+
+
+def _normalize_unsafe_controls(value: str) -> str:
+    """Drop unsafe controls, preserving those with whitespace semantics as spaces."""
+    return _UNSAFE_CONTROL_RE.sub(lambda match: " " if match.group().isspace() else "", value)
 
 
 class LinkMode(StrEnum):
@@ -23,8 +29,19 @@ class LinkMode(StrEnum):
 
 
 _MARKDOWN_CONVERTERS = {
-    LinkMode.KEEP: MarkdownConverter(bullets="-", heading_style="ATX"),
-    LinkMode.STRIP: MarkdownConverter(bullets="-", heading_style="ATX", strip=("a",)),
+    LinkMode.KEEP: MarkdownConverter(
+        bullets="-",
+        heading_style="ATX",
+        keep_inline_images_in=("a", "td", "th"),
+        sup_symbol="<sup>",
+    ),
+    LinkMode.STRIP: MarkdownConverter(
+        bullets="-",
+        heading_style="ATX",
+        keep_inline_images_in=("a", "td", "th"),
+        strip=("a",),
+        sup_symbol="<sup>",
+    ),
 }
 
 
@@ -36,21 +53,52 @@ def clean_text(value: str, *, drop_numeric_citations: bool = True) -> str:
         drop_numeric_citations: Whether to remove bracketed numeric citations
             before whitespace normalization (default: True).
     """
-    text = _NUMERIC_CITATION_RE.sub("", value) if drop_numeric_citations else value
+    text = _normalize_unsafe_controls(value)
+    if drop_numeric_citations:
+        text = _NUMERIC_CITATION_RE.sub("", text)
     return _WHITESPACE_RE.sub(" ", text).strip()
 
 
-def absolute_unique_urls(urls: Iterable[str], *, base_url: str) -> list[str]:
+def absolute_unique_urls(
+    urls: Iterable[str],
+    *,
+    base_url: str,
+    allowed_schemes: Collection[str] = ("http", "https"),
+    allowed_hosts: Collection[str] | None = None,
+) -> list[str]:
     """Normalize URLs against a base URL and remove duplicates.
 
     Args:
         urls: Raw URL values to normalize.
         base_url: Base URL used for relative links.
+        allowed_schemes: URL schemes that may be returned.
+        allowed_hosts: Optional exact hostname allowlist. When set, URLs with
+            credentials or non-default ports are rejected.
     """
+    normalized_schemes = {scheme.lower() for scheme in allowed_schemes}
+    normalized_hosts = {host.lower() for host in allowed_hosts} if allowed_hosts is not None else None
     seen: set[str] = set()
     normalized_urls: list[str] = []
     for raw_url in urls:
-        url = urljoin(base_url, raw_url).split("#")[0].split("?")[0]
+        parsed = urlsplit(urljoin(base_url, raw_url))
+        scheme = parsed.scheme.lower()
+        if scheme not in normalized_schemes:
+            continue
+        try:
+            port = parsed.port
+        except ValueError:
+            continue
+        if normalized_hosts is not None:
+            default_port = 80 if scheme == "http" else 443 if scheme == "https" else None
+            if (
+                parsed.hostname is None
+                or parsed.hostname.lower() not in normalized_hosts
+                or parsed.username is not None
+                or parsed.password is not None
+                or port not in {None, default_port}
+            ):
+                continue
+        url = urlunsplit(parsed._replace(query="", fragment=""))
         if url in seen:
             continue
         seen.add(url)
@@ -58,19 +106,35 @@ def absolute_unique_urls(urls: Iterable[str], *, base_url: str) -> list[str]:
     return normalized_urls
 
 
-def first_matching_urls(html_text: str, *, xpaths: Iterable[str], base_url: str) -> list[str]:
+def first_matching_urls(
+    html_text: str,
+    *,
+    xpaths: Iterable[str],
+    base_url: str,
+    allowed_schemes: Collection[str] = ("http", "https"),
+    allowed_hosts: Collection[str] | None = None,
+) -> list[str]:
     """Return normalized URLs from the first XPath with matches.
 
     Args:
         html_text: HTML page text to parse.
         xpaths: XPath expressions that return URL strings.
         base_url: Base URL used for relative links.
+        allowed_schemes: URL schemes that may be returned.
+        allowed_hosts: Optional exact hostname allowlist.
     """
     doc = lxml_html.fromstring(html_text)
     for xpath in xpaths:
         urls = doc.xpath(xpath)
         if urls:
-            return absolute_unique_urls(urls, base_url=base_url)
+            normalized_urls = absolute_unique_urls(
+                urls,
+                base_url=base_url,
+                allowed_schemes=allowed_schemes,
+                allowed_hosts=allowed_hosts,
+            )
+            if normalized_urls:
+                return normalized_urls
     return []
 
 
@@ -98,6 +162,7 @@ def html_to_markdown(
     *,
     link_mode: LinkMode = LinkMode.KEEP,
     base_url: str | None = None,
+    drop_numeric_citations: bool = True,
 ) -> str:
     """Convert HTML to markdown.
 
@@ -107,10 +172,15 @@ def html_to_markdown(
             visible text (default: LinkMode.KEEP).
         base_url: Base URL used to make kept relative links absolute (default:
             None).
+        drop_numeric_citations: Whether bracketed numeric citations are removed
+            from the generated markdown (default: True).
     """
-    source = _absolutize_links(html_text, base_url=base_url) if base_url and link_mode is LinkMode.KEEP else html_text
+    source = _normalize_unsafe_controls(html_text)
+    source = _absolutize_links(source, base_url=base_url) if base_url else source
     markdown = _MARKDOWN_CONVERTERS[link_mode].convert(source)
-    markdown = _NUMERIC_CITATION_RE.sub("", markdown)
+    markdown = _normalize_unsafe_controls(markdown)
+    if drop_numeric_citations:
+        markdown = _NUMERIC_CITATION_RE.sub("", markdown)
     lines = [line.rstrip() for line in markdown.splitlines()]
     return _BLANK_LINES_RE.sub("\n\n", "\n".join(lines)).strip()
 
