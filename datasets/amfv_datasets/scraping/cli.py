@@ -31,6 +31,7 @@ from amfv_datasets.scraping.html import LinkMode
 from amfv_datasets.scraping.icrc import scrape_icrc
 from amfv_datasets.scraping.mayo_clinic import scrape_mayo_clinic
 from amfv_datasets.scraping.nice import scrape_nice
+from amfv_datasets.scraping.spor import scrape_spor
 
 
 class Scraper(Protocol):
@@ -48,6 +49,8 @@ ICRC_MANIFEST_ENV = "AMFV_ICRC_MANIFEST"
 ICRC_PERMISSION_ID_ENV = "AMFV_ICRC_PERMISSION_ID"
 MAYO_MANIFEST_ENV = "AMFV_MAYO_MANIFEST"
 MAYO_PERMISSION_ID_ENV = "AMFV_MAYO_PERMISSION_ID"
+SPOR_MANIFEST_ENV = "AMFV_SPOR_MANIFEST"
+SPOR_PERMISSION_ID_ENV = "AMFV_SPOR_PERMISSION_ID"
 
 
 def _permission_id(source_specific_env: str) -> str:
@@ -127,6 +130,23 @@ def _mayo_manifest() -> list[str] | None:
     return urls
 
 
+def _spor_manifest_payload() -> object | None:
+    manifest_value = os.environ.get(SPOR_MANIFEST_ENV, "").strip()
+    if not manifest_value:
+        return None
+    path = Path(manifest_value).expanduser()
+    try:
+        size = path.stat().st_size
+    except OSError as error:
+        raise ScrapeError(f"Could not read SPOR manifest: {error}") from error
+    if not path.is_file() or size > MAX_MANIFEST_BYTES:
+        raise ScrapeError(f"SPOR manifest must be a file no larger than {MAX_MANIFEST_BYTES} bytes: {path}")
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise ScrapeError(f"Could not parse SPOR manifest: {error}") from error
+
+
 def _scrape_icrc_configured(*, documents: int | None, link_mode: LinkMode, url: str | None) -> ScrapeRun:
     return scrape_icrc(
         documents=documents,
@@ -149,10 +169,22 @@ def _scrape_mayo_configured(*, documents: int | None, link_mode: LinkMode, url: 
     )
 
 
+def _scrape_spor_configured(*, documents: int | None, link_mode: LinkMode, url: str | None) -> ScrapeRun:
+    return scrape_spor(
+        documents=documents,
+        link_mode=link_mode,
+        url=url,
+        authorized=True,
+        permission_id=_permission_id(SPOR_PERMISSION_ID_ENV),
+        manifest_json=None if url is not None else _spor_manifest_payload(),
+    )
+
+
 SCRAPERS: dict[str, Scraper] = {
     "nice": scrape_nice,
     "icrc": _scrape_icrc_configured,
     "mayoclinic": _scrape_mayo_configured,
+    "spor": _scrape_spor_configured,
 }
 """Scraper entry point by source name. Adding a source is an import and an entry here."""
 
@@ -244,7 +276,7 @@ def write_markdown_files(documents: Iterable[ScrapedDocument], output_path: Path
 
 def _expand_source(source: str) -> tuple[str, ...]:
     if source == ALL_SOURCES:
-        return tuple(name for name in SCRAPERS if name not in {"icrc", "mayoclinic"})
+        return tuple(name for name in SCRAPERS if name not in {"icrc", "mayoclinic", "spor"})
     if source not in SCRAPERS:
         raise typer.BadParameter(f"unknown source {source!r}; choose from {', '.join([ALL_SOURCES, *SCRAPERS])}")
     return (source,)

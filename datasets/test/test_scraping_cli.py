@@ -247,6 +247,11 @@ def test_expand_source_excludes_permission_gated_mayoclinic() -> None:
     assert "mayoclinic" in SCRAPERS
 
 
+def test_expand_source_excludes_permission_gated_spor() -> None:
+    """The all source does not implicitly run permission-gated SPOR."""
+    assert "spor" in SCRAPERS
+
+
 def test_expand_source_excludes_all_permission_gated_sources() -> None:
     """The all source runs only sources that do not need explicit permission."""
     assert _expand_source(ALL_SOURCES) == ("nice",)

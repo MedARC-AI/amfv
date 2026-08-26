@@ -75,3 +75,22 @@ the available inventory cannot satisfy its requested document count. Both the
 legacy `#main-content` layout and the current `article.cmp-article` layout are
 supported; appointment, newsletter, and products-and-services chrome is
 removed from the converted Markdown.
+
+## SPOR scraper
+
+The `spor` adapter treats the official April-2018 asset map as a frozen
+historical registry. Set `AMFV_SPOR_PERMISSION_ID` (or `AMFV_PERMISSION_ID`)
+and install the PDF group:
+
+```bash
+uv sync --group pdf
+uv run --group pdf amfv-scrape --source spor --documents 1 --output /data/spor.jsonl
+```
+
+`AMFV_SPOR_MANIFEST` can select curated direct publisher PDFs. The adapter
+never crawls publisher HTML, records/skips a bounded number of stale report
+links, retains the registry's non-endorsement/currentness warning, and keeps
+PDF bytes in memory. Transient 429 and 5xx responses honor bounded retry
+backoff; transport failures receive one retry. Two transport failures open a
+per-host circuit for the rest of that historical run, with every skipped URL
+retained in provenance, so one defunct publisher cannot monopolize a trial.
