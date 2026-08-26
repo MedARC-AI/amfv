@@ -212,11 +212,114 @@ Format provenance remains unchanged: all records still carry
 `metadata.source_format_types` and `metadata.source_media_types`, while the
 normalized output remains `text/markdown`.
 
+## Distributed beginning/middle/end validation follow-up
+
+A final same-day pass tested fixed positions across each source instead of
+requesting the first N records. The run exercised 58 selected positions or
+candidates and produced 44 complete documents: 21 ICRC, 16 Mayo Clinic, and 7
+SPOR. The other 14 positions were stale SPOR publisher links and remain recorded
+as failures rather than being silently replaced with easier documents.
+
+Across the 44 successful records there were 44 unique external IDs and 44
+unique normalized-content SHA-256 values. Every record had nonempty content,
+matching content byte counts and hashes, `text/markdown` normalized output,
+nonempty source format and media-type metadata, and valid section counts. The
+shared text-quality diagnostics found no likely-corrupt output, invalid control
+characters, or Unicode replacement characters.
+
+### ICRC positional sample
+
+The current official sitemap contained 728 English `/en/publication/` URLs.
+The validator selected exactly 21 entries at five-percent intervals from the
+unchanged sitemap order: indices 0, 36, 72, 109, 145, 181, 218, 254, 290, 327,
+363, 399, 436, 472, 508, 545, 581, 617, 654, 690, and 727. All 21 emitted a
+document, so the run covered the first, midpoint, and final sitemap entries
+rather than a leading slice.
+
+| Dimension | Result |
+|---|---|
+| Retrieval shape | 16 HTML+PDF; 5 landing-page-only |
+| PDF resolution | 16 converted; 2 unresolved; 3 with no direct PDF link |
+| Conversion backend | 14 `pdf-inspector`; 2 Docling |
+| Content size | 855 / 50,121 / 718,654 characters (minimum / median / maximum) |
+| Sections | 1 / 2 / 12 (minimum / median / maximum) |
+| Per-document time | 87.596 / 5.128 / 367.859 seconds (mean / median / p90); 1.506 / 904.361 seconds (minimum / maximum) |
+| Metadata and text quality | 0 missing formats/media types; 0 likely-corrupt outputs; 0 invalid/replacement characters |
+
+The 20th-percentile publication reached the configured 900-second Docling
+watchdog and safely retained its landing page with the timeout in `pdf_error`.
+The 45th- and 75th-percentile publications completed full-page OCR in 367.859
+and 417.957 seconds respectively. The final sitemap publication also completed
+as a landing-page-only record, demonstrating that the tail was actually read.
+
+This sample exposed a browser-reuse lifecycle defect on the 5th-percentile
+publication. Its shop product lacked the expected English PDF option. The clean
+retry path attempted to open a second synchronous Playwright context before
+closing the reused context, which Playwright rejects. The recovery path now
+closes and removes the failed browser context before opening one fresh context.
+The same unchanged 21-position manifest then continued through all remaining
+positions; the unavailable PDF was represented honestly as landing-page-only
+content with its resolution error retained.
+
+### Mayo Clinic alphabetic sample
+
+The publisher began returning HTTP 403 while a complete A-Z index enumeration
+was in progress, so the validator did not hammer or bypass it. Instead, 16
+current official article URLs were fixed from the beginning, middle, and end
+alphabet bands A, M, and Z. The set included 12 symptoms/causes routes and 4
+diagnosis/treatment routes, including both route types in the A and Z bands.
+
+| Dimension | Result |
+|---|---|
+| Successful documents | 16 of 16 fixed URLs |
+| Route families | 12 symptoms/causes; 4 diagnosis/treatment |
+| Content size | 4,170 / 9,150 / 21,808 characters (minimum / median / maximum) |
+| Source sections | 7 / 11 / 17 (minimum / median / maximum) |
+| Per-document time | 9.502 / 10.051 / 10.412 seconds (mean / median / p90); 1.851 / 10.513 seconds (minimum / maximum) |
+| Metadata and text quality | all HTML and `text/html`; 0 likely-corrupt outputs; 0 invalid/replacement characters |
+
+No normalized article contained the checked appointment, newsletter,
+advertising, product-and-services, or Mayo Clinic Press chrome markers.
+
+### SPOR positional sample
+
+The current fixed-report parser produced 454 normalized direct-PDF references.
+The validator selected exactly 21 candidates at five-percent intervals: indices
+0, 22, 45, 67, 90, 113, 135, 158, 181, 203, 226, 249, 271, 294, 317, 339,
+362, 385, 407, 430, and 453. Seven PDFs succeeded at indices 22, 45, 90, 113,
+203, 385, and 453; all 14 stale positions were retained in provenance. The
+successful records span asset-map pages 13, 17, 25, 31, 113, 214, and the final
+page 235.
+
+| Dimension | Result |
+|---|---|
+| Successful/stale candidates | 7 successful PDFs; 14 recorded stale links |
+| Conversion backend | 6 `pdf-inspector`; 1 Docling |
+| Content size | 17,270 / 41,860 / 469,434 characters (minimum / median / maximum) |
+| Sections | 1 / 1 / 273 (minimum / median / maximum) |
+| Per-document time | 112.953 / 19.365 / 678.533 seconds (mean / median / p90); 4.287 / 678.533 seconds (minimum / maximum) |
+| Metadata and text quality | all PDF and `application/pdf`; 0 likely-corrupt outputs; 0 invalid/replacement characters |
+
+The final inventory candidate on page 235 completed through full-page Docling
+OCR in 678.533 seconds. Keeping this fixed tail candidate materially changed
+the observed latency distribution and confirmed that the parser can finish a
+large scan-heavy document at the end of the historical corpus.
+
+### Local inspection subset
+
+Eleven representative local outputs were retained under
+`outputs/distributed-validation-2026-08-26/`: four ICRC records at positions 0,
+50, 75, and 100 percent; four Mayo records from A, M, and Z with both route
+types; and three SPOR records from early, middle, and final-page successes.
+Readable Markdown, full JSONL records with metadata/provenance, and the aggregate
+JSON summary are available there. `outputs/` is git-ignored so publisher content
+cannot be added to the PR accidentally.
+
 ## Automated checks
 
-- Focused scraper/base/CLI regression suite after throughput changes: `132
+- Focused scraper/base/CLI regression suite after distributed validation: `133
   passed`.
-- Full repository suite with PDF dependencies: `200 passed`.
+- Full repository suite with PDF dependencies: `201 passed`.
 - Targeted Ruff formatting completed; two changed files were normalized.
 - Repository-wide `uv run ruff check .`: passed.
 - `git diff --check`: passed.

@@ -209,6 +209,9 @@ tempCodeRunnerFile.py
 # PyPI configuration file
 .pypirc
 
+# Local scraper validation artifacts
+outputs/
+
 # Marimo
 marimo/_static/
 marimo/_lsp/
