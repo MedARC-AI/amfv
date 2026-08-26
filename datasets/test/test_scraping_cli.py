@@ -13,6 +13,7 @@ from amfv_datasets.scraping.cli import (
     SCRAPERS,
     _expand_source,
     app,
+    scrape_documents,
     write_huggingface_dataset,
     write_jsonl,
     write_markdown_files,
@@ -229,12 +230,75 @@ def test_cli_run_rejects_an_unregistered_source() -> None:
 
     assert result.exit_code != 0
     assert "'nhs'" in result.stderr
-    assert "all, nice" in result.stderr
+    assert ", ".join([ALL_SOURCES, *SCRAPERS]) in result.stderr
 
 
 def test_expand_source_runs_every_registered_scraper() -> None:
     """The all source expands to the registry rather than a hand-written list."""
     assert _expand_source(ALL_SOURCES) == tuple(SCRAPERS)
+
+
+def test_scrape_documents_dispatches_idsa(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The scrape dispatcher calls IDSA through the shared registry."""
+
+    def fake_scrape_idsa(
+        *,
+        documents: int | None,
+        link_mode: LinkMode,
+        url: str | None,
+    ) -> ScrapeRun:
+        assert documents == 1
+        assert link_mode is LinkMode.STRIP
+        assert url == "https://www.idsociety.org/practice-guideline/current-guideline/"
+        return ScrapeRun([_idsa_document()], total=1)
+
+    monkeypatch.setitem(SCRAPERS, "idsa", fake_scrape_idsa)
+
+    scrape_run = scrape_documents(
+        "idsa",
+        documents=1,
+        link_mode=LinkMode.STRIP,
+        url="https://www.idsociety.org/practice-guideline/current-guideline/",
+    )
+
+    assert list(scrape_run.documents) == [_idsa_document()]
+
+
+def test_scrape_documents_all_includes_idsa(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The all source combines NICE and IDSA scrape runs."""
+
+    def fake_scrape_nice(
+        *,
+        documents: int | None,
+        link_mode: LinkMode,
+        url: str | None,
+    ) -> ScrapeRun:
+        assert documents == 1
+        assert link_mode is LinkMode.KEEP
+        assert url is None
+        return ScrapeRun([_document()], total=1)
+
+    def fake_scrape_idsa(
+        *,
+        documents: int | None,
+        link_mode: LinkMode,
+        url: str | None,
+    ) -> ScrapeRun:
+        assert documents == 1
+        assert link_mode is LinkMode.KEEP
+        assert url is None
+        return ScrapeRun([_idsa_document()], total=1)
+
+    monkeypatch.setitem(SCRAPERS, "nice", fake_scrape_nice)
+    monkeypatch.setitem(SCRAPERS, "idsa", fake_scrape_idsa)
+
+    scrape_run = scrape_documents(ALL_SOURCES, documents=1, link_mode=LinkMode.KEEP)
+
+    assert scrape_run.total == 2
+    assert [document.external_id for document in scrape_run.documents] == [
+        "nice-ng1",
+        "idsa-current-guideline",
+    ]
 
 
 def _document() -> ScrapedDocument:
@@ -245,6 +309,17 @@ def _document() -> ScrapedDocument:
         url="https://www.nice.org.uk/guidance/ng1",
         content="content",
         metadata={"ref": "NG1"},
+    )
+
+
+def _idsa_document() -> ScrapedDocument:
+    return ScrapedDocument(
+        source="idsa",
+        external_id="idsa-current-guideline",
+        title="Current Guideline",
+        url="https://www.idsociety.org/practice-guideline/current-guideline/",
+        content="content",
+        metadata={"slug": "current-guideline"},
     )
 
 

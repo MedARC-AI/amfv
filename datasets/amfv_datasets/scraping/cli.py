@@ -27,6 +27,7 @@ from rich.progress import (
 
 from amfv_datasets.scraping.base import ScrapedDocument, ScrapeRun
 from amfv_datasets.scraping.html import LinkMode
+from amfv_datasets.scraping.idsa import scrape_idsa
 from amfv_datasets.scraping.nice import scrape_nice
 
 
@@ -42,6 +43,7 @@ ALL_SOURCES = "all"
 
 SCRAPERS: dict[str, Scraper] = {
     "nice": scrape_nice,
+    "idsa": scrape_idsa,
 }
 """Scraper entry point by source name. Adding a source is an import and an entry here."""
 
