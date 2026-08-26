@@ -29,6 +29,7 @@ from rich.progress import (
 from amfv_datasets.scraping.base import ScrapedDocument, ScrapeError, ScrapeRun
 from amfv_datasets.scraping.html import LinkMode
 from amfv_datasets.scraping.icrc import scrape_icrc
+from amfv_datasets.scraping.mayo_clinic import scrape_mayo_clinic
 from amfv_datasets.scraping.nice import scrape_nice
 
 
@@ -45,13 +46,15 @@ MAX_MANIFEST_BYTES = 16 * 1024 * 1024
 GLOBAL_PERMISSION_ID_ENV = "AMFV_PERMISSION_ID"
 ICRC_MANIFEST_ENV = "AMFV_ICRC_MANIFEST"
 ICRC_PERMISSION_ID_ENV = "AMFV_ICRC_PERMISSION_ID"
+MAYO_MANIFEST_ENV = "AMFV_MAYO_MANIFEST"
+MAYO_PERMISSION_ID_ENV = "AMFV_MAYO_PERMISSION_ID"
 
 
-def _permission_id() -> str:
-    value = os.environ.get(ICRC_PERMISSION_ID_ENV, "").strip() or os.environ.get(GLOBAL_PERMISSION_ID_ENV, "").strip()
+def _permission_id(source_specific_env: str) -> str:
+    value = os.environ.get(source_specific_env, "").strip() or os.environ.get(GLOBAL_PERMISSION_ID_ENV, "").strip()
     if not value:
         raise ScrapeError(
-            f"Source configuration requires {ICRC_PERMISSION_ID_ENV} or the shared {GLOBAL_PERMISSION_ID_ENV}"
+            f"Source configuration requires {source_specific_env} or the shared {GLOBAL_PERMISSION_ID_ENV}"
         )
     return value
 
@@ -90,20 +93,66 @@ def _icrc_manifest() -> list[str]:
     return urls
 
 
+def _mayo_manifest() -> list[str] | None:
+    manifest_value = os.environ.get(MAYO_MANIFEST_ENV, "").strip()
+    if not manifest_value:
+        return None
+    path = Path(manifest_value).expanduser()
+    try:
+        size = path.stat().st_size
+    except OSError as error:
+        raise ScrapeError(f"Could not read Mayo Clinic manifest: {error}") from error
+    if not path.is_file() or size > MAX_MANIFEST_BYTES:
+        raise ScrapeError(f"Mayo Clinic manifest must be a file no larger than {MAX_MANIFEST_BYTES} bytes: {path}")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise ScrapeError(f"Could not parse Mayo Clinic manifest: {error}") from error
+    if isinstance(payload, Mapping):
+        payload = payload.get("documents") or payload.get("urls")
+    if not isinstance(payload, list):
+        raise ScrapeError("Mayo Clinic manifest must be an array or contain a documents/urls array")
+    urls: list[str] = []
+    for item in payload:
+        if isinstance(item, str):
+            url = item
+        elif isinstance(item, Mapping):
+            value = item.get("url") or item.get("source_url")
+            url = value if isinstance(value, str) else None
+        else:
+            url = None
+        if not url:
+            raise ScrapeError("Mayo Clinic manifest entries must contain a URL")
+        urls.append(url)
+    return urls
+
+
 def _scrape_icrc_configured(*, documents: int | None, link_mode: LinkMode, url: str | None) -> ScrapeRun:
     return scrape_icrc(
         documents=documents,
         link_mode=link_mode,
         url=url,
         authorized=True,
-        permission_id=_permission_id(),
+        permission_id=_permission_id(ICRC_PERMISSION_ID_ENV),
         manifest=None if url is not None else _icrc_manifest(),
+    )
+
+
+def _scrape_mayo_configured(*, documents: int | None, link_mode: LinkMode, url: str | None) -> ScrapeRun:
+    return scrape_mayo_clinic(
+        documents=documents,
+        link_mode=link_mode,
+        url=url,
+        authorized=True,
+        permission_id=_permission_id(MAYO_PERMISSION_ID_ENV),
+        manifest=_mayo_manifest(),
     )
 
 
 SCRAPERS: dict[str, Scraper] = {
     "nice": scrape_nice,
     "icrc": _scrape_icrc_configured,
+    "mayoclinic": _scrape_mayo_configured,
 }
 """Scraper entry point by source name. Adding a source is an import and an entry here."""
 
@@ -195,7 +244,7 @@ def write_markdown_files(documents: Iterable[ScrapedDocument], output_path: Path
 
 def _expand_source(source: str) -> tuple[str, ...]:
     if source == ALL_SOURCES:
-        return tuple(name for name in SCRAPERS if name != "icrc")
+        return tuple(name for name in SCRAPERS if name not in {"icrc", "mayoclinic"})
     if source not in SCRAPERS:
         raise typer.BadParameter(f"unknown source {source!r}; choose from {', '.join([ALL_SOURCES, *SCRAPERS])}")
     return (source,)

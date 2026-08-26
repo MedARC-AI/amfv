@@ -49,3 +49,29 @@ Docling conversions run in isolated workers with a 900-second wall-time bound.
 For unusually long scanned publications, set a larger finite bound explicitly,
 for example `AMFV_DOCLING_TIMEOUT_SECONDS=1800`; the selected limit is retained
 in conversion provenance.
+
+## Mayo Clinic scraper
+
+The `mayoclinic` adapter is permission-gated. Set `AMFV_MAYO_PERMISSION_ID`
+(or `AMFV_PERMISSION_ID`), install Playwright Chromium, and select a direct
+condition URL, a licensed `AMFV_MAYO_MANIFEST`, or the authorized A-Z index:
+
+```bash
+uv run playwright install chromium
+uv run amfv-scrape --source mayoclinic --documents 3 --output /data/mayo.jsonl
+```
+
+Rendered HTML stays in memory and is size-bounded. Mayo content is consumer
+health information rather than a clinical-practice-guideline corpus, and the
+source is excluded from implicit `--source all` runs.
+
+Browser navigation, rendering timeouts, and HTTP 408/425/429/5xx throttling
+use four bounded attempts. `Retry-After` is honored up to 60 seconds; otherwise
+the adapter waits 5, 10, then 20 seconds. Successful retrieval receipts record
+the attempt count and retry delays, while isolated stale A-Z entries are
+recorded and skipped rather than silently reducing a requested corpus size.
+Discovery follows canonical primary A-Z results, and a bounded run fails if
+the available inventory cannot satisfy its requested document count. Both the
+legacy `#main-content` layout and the current `article.cmp-article` layout are
+supported; appointment, newsletter, and products-and-services chrome is
+removed from the converted Markdown.
