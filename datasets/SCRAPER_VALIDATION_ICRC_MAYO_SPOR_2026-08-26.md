@@ -3,21 +3,28 @@
 This report records focused live and offline validation for the three retained
 sources. Live runs used an explicit local permission reference, bounded document
 counts, in-memory source handling, and temporary JSONL output. The temporary
-PDF, JSONL, HTML, Markdown, and review-output artifacts were deleted after the
-checks. No credentials or signed download query values are recorded here.
+PDF, JSONL, HTML, Markdown, sitemap, manifest, and review-output artifacts were
+deleted after the checks. No credentials or signed download query values are
+recorded here.
 
 ## Result
 
-All three scrapers passed their supported live paths and their combined focused
-test suite. The checks also found and fixed direct-ICRC-PDF title handling: a
-direct PDF now uses its first level-one Markdown heading rather than its
-filename as the document title. Direct ICRC external IDs also avoid a duplicate
-`icrc-icrc-` prefix.
+The expanded live corpus produced **204 successful documents**: 99 ICRC, 69
+Mayo Clinic, and 36 SPOR. This supersedes the initial 14-document smoke pass.
+Across all 204 records there were:
 
-Every resulting document now records both:
+- 204 unique external IDs and 204 unique normalized-content SHA-256 values;
+- no empty content, malformed SHA-256 values, or incomplete JSONL records;
+- no missing `metadata.source_format_types` or
+  `metadata.source_media_types` values;
+- 88 HTML records, 38 PDF records, and 78 records assembled from HTML plus PDF;
+- normalized content sizes from 426 to 2,925,647 characters and section counts
+  from 1 to 286.
 
-- `metadata.source_format_types`: normalized source formats such as `html` and
-  `pdf`.
+Every resulting document records both:
+
+- `metadata.source_format_types`: normalized retrieval formats such as `html`
+  and `pdf`;
 - `metadata.source_media_types`: corresponding MIME types such as `text/html`
   and `application/pdf`.
 
@@ -25,54 +32,123 @@ Every resulting document now records both:
 normalized output, while individual retrieval receipts retain the server's
 reported content type.
 
+The larger corpus found one additional defect in direct-ICRC-PDF title
+selection. Full-page OCR can emit an H2 cover title before a later, unrelated H1
+body heading. Title selection now searches only early front matter, accepts H1
+or H2, and rejects contents, organization-only, numeric, colon-terminated, and
+implausibly sized headings. Focused regression cases cover the observed PDF.
+An end-to-end rerun of `icrc-002-118009` then selected the OCR cover heading
+`Guidelines forassessment inemergencies` rather than the unrelated later body
+heading `Injured GPS coordinates:`. The remaining fused words are faithful to
+the OCR output rather than invented title text.
+
 ## ICRC
 
-| URL shape | Live target | Result |
-|---|---|---|
-| Legacy direct PDF | `https://www.icrc.org/en/doc/assets/files/publications/icrc-002-4126.pdf` | Passed; 93,361 Markdown characters, 2 sections, SHA-256 prefix `5f3e705fa7a3`; title recovered as `GUIDELINES FOR INVESTIGATING DEATHS IN CUSTODY`; source format `pdf`. |
-| Numbered publication | `https://www.icrc.org/en/publication/4261-icrc-rules-on-personal-data-protection` | Passed; landing HTML plus resolved PDF, 50,332 characters, SHA prefix `d0282a3dcdbe`; source formats `html`, `pdf`. |
-| Current slug-only publication | `https://www.icrc.org/en/publication/ethical-content-gathering-public-communications` | Passed; landing HTML plus resolved PDF, 29,804 characters, SHA prefix `a9f50dd5e118`; source formats `html`, `pdf`. |
-| Older publication layout | `https://www.icrc.org/en/publication/0790-discover-icrc` | Passed; landing HTML plus resolved PDF, 68,921 characters, SHA prefix `750b1762879b`; Docling fallback completed successfully. |
+The official publication sitemap contained 728 English publication URLs. The
+bounded live manifest used 160 candidates: two legacy/current direct PDFs and
+158 evenly sampled publication landing pages, including 106 numbered and 52
+slug-only routes. The run stopped after 99 complete documents because the next
+optional tail entered another expensive full-page-OCR case.
 
-The publication-page runs exercised official-host validation, shop-page PDF
-selection, redacted signed queries, PDF magic-byte detection when the server
-reported `application/octet-stream`, and both primary/fallback PDF conversion.
+The 99 completed documents covered:
+
+| Dimension | Result |
+|---|---|
+| Retrieval shape | 2 PDF-only, 19 HTML-only, 78 HTML+PDF |
+| PDF resolution | 80 converted, 3 pages with no direct PDF link, 16 unresolved PDF links retained as landing-page content |
+| Conversion backend | 69 `pdf-inspector`, 11 Docling, 19 landing-page-only records |
+| Content size | 426 / 50,332 / 2,925,647 characters (minimum / median / maximum) |
+| Sections | 1 / 2 / 39 (minimum / median / maximum) |
+| Metadata | 0 missing format types; 0 missing media types |
+
+The run exercised legacy and current direct-PDF paths, numbered and slug-only
+publication pages, shop-page PDF resolution, redacted signed queries, PDF
+magic-byte detection for `application/octet-stream`, unresolved/no-link landing
+fallbacks, native extraction, Docling, OCR, full-page OCR, and conversion
+watchdogs.
 
 ## Mayo Clinic
 
-| Path | Result |
-|---|---|
-| `acne/symptoms-causes/syc-20368047` | Passed; 6,854 characters, 8 sections, published `2024-07-20`, SHA prefix `a3c9c91107ad`. |
-| `atrial-fibrillation/diagnosis-treatment/drc-20350630` | Passed; 18,735 characters, 17 sections, published `2026-01-14`, SHA prefix `63d311e034c6`. |
-| `zenkers-diverticulum/symptoms-causes/syc-20568839` | Passed; 17,398 characters, 7 sections, published `2024-10-24`, SHA prefix `c8f1ecfc350a`. |
-| `zenkers-diverticulum/diagnosis-treatment/drc-20568846` | Passed; 7,924 characters, 12 sections, published `2024-10-24`, SHA prefix `c7aed29435af`. |
-| A–Z discovery, first three current entries | Passed; `Abdominal aortic aneurysm`, `Absence seizure`, and `Acanthosis nigricans` produced 7,924/6,261/2,302 characters and 11/9/7 sections. |
+The live corpus used 70 current official URLs across oncology, cardiology,
+neurology, mental health, respiratory, digestive, dermatologic, renal,
+reproductive, pediatric, and musculoskeletal topics. It intentionally mixed
+both supported article route families.
 
-These runs covered both supported article route types, current rendered AEM
-markup, canonical-route checks, publication dates/authors, removal of recurring
-site chrome, and A–Z listing-to-article discovery. All records reported source
-format `html` and media type `text/html`.
+| Dimension | Result |
+|---|---|
+| Successful documents | 69 of 70 candidates |
+| Route families | 56 symptoms/causes; 13 diagnosis/treatment |
+| Safely rejected route | 1 stale URL redirected to a different canonical article |
+| Content size | 2,302 / 9,301 / 37,232 characters (minimum / median / maximum) |
+| Sections | 6 / 11 / 34 (minimum / median / maximum) |
+| Metadata | all 69 `html` and `text/html`; 0 missing values |
+
+The scraper correctly rejected the moved page instead of assigning content from
+a different canonical article. Successful pages exercised current rendered AEM
+markup, canonical-route checks, publication dates/authors, recurring chrome
+removal, and both article layouts. The A–Z index was temporarily returning HTTP
+403 during the expanded run, so the validator did not hammer or bypass it; the
+current direct-page corpus was used instead.
 
 ## SPOR Evidence Alliance
 
-| Input | Result |
-|---|---|
-| Official April-2018 report | Passed; the 5.9 MiB PDF inventory parsed in memory, three stale candidates were recorded/skipped, and the next reachable `2014 Ccsmh Guideline Update Delirium` PDF produced 56,885 characters, 39 sections, SHA prefix `8f79536a2531`. |
-| Explicit JSON manifest: CCSMH long-term-care update | Passed; 40,965 characters, 26 sections, SHA prefix `81821cec235d`; Docling conversion. |
-| Explicit JSON manifest: Alberta Health Services stage-III lung-cancer guideline | Passed; 40,090 characters, SHA prefix `1cf526b7e75e`; `pdf-inspector` conversion. |
+The official April-2018 asset-map PDF contained 6,488 link annotations. After
+normalizing and deduplicating direct-PDF candidates, the bounded live pool used
+448 candidates stratified across 132 asset-map pages and 67 publisher hosts.
+The run stopped after 36 successful PDFs and 94 recorded stale candidates.
 
-The manifest run covered two publisher hosts and exact two-document completion.
-All records reported source format `pdf` and media type `application/pdf`.
-SPOR remains a historical, non-endorsing registry last updated in April 2018;
-successful parsing does not establish that a listed guideline is current.
+| Dimension | Result |
+|---|---|
+| Successful documents | 36 PDFs across 12 reachable publisher hosts |
+| Conversion backend | 28 `pdf-inspector`; 8 Docling |
+| Stale-link behavior | 94 failures recorded and skipped before later successes |
+| Content size | 8,232 / 39,430 / 1,276,917 characters (minimum / median / maximum) |
+| Sections | 1 / 1 / 286 (minimum / median / maximum) |
+| Metadata | all 36 `pdf` and `application/pdf`; 0 missing values |
+
+The successful set included government, cancer, mental-health, primary-care,
+hypertension, laboratory-medicine, and nursing publishers. It exercised native
+PDF extraction, Docling, ordinary OCR, full-page OCR fallback, multi-column and
+very long documents, stale-link accumulation, and resumption after long stale
+candidate sequences. SPOR remains a historical, non-endorsing registry last
+updated in April 2018; successful parsing does not establish that a listed
+guideline is current.
+
+## Timing and throughput
+
+Wall-clock intervals were recovered from the local task history after the
+temporary corpora were deleted. These measurements include configured request
+delays, retries, stale candidates, PDF conversion, OCR, and the interrupted
+in-flight tail at the end of the bounded ICRC and SPOR runs. They therefore
+describe observed production throughput rather than isolated parser CPU time.
+
+| Source | Successful documents | Attempted candidates known | Wall time | Wall time per success | Successful throughput | Wall time per attempted candidate |
+|---|---:|---:|---:|---:|---:|---:|
+| ICRC | 99 | 99 complete plus 1 interrupted tail | 1:21:25 | 49.3 seconds | 1.22 documents/minute | Not reported because the final candidate was incomplete |
+| Mayo Clinic | 69 | 70 | 14:05 | 12.2 seconds | 4.90 documents/minute | 12.1 seconds |
+| SPOR | 36 | 130 (36 successful and 94 stale) plus 1 interrupted tail | 41:28 | 69.1 seconds | 0.87 documents/minute | 19.1 seconds across the 130 completed attempts |
+
+The three runs overlapped. Their summed source-process time was approximately
+2:16:58, while elapsed time from the beginning of ICRC to the bounded stop of
+ICRC and SPOR was approximately 1:21:25. Across the 204 successful records this
+is 40.3 seconds of summed source-process time per success, or 2.51 successful
+documents per elapsed minute while the validations overlapped.
+
+Exact per-document mean, median, percentile, minimum, and maximum
+`provenance.scrape_duration_ms` values are unavailable for this run. Those
+values were present in every temporary JSONL record, but the records were
+deleted during the requested output cleanup before timing statistics were
+requested. The table does not substitute estimates for those missing
+distributions. Future large validation runs should aggregate timing fields into
+the retained report before deleting their temporary records.
 
 ## Automated checks
 
-- Focused scraper/CLI suite: `100 passed` after integration and format-metadata
-  changes.
-- Full repository suite: `190 passed`.
-- `uv run ruff format .`: passed; one file was normalized.
+- Focused ICRC regression suite: `25 passed` after the expanded live run found
+  the OCR title edge case.
+- Full repository suite with PDF dependencies: `193 passed`.
+- `uv run ruff format .`: passed; one test file was normalized.
 - `uv run ruff check .`: passed.
 - `git diff --check`: passed.
-- `uv build --package amfv-datasets`: source distribution and wheel built
-  successfully; disposable build outputs were deleted afterward.
+- `uv build --offline --package amfv-datasets`: source distribution and wheel
+  built successfully; disposable build outputs were deleted afterward.

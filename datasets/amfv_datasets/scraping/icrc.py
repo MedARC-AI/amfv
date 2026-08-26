@@ -430,12 +430,25 @@ def _default_pdf_converter(data: bytes, title: str, publication_id: str) -> PdfC
 
 
 def _markdown_title(markdown: str) -> str | None:
-    """Return the first level-one heading from converted PDF Markdown."""
-    for line in markdown.splitlines():
-        match = re.fullmatch(r"#\s+(.+?)\s*", line)
+    """Return the first meaningful cover heading from converted PDF Markdown."""
+    ignored_titles = {
+        "contents",
+        "international committee of the red cross",
+        "international federation of red cross and red crescent societies",
+    }
+    for line in markdown.splitlines()[:80]:
+        match = re.fullmatch(r"#{1,2}\s+(.+?)\s*", line)
         if match:
             title = clean_text(match.group(1), drop_numeric_citations=False)
-            return title or None
+            normalized = title.casefold().strip(" .")
+            if (
+                title
+                and 4 <= len(title) <= 200
+                and normalized not in ignored_titles
+                and not normalized.isdigit()
+                and not title.endswith(":")
+            ):
+                return title
     return None
 
 

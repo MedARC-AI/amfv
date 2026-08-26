@@ -53,6 +53,22 @@ _LANDING_HTML = f"""
 """
 
 
+@pytest.mark.parametrize(
+    ("markdown", "expected"),
+    [
+        ("# Real publication title\n\nBody", "Real publication title"),
+        (
+            "HOUSEHOLD\n\n## Guidelines for assessment in emergencies\n\n## 2008\n\n# Injured GPS coordinates:\n",
+            "Guidelines for assessment in emergencies",
+        ),
+        ("## Contents\n\n# Body heading:\n", None),
+    ],
+)
+def test_markdown_title_uses_meaningful_cover_heading(markdown: str, expected: str | None) -> None:
+    """Direct-PDF titles come from front matter rather than later OCR headings."""
+    assert icrc_module._markdown_title(markdown) == expected
+
+
 class _CaptureSink:
     def __init__(self) -> None:
         self.artifacts: list[dict[str, object]] = []
