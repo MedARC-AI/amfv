@@ -88,8 +88,8 @@ Default discovery reads Mayo Clinic's official
 `symptoms-causes` and `diagnosis-treatment` condition pages; unrelated doctors,
 organization, procedure, and other sitemap routes are excluded. A bounded run
 fails if the inventory cannot satisfy its requested document count, and an
-all-documents run reports any unavailable sitemap entries. Both the
-legacy `#main-content` layout and the current `article.cmp-article` layout are
+all-documents run reports any unavailable sitemap entries. Both the alternate
+`#main-content` layout and the current `article.cmp-article` layout are
 supported; appointment, newsletter, and products-and-services chrome is
 removed from the converted Markdown.
 

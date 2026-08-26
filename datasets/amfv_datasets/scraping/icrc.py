@@ -1,11 +1,10 @@
 """Permission-gated ingestion of explicitly selected ICRC publications.
 
-The legacy Meditron adapter downloaded an unofficial third-party archive.  This
-module deliberately does not reproduce that workflow: it accepts only official
-``icrc.org`` publication/document URLs, discovers them through the official
-sitemap when requested, and filters automatic discovery to clinically relevant
-publisher metadata before PDF retrieval. It makes no request until the caller
-asserts that the planned conversion and use are authorized.
+This module accepts only official ``icrc.org`` publication/document URLs,
+discovers them through the official sitemap when requested, and filters
+automatic discovery to clinically relevant publisher metadata before PDF
+retrieval. It makes no request until the caller asserts that the planned
+conversion and use are authorized.
 
 ICRC's general website terms permit narrow, intact, unmodified, non-commercial
 copying.  Converting a publication to Markdown is a transformation, so the

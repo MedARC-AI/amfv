@@ -87,7 +87,7 @@ def test_markdown_title_uses_meaningful_cover_heading(markdown: str, expected: s
     ],
 )
 def test_clinical_relevance_boundary_matches_dataset_scope(title: str, is_clinical: bool) -> None:
-    """Keep clinical guidance while excluding reports, law, and legacy contamination."""
+    """Keep clinical guidance while excluding reports, law, and nonclinical material."""
     assert bool(icrc_module._clinical_relevance_terms(title)) is is_clinical
 
 
@@ -142,7 +142,7 @@ def test_icrc_ref_from_url_normalizes_official_publication_and_pdf() -> None:
 
 
 def test_icrc_ref_from_url_upgrades_http_before_network_use() -> None:
-    """Legacy HTTP manifest spellings are canonicalized to the HTTPS boundary."""
+    """HTTP manifest spellings are canonicalized to the HTTPS boundary."""
     ref = icrc_ref_from_url(_PUBLICATION_URL.replace("https://", "http://"))
 
     assert ref.page_url == _PUBLICATION_URL

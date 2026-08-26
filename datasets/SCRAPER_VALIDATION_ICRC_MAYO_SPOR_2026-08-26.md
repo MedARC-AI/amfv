@@ -45,7 +45,7 @@ the OCR output rather than invented title text.
 ## ICRC
 
 The official publication sitemap contained 728 English publication URLs. The
-bounded live manifest used 160 candidates: two legacy/current direct PDFs and
+bounded live manifest used 160 candidates: two direct PDFs and
 158 evenly sampled publication landing pages, including 106 numbered and 52
 slug-only routes. The run stopped after 99 complete documents because the next
 optional tail entered another expensive full-page-OCR case.
@@ -61,7 +61,7 @@ The 99 completed documents covered:
 | Sections | 1 / 2 / 39 (minimum / median / maximum) |
 | Metadata | 0 missing format types; 0 missing media types |
 
-The run exercised legacy and current direct-PDF paths, numbered and slug-only
+The run exercised direct-PDF paths, numbered and slug-only
 publication pages, shop-page PDF resolution, redacted signed queries, PDF
 magic-byte detection for `application/octet-stream`, unresolved/no-link landing
 fallbacks, native extraction, Docling, OCR, full-page OCR, and conversion
@@ -168,7 +168,7 @@ product. Direct-URL ICRC runs retain the isolated one-product browser lifecycle.
 | Mayo Clinic, 4/4 documents | 33.632 s | 31.968 s | 1.664 s (4.95%) | 8.377 / 10.528 / 10.659 s | 7.966 / 9.648 / 10.270 s |
 | SPOR, 1 success after 3 stale candidates | 184.145 s | 171.857 s | 12.288 s (6.67%) | 184.144 / 184.144 / 184.144 s | 171.857 / 171.857 / 171.857 s |
 
-The ICRC sample comprised the legacy direct PDF `icrc-002-4126`, two current
+The ICRC sample comprised the direct PDF `icrc-002-4126`, two current
 shop-backed publications, and the Docling-backed `0790-discover-icrc`. The Mayo
 sample comprised two symptoms/causes and two diagnosis/treatment routes. The
 SPOR sample used the official report, encountered the same three stale
@@ -283,7 +283,6 @@ advertising, product-and-services, or Mayo Clinic Press chrome markers.
 
 ### SPOR positional sample
 
-The current fixed-report parser produced 454 normalized direct-PDF references.
 The validator selected exactly 21 candidates at five-percent intervals: indices
 0, 22, 45, 67, 90, 113, 135, 158, 181, 203, 226, 249, 271, 294, 317, 339,
 362, 385, 407, 430, and 453. Seven PDFs succeeded at indices 22, 45, 90, 113,
@@ -303,24 +302,103 @@ page 235.
 The final inventory candidate on page 235 completed through full-page Docling
 OCR in 678.533 seconds. Keeping this fixed tail candidate materially changed
 the observed latency distribution and confirmed that the parser can finish a
-large scan-heavy document at the end of the historical corpus.
+large scan-heavy document at the end of the official inventory.
 
 ### Local inspection subset
 
-Eleven representative local outputs were retained under
-`outputs/distributed-validation-2026-08-26/`: four ICRC records at positions 0,
-50, 75, and 100 percent; four Mayo records from A, M, and Z with both route
-types; and three SPOR records from early, middle, and final-page successes.
+Eight representative local outputs were retained under
+`outputs/distributed-validation-2026-08-26/`: one clinically relevant ICRC
+record, four Mayo records from A, M, and Z with both route types, and three SPOR
+records from early, middle, and final-page successes. Three broad-publication
+ICRC samples were removed when the retained scope was narrowed to clinical
+material.
 Readable Markdown, full JSONL records with metadata/provenance, and the aggregate
 JSON summary are available there. `outputs/` is git-ignored so publisher content
 cannot be added to the PR accidentally.
 
+## Official sitemap and clinical-scope follow-up
+
+The SPOR parser finds 460 unique candidates in the current official report:
+equivalent HTTP/HTTPS aliases collapse intentionally, while legitimate dynamic
+download URLs with `.pdf` in a query value remain discoverable. The candidates
+span 132 report pages and 71 publisher hosts. Explicit operator manifests
+remain stricter and accept only direct PDF paths.
+
+### Current sitemap inventories
+
+| Source | Bounded sitemap result | Clinical inclusion boundary | Discovery time |
+|---|---|---|---:|
+| ICRC | 17 child sitemaps; 728 unique English publication URLs | Auto-discovery fetches publication metadata, requires a clinical signal in the publisher title or description, and rejects annual reports, law, institutional material, posters, recruitment, and similar nonclinical publications before PDF retrieval. The conservative URL-title inspection set contains 55 candidates. | 17.018 s wall time; 8.284 s summed HTTP retrieval time |
+| Mayo Clinic | One official 2.2 MB condition sitemap; 2,401 unique supported pages: 1,202 symptoms/causes and 1,199 diagnosis/treatment | Route validation excludes doctors, departments, organizations, procedures, translations, and all non-condition sections. | 0.273 s retrieval in the retained run |
+| SPOR | 8 English WordPress child sitemaps; 4 current CPG-related site surfaces | Sitemap pages are inventory metadata only. Ingested documents remain the 460 PDFs explicitly linked from the official Canadian clinical-practice-guideline report; publisher HTML is never crawled. | 7.576 s wall time; 2.208 s summed HTTP retrieval time |
+
+ICRC's raw sitemap is intentionally not treated as a clinical corpus. The
+clinical gate runs after landing-page retrieval but before shop resolution,
+PDF download, or OCR. Each retained record stores
+`clinical_relevance_terms`, `clinical_relevance_basis`, `discovery_scope`, its
+raw sitemap index/total, and the cumulative number of nonclinical candidates
+excluded before that record. Known-positive tests include nursing, nutrition,
+mental-health, surgery, first-aid, and pre-hospital bleeding guidance. Known
+negative tests include the Geneva Conventions, economic-livelihood material,
+annual reports, health-care-violence policy, COVID response reporting, and a
+nonclinical web-scraping publication.
+
+The newly listed 2025 publication `ICRC Pre-hospital Emergency Care: Guidance
+for Managing Severe Bleeding` was then run end to end. It produced 30,621
+characters from the landing HTML and full PDF with unique normalized hash
+`e4e077962f2a1fea2e2350308d208a02eaf42bc03665e97039fb72827467aa05`.
+The record correctly reports `html` plus `pdf`, `text/html` plus
+`application/pdf`, and clinical signals `bleeding`, `hospital`, and
+`pre-hospital`. Its 89.042-second document time split into 1.688 seconds for
+landing retrieval, 7.471 seconds for shop resolution, 1.641 seconds for PDF
+retrieval, and 77.202 seconds for quality-preserving Docling conversion.
+
+SPOR's current sitemap also exposes its asset-map landing page, CPG database,
+report page, and a related CPG project. The database page still states that the
+guidelines cover 1996 through April 2018, were not quality-assessed, and are not
+endorsed. No evidence of a newer replacement guideline database was found, so
+the fixed report remains the document inventory and its staleness warning
+remains mandatory.
+
+### Current Mayo beginning/middle/end run
+
+The sitemap inventory enabled a stronger positional run than the earlier
+alphabet sample. Twenty-one entries were selected at exact five-percent
+intervals: indices 0, 120, 240, 360, 480, 600, 720, 840, 960, 1080, 1200,
+1320, 1440, 1560, 1680, 1800, 1920, 2040, 2160, 2280, and 2400. All 21
+completed, with 21 unique IDs and 21 unique content hashes. The sample included
+11 symptoms/causes and 10 diagnosis/treatment pages.
+
+| Dimension | Result |
+|---|---|
+| Wall time | 201.663 seconds |
+| Per-document time | 9.595 / 10.066 / 10.293 seconds (mean / median / p90); 2.033 / 10.881 seconds (minimum / maximum) |
+| Content size | 1,868 / 7,757 / 25,523 characters (minimum / median / maximum) |
+| Formats | all `html`; all `text/html`; normalized output `text/markdown` |
+| Completeness | indices 0 and 2,400 both completed; no empty, duplicate-ID, or duplicate-content records |
+
+The complete 21-record JSONL, first/middle/final Markdown, Mayo inventory
+summary, raw ICRC audit inventory, conservative ICRC clinical candidate list,
+and full 460-entry SPOR manifest are retained locally under
+`outputs/sitemap-validation-2026-08-26/`. The directory is git-ignored.
+
+### Linux and PR compatibility
+
+The production changes use existing project dependencies and patterns:
+`httpx`, the shared secure downloader and pacing helpers, `lxml` with entity
+and network resolution disabled, existing Playwright lifecycle helpers, typed
+dataclasses, lazy `ScrapeRun` iterators, and pytest `MockTransport`/browser test
+doubles. No committed path, executable, browser channel, credential, or timing
+value is specific to the validation Mac. Chromium installation remains an
+explicit deployment prerequisite for Mayo and ICRC shop pages, just as before.
+All new automated tests are offline and platform-neutral.
+
 ## Automated checks
 
-- Focused scraper/base/CLI regression suite after distributed validation: `133
-  passed`.
-- Full repository suite with PDF dependencies: `201 passed`.
-- Targeted Ruff formatting completed; two changed files were normalized.
+- Focused ICRC/Mayo/SPOR/CLI regression suite after sitemap and scope changes:
+  `120 passed`.
+- Full repository suite with PDF dependencies: `216 passed`.
+- Targeted Ruff formatting completed.
 - Repository-wide `uv run ruff check .`: passed.
 - `git diff --check`: passed.
 - `uv build --offline --package amfv-datasets`: source distribution and wheel

@@ -137,7 +137,7 @@ def test_manifest_rejects_non_pdf_and_unsafe_urls(entry: str) -> None:
 
 
 def test_asset_map_keeps_dynamic_pdf_downloads_and_deduplicates_scheme_aliases() -> None:
-    """Legacy report links may identify PDFs in queries instead of URL paths."""
+    """Official report links may identify PDFs in queries instead of URL paths."""
 
     def parse_annotations(_data: bytes) -> list[object]:
         return [
