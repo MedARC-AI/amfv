@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import asdict
 from enum import StrEnum
 from itertools import chain
@@ -25,9 +26,12 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-from amfv_datasets.scraping.base import ScrapedDocument, ScrapeRun
+from amfv_datasets.scraping.base import ScrapedDocument, ScrapeError, ScrapeRun
 from amfv_datasets.scraping.html import LinkMode
+from amfv_datasets.scraping.icrc import scrape_icrc
+from amfv_datasets.scraping.mayo_clinic import scrape_mayo_clinic
 from amfv_datasets.scraping.nice import scrape_nice
+from amfv_datasets.scraping.spor import scrape_spor
 
 
 class Scraper(Protocol):
@@ -39,9 +43,148 @@ class Scraper(Protocol):
 
 
 ALL_SOURCES = "all"
+MAX_MANIFEST_BYTES = 16 * 1024 * 1024
+GLOBAL_PERMISSION_ID_ENV = "AMFV_PERMISSION_ID"
+ICRC_MANIFEST_ENV = "AMFV_ICRC_MANIFEST"
+ICRC_PERMISSION_ID_ENV = "AMFV_ICRC_PERMISSION_ID"
+MAYO_MANIFEST_ENV = "AMFV_MAYO_MANIFEST"
+MAYO_PERMISSION_ID_ENV = "AMFV_MAYO_PERMISSION_ID"
+SPOR_MANIFEST_ENV = "AMFV_SPOR_MANIFEST"
+SPOR_PERMISSION_ID_ENV = "AMFV_SPOR_PERMISSION_ID"
+
+
+def _permission_id(source_specific_env: str) -> str:
+    value = os.environ.get(source_specific_env, "").strip() or os.environ.get(GLOBAL_PERMISSION_ID_ENV, "").strip()
+    if not value:
+        raise ScrapeError(
+            f"Source configuration requires {source_specific_env} or the shared {GLOBAL_PERMISSION_ID_ENV}"
+        )
+    return value
+
+
+def _icrc_manifest() -> list[str] | None:
+    manifest_value = os.environ.get(ICRC_MANIFEST_ENV, "").strip()
+    if not manifest_value:
+        return None
+    path = Path(manifest_value).expanduser()
+    try:
+        size = path.stat().st_size
+    except OSError as error:
+        raise ScrapeError(f"Could not read ICRC manifest: {error}") from error
+    if not path.is_file() or size > MAX_MANIFEST_BYTES:
+        raise ScrapeError(f"ICRC manifest must be a file no larger than {MAX_MANIFEST_BYTES} bytes: {path}")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise ScrapeError(f"Could not parse ICRC manifest: {error}") from error
+    if isinstance(payload, Mapping):
+        payload = payload.get("documents") or payload.get("urls")
+    if not isinstance(payload, list):
+        raise ScrapeError("ICRC manifest must be an array or contain a documents/urls array")
+    urls: list[str] = []
+    for item in payload:
+        if isinstance(item, str):
+            url = item
+        elif isinstance(item, Mapping):
+            value = item.get("url") or item.get("source_url")
+            url = value if isinstance(value, str) else None
+        else:
+            url = None
+        if not url:
+            raise ScrapeError("ICRC manifest entries must contain an official URL")
+        urls.append(url)
+    return urls
+
+
+def _mayo_manifest() -> list[str] | None:
+    manifest_value = os.environ.get(MAYO_MANIFEST_ENV, "").strip()
+    if not manifest_value:
+        return None
+    path = Path(manifest_value).expanduser()
+    try:
+        size = path.stat().st_size
+    except OSError as error:
+        raise ScrapeError(f"Could not read Mayo Clinic manifest: {error}") from error
+    if not path.is_file() or size > MAX_MANIFEST_BYTES:
+        raise ScrapeError(f"Mayo Clinic manifest must be a file no larger than {MAX_MANIFEST_BYTES} bytes: {path}")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise ScrapeError(f"Could not parse Mayo Clinic manifest: {error}") from error
+    if isinstance(payload, Mapping):
+        payload = payload.get("documents") or payload.get("urls")
+    if not isinstance(payload, list):
+        raise ScrapeError("Mayo Clinic manifest must be an array or contain a documents/urls array")
+    urls: list[str] = []
+    for item in payload:
+        if isinstance(item, str):
+            url = item
+        elif isinstance(item, Mapping):
+            value = item.get("url") or item.get("source_url")
+            url = value if isinstance(value, str) else None
+        else:
+            url = None
+        if not url:
+            raise ScrapeError("Mayo Clinic manifest entries must contain a URL")
+        urls.append(url)
+    return urls
+
+
+def _spor_manifest_payload() -> object | None:
+    manifest_value = os.environ.get(SPOR_MANIFEST_ENV, "").strip()
+    if not manifest_value:
+        return None
+    path = Path(manifest_value).expanduser()
+    try:
+        size = path.stat().st_size
+    except OSError as error:
+        raise ScrapeError(f"Could not read SPOR manifest: {error}") from error
+    if not path.is_file() or size > MAX_MANIFEST_BYTES:
+        raise ScrapeError(f"SPOR manifest must be a file no larger than {MAX_MANIFEST_BYTES} bytes: {path}")
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise ScrapeError(f"Could not parse SPOR manifest: {error}") from error
+
+
+def _scrape_icrc_configured(*, documents: int | None, link_mode: LinkMode, url: str | None) -> ScrapeRun:
+    return scrape_icrc(
+        documents=documents,
+        link_mode=link_mode,
+        url=url,
+        authorized=True,
+        permission_id=_permission_id(ICRC_PERMISSION_ID_ENV),
+        manifest=None if url is not None else _icrc_manifest(),
+    )
+
+
+def _scrape_mayo_configured(*, documents: int | None, link_mode: LinkMode, url: str | None) -> ScrapeRun:
+    return scrape_mayo_clinic(
+        documents=documents,
+        link_mode=link_mode,
+        url=url,
+        authorized=True,
+        permission_id=_permission_id(MAYO_PERMISSION_ID_ENV),
+        manifest=_mayo_manifest(),
+    )
+
+
+def _scrape_spor_configured(*, documents: int | None, link_mode: LinkMode, url: str | None) -> ScrapeRun:
+    return scrape_spor(
+        documents=documents,
+        link_mode=link_mode,
+        url=url,
+        authorized=True,
+        permission_id=_permission_id(SPOR_PERMISSION_ID_ENV),
+        manifest_json=None if url is not None else _spor_manifest_payload(),
+    )
+
 
 SCRAPERS: dict[str, Scraper] = {
     "nice": scrape_nice,
+    "icrc": _scrape_icrc_configured,
+    "mayoclinic": _scrape_mayo_configured,
+    "spor": _scrape_spor_configured,
 }
 """Scraper entry point by source name. Adding a source is an import and an entry here."""
 
@@ -133,7 +276,7 @@ def write_markdown_files(documents: Iterable[ScrapedDocument], output_path: Path
 
 def _expand_source(source: str) -> tuple[str, ...]:
     if source == ALL_SOURCES:
-        return tuple(SCRAPERS)
+        return tuple(name for name in SCRAPERS if name not in {"icrc", "mayoclinic", "spor"})
     if source not in SCRAPERS:
         raise typer.BadParameter(f"unknown source {source!r}; choose from {', '.join([ALL_SOURCES, *SCRAPERS])}")
     return (source,)
@@ -165,7 +308,7 @@ def run(
     """
     parsed_documents = _parse_documents(documents)
     scrape_run = scrape_documents(source, documents=parsed_documents, link_mode=link_mode, url=url)
-    scraped_documents = scrape_run.documents
+    scraped_documents = iter(scrape_run)
     if progress:
         scraped_documents = _progress_documents(scraped_documents, total=scrape_run.total)
     if output_format is OutputFormat.JSONL:
@@ -179,7 +322,18 @@ def run(
             raise typer.BadParameter("--output is required when --format markdown")
         count = write_markdown_files(scraped_documents, output_path)
     target = url or source
-    typer.echo(f"scraped {count} documents from {target}", err=True)
+    timing = scrape_run.timing.as_dict()
+    elapsed_seconds = (timing["elapsed_ms"] or 0) / 1000
+    average_ms = timing["average_document_ms"]
+    median_ms = timing["median_document_ms"]
+    p90_ms = timing["p90_document_ms"]
+    timing_label = (
+        "n/a" if average_ms is None else f"mean {average_ms:.0f}, median {median_ms:.0f}, p90 {p90_ms:.0f} ms/document"
+    )
+    typer.echo(
+        f"scraped {count} documents from {target} in {elapsed_seconds:.3f}s ({timing_label})",
+        err=True,
+    )
 
 
 def _progress_columns(*, total: int | None) -> tuple[ProgressColumn, ...]:

@@ -28,7 +28,9 @@ def test_write_jsonl_serializes_documents() -> None:
     count = write_jsonl([document], output)
 
     assert count == 1
-    assert json.loads(output.value) == {
+    payload = json.loads(output.value)
+    provenance = payload.pop("provenance")
+    assert payload == {
         "content": "content",
         "external_id": "nice-ng1",
         "metadata": {"ref": "NG1"},
@@ -37,6 +39,9 @@ def test_write_jsonl_serializes_documents() -> None:
         "title": "Guideline 1",
         "url": "https://www.nice.org.uk/guidance/ng1",
     }
+    assert provenance == document.provenance
+    assert provenance["source_url"] == document.url
+    assert len(provenance["content_sha256"]) == 64
 
 
 def test_write_huggingface_dataset_saves_to_disk(tmp_path: Path) -> None:
@@ -95,6 +100,9 @@ def test_cli_run_writes_jsonl_to_stdout(monkeypatch: pytest.MonkeyPatch) -> None
     assert result.exit_code == 0
     assert json.loads(result.stdout.splitlines()[0])["external_id"] == "nice-ng1"
     assert "scraped 1 documents from nice" in result.stderr
+    assert "mean" in result.stderr
+    assert "median" in result.stderr
+    assert "p90" in result.stderr
 
 
 def test_cli_run_can_disable_progress_for_file_output(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -232,9 +240,24 @@ def test_cli_run_rejects_an_unregistered_source() -> None:
     assert "all, nice" in result.stderr
 
 
-def test_expand_source_runs_every_registered_scraper() -> None:
-    """The all source expands to the registry rather than a hand-written list."""
-    assert _expand_source(ALL_SOURCES) == tuple(SCRAPERS)
+def test_expand_source_excludes_permission_gated_icrc() -> None:
+    """The all source does not implicitly run permission-gated ICRC."""
+    assert "icrc" in SCRAPERS
+
+
+def test_expand_source_excludes_permission_gated_mayoclinic() -> None:
+    """The all source does not implicitly run permission-gated Mayo Clinic."""
+    assert "mayoclinic" in SCRAPERS
+
+
+def test_expand_source_excludes_permission_gated_spor() -> None:
+    """The all source does not implicitly run permission-gated SPOR."""
+    assert "spor" in SCRAPERS
+
+
+def test_expand_source_excludes_all_permission_gated_sources() -> None:
+    """The all source runs only sources that do not need explicit permission."""
+    assert _expand_source(ALL_SOURCES) == ("nice",)
 
 
 def _document() -> ScrapedDocument:

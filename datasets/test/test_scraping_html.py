@@ -15,12 +15,42 @@ def test_clean_text_normalizes_whitespace_and_citations() -> None:
     assert clean_text(" Alpha\n beta   [12] ") == "Alpha beta"
 
 
+def test_clean_text_removes_unsafe_controls_without_splitting_words() -> None:
+    """Embedded publisher control bytes do not survive normalized text."""
+    assert clean_text(" recom\x02mendations\tremain\x85readable\r ") == "recommendations remain readable"
+
+
 def test_absolute_unique_urls_normalizes_relative_urls() -> None:
     """Relative URLs are absolutized, stripped, and deduplicated."""
     assert absolute_unique_urls(
         ["/guidance/ng1?tab=contents", "https://example.org/guidance/ng1#section", "/guidance/ng2"],
         base_url="https://example.org",
     ) == ["https://example.org/guidance/ng1", "https://example.org/guidance/ng2"]
+
+
+def test_absolute_unique_urls_enforces_authority_policy() -> None:
+    """Host policies reject lookalike paths, credentials, and unusual ports."""
+    assert absolute_unique_urls(
+        [
+            "/guidance/ng1/chapter/recommendations?tab=contents",
+            "https://evil.example/guidance/ng1/chapter/recommendations",
+            "https://user@www.nice.org.uk/guidance/ng1/chapter/credentials",
+            "https://www.nice.org.uk:444/guidance/ng1/chapter/port",
+            "javascript:/guidance/ng1/chapter/script",
+            "https://www.nice.org.uk/guidance/ng1/chapter/recommendations#duplicate",
+        ],
+        base_url="https://www.nice.org.uk",
+        allowed_hosts=("nice.org.uk", "www.nice.org.uk"),
+    ) == ["https://www.nice.org.uk/guidance/ng1/chapter/recommendations"]
+
+
+def test_absolute_unique_urls_canonicalization_is_idempotent() -> None:
+    """Canonical URLs remain unchanged when normalized again."""
+    first_pass = absolute_unique_urls(
+        ["/guidance/ng1?tab=contents#heading"],
+        base_url="https://example.org",
+    )
+    assert absolute_unique_urls(first_pass, base_url="https://example.org") == first_pass
 
 
 def test_first_matching_urls_uses_first_xpath_with_matches() -> None:
@@ -37,6 +67,23 @@ def test_first_matching_urls_uses_first_xpath_with_matches() -> None:
         xpaths=("//aside/a/@href", "//nav/a/@href", "//main/a/@href"),
         base_url="https://example.org",
     ) == ["https://example.org/first"]
+
+
+def test_first_matching_urls_falls_back_when_policy_rejects_first_xpath() -> None:
+    """Rejected candidates do not prevent an accepted fallback selector."""
+    html_text = """
+    <html>
+      <nav><a href="https://evil.example/guidance/ng1/chapter/lookalike">Bad</a></nav>
+      <main><a href="/guidance/ng1/chapter/good">Good</a></main>
+    </html>
+    """
+
+    assert first_matching_urls(
+        html_text,
+        xpaths=("//nav/a/@href", "//main/a/@href"),
+        base_url="https://www.nice.org.uk",
+        allowed_hosts=("nice.org.uk", "www.nice.org.uk"),
+    ) == ["https://www.nice.org.uk/guidance/ng1/chapter/good"]
 
 
 def test_document_title_uses_heading_and_strips_suffix() -> None:
@@ -68,6 +115,42 @@ def test_html_to_markdown_can_strip_links() -> None:
     html_text = '<p>Offer <a href="https://example.org">treatment</a>.</p>'
 
     assert html_to_markdown(html_text, link_mode=LinkMode.STRIP) == "Offer treatment."
+
+
+def test_html_to_markdown_removes_unsafe_controls() -> None:
+    """C0, DEL, and C1 controls are dropped while ordinary whitespace remains readable."""
+    html_text = "<p>recom\x02mendations\tstay\nreadable\rwith\x7f dose\x85limits.</p>"
+
+    markdown = html_to_markdown(html_text)
+
+    assert markdown == "recommendations stay\nreadable\nwith dose limits."
+    assert not any(
+        (ord(character) < 32 and character not in "\t\n\r") or 127 <= ord(character) <= 159 for character in markdown
+    )
+
+
+def test_html_to_markdown_preserves_medical_superscripts_and_same_page_citations() -> None:
+    """Medical notation and fragment links survive source-specific conversion."""
+    html_text = '<p>Count 10<sup>9</sup>/L.<a href="#reference-1">[1]</a></p>'
+
+    assert (
+        html_to_markdown(
+            html_text,
+            base_url="https://example.org/guideline",
+            drop_numeric_citations=False,
+        )
+        == "Count 10<sup>9</sup>/L.[[1]](#reference-1)"
+    )
+
+
+def test_html_to_markdown_keeps_images_inside_tables() -> None:
+    """Clinical flowcharts embedded in table cells retain their URLs."""
+    html_text = '<table><tr><td><img src="/flowchart.png" alt="Flowchart"></td></tr></table>'
+
+    assert "![Flowchart](https://example.org/flowchart.png)" in html_to_markdown(
+        html_text,
+        base_url="https://example.org/guideline",
+    )
 
 
 def test_html_to_markdown_absolutizes_images() -> None:
