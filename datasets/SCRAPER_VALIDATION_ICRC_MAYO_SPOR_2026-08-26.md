@@ -142,13 +142,83 @@ requested. The table does not substitute estimates for those missing
 distributions. Future large validation runs should aggregate timing fields into
 the retained report before deleting their temporary records.
 
+## Throughput profiling and optimization follow-up
+
+A later same-day follow-up profiled the three retained sources by phase, then
+repeated the exact same bounded live corpus after optimization. The corpus mixed
+native PDF conversion, Docling fallback, ICRC shop resolution, both Mayo route
+families, the SPOR report parser, stale publisher hosts, and a reachable SPOR
+PDF. Source payloads and normalized output were kept only in memory; the two
+temporary profile summaries were deleted after their aggregate results were
+recorded here.
+
+The request policy was not relaxed. ICRC and SPOR still enforce a five-second
+minimum interval between scrape-attempt starts, Mayo still enforces ten seconds,
+and retry, timeout, DNS/public-address, conversion-quality, and OCR behavior are
+unchanged. Processing time now counts toward that minimum interval instead of a
+full delay being added after processing. ICRC manifest runs also lazily open one
+shop browser and reuse its page rather than launching Chromium for every shop
+product. Direct-URL ICRC runs retain the isolated one-product browser lifecycle.
+
+### Before and after
+
+| Source/profile corpus | Before wall time | After wall time | Wall-time reduction | Before mean / median / p90 per success | After mean / median / p90 per success |
+|---|---:|---:|---:|---:|---:|
+| ICRC, 4/4 documents | 118.292 s | 87.658 s | 30.634 s (25.90%) | 29.573 / 15.420 / 85.962 s | 21.894 / 7.603 / 71.575 s |
+| Mayo Clinic, 4/4 documents | 33.632 s | 31.968 s | 1.664 s (4.95%) | 8.377 / 10.528 / 10.659 s | 7.966 / 9.648 / 10.270 s |
+| SPOR, 1 success after 3 stale candidates | 184.145 s | 171.857 s | 12.288 s (6.67%) | 184.144 / 184.144 / 184.144 s | 171.857 / 171.857 / 171.857 s |
+
+The ICRC sample comprised the legacy direct PDF `icrc-002-4126`, two current
+shop-backed publications, and the Docling-backed `0790-discover-icrc`. The Mayo
+sample comprised two symptoms/causes and two diagnosis/treatment routes. The
+SPOR sample used the official report, encountered the same three stale
+candidates, and emitted the same CCSMH delirium guideline.
+
+### Bottleneck attribution
+
+| Source | Measured phases and conclusion |
+|---|---|
+| ICRC | The difficult Docling conversion remained dominant: 68.013 s before and 64.058 s after. The three ordinary `pdf-inspector` conversions totaled only 0.227 s before and 0.218 s after. Three separate shop resolutions cost 24.756 s before; browser reuse reduced them to 8.307 s total (6.771 s startup/first product, then 0.791 s and 0.745 s). HTTP downloads totaled 10.240 s before and 7.057 s after. Both browser reuse and start-interval pacing are material; OCR remains the intentional quality-preserving tail. |
+| Mayo Clinic | Baseline browser fetches totaled 2.673 s and HTML normalization only 0.058 s, while three fixed post-document sleeps totaled 30 s. In the after run browser fetches were actually slower at 4.479 s and normalization remained 0.056 s, yet wall time still fell because fetch/parse work satisfied part of each unchanged ten-second start interval. The publisher/browser plus courtesy interval—not HTML parsing—is the remaining limit. |
+| SPOR | Baseline retrieval consumed about 64.049 s: two dead-host attempts took 31.201 s and 31.036 s, while inventory and successful-PDF downloads were fast. Inventory annotation parsing took 0.661 s and Docling took 104.358 s. Afterward retrieval remained about 64.371 s, parsing 0.642 s, and Docling 102.536 s. Replacing three full five-second sleeps with only the unelapsed start interval removed roughly 10.7 s. Transport retry/timeout and Docling quality gates remain intact to avoid dropping temporarily reachable or scan-heavy documents. |
+
+Observed wall-time differences include normal publisher and OCR variance, so
+the table does not attribute every saved millisecond to code. The phase split is
+what supports the conclusions above.
+
+### Quality and count equivalence
+
+The before/after document arrays were compared mechanically. All nine documents
+matched exactly on external ID, title, canonical URL, normalized content
+SHA-256, content byte count, section count, source format types, source media
+types, conversion backend, and source-PDF SHA-256 where applicable. Counts were
+also identical: ICRC 4/4, Mayo 4/4, and SPOR one success after the same three
+stale candidates. No scraper increased throughput by skipping a conversion,
+shortening content, weakening a route check, or suppressing a stale candidate.
+
+The implementation now retains enough metrics for future runs without keeping
+scraped corpora:
+
+- successful HTTP and browser receipts record `retrieval_duration_ms`;
+- each document records `provenance.phase_timings_ms` for its applicable
+  retrieval, inventory parsing, HTML normalization, shop resolution, and PDF
+  conversion phases;
+- each successful record retains `request_start_pacing_delay_ms`;
+- `ScrapeTiming.as_dict()` and the CLI completion line report mean, median, and
+  nearest-rank p90 document time in addition to minimum, maximum, total wall
+  time, and the raw per-document durations.
+
+Format provenance remains unchanged: all records still carry
+`metadata.source_format_types` and `metadata.source_media_types`, while the
+normalized output remains `text/markdown`.
+
 ## Automated checks
 
-- Focused ICRC regression suite: `25 passed` after the expanded live run found
-  the OCR title edge case.
-- Full repository suite with PDF dependencies: `193 passed`.
-- `uv run ruff format .`: passed; one test file was normalized.
-- `uv run ruff check .`: passed.
+- Focused scraper/base/CLI regression suite after throughput changes: `132
+  passed`.
+- Full repository suite with PDF dependencies: `200 passed`.
+- Targeted Ruff formatting completed; two changed files were normalized.
+- Repository-wide `uv run ruff check .`: passed.
 - `git diff --check`: passed.
 - `uv build --offline --package amfv-datasets`: source distribution and wheel
   built successfully; disposable build outputs were deleted afterward.
