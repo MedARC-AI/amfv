@@ -197,6 +197,8 @@ def test_asset_map_annotation_adapter_converts_bounded_pdf_with_provenance() -> 
     assert document.provenance["permission_id"] == _PERMISSION_ID
     assert len(document.provenance["retrievals"]) == 2
     assert document.provenance["conversions"] == [document.metadata["pdf_conversion"]]
+    assert document.provenance["phase_timings_ms"]["inventory_parse"] >= 0
+    assert document.provenance["phase_timings_ms"]["pdf_retrieval"] >= 0
     assert "Offer the intervention" in document.content
 
 

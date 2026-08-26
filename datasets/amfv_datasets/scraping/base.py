@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ipaddress
+import math
 import socket
 import time
 from collections.abc import Callable, Iterable, Iterator, Mapping
@@ -349,6 +350,16 @@ class ScrapeTiming:
     def as_dict(self) -> dict[str, Any]:
         """Return JSON-serializable aggregate and per-document timing metrics."""
         durations = list(self.document_durations_ms)
+        ordered_durations = sorted(durations)
+        median_document_ms = None
+        p90_document_ms = None
+        if ordered_durations:
+            midpoint = len(ordered_durations) // 2
+            if len(ordered_durations) % 2:
+                median_document_ms = ordered_durations[midpoint]
+            else:
+                median_document_ms = round((ordered_durations[midpoint - 1] + ordered_durations[midpoint]) / 2)
+            p90_document_ms = ordered_durations[math.ceil(len(ordered_durations) * 0.9) - 1]
         return {
             "started_at_utc": self.started_at_utc,
             "completed_at_utc": self.completed_at_utc,
@@ -356,9 +367,45 @@ class ScrapeTiming:
             "document_count": len(durations),
             "document_durations_ms": durations,
             "average_document_ms": round(sum(durations) / len(durations)) if durations else None,
+            "median_document_ms": median_document_ms,
+            "p90_document_ms": p90_document_ms,
             "minimum_document_ms": min(durations, default=None),
             "maximum_document_ms": max(durations, default=None),
         }
+
+
+@dataclass
+class RequestStartPacer:
+    """Enforce a minimum interval between scrape-attempt start times.
+
+    Parser and conversion work count toward the interval. This preserves the
+    configured maximum start rate without stacking an avoidable full sleep
+    after a slow document has already occupied the worker.
+    """
+
+    interval_seconds: float
+    _last_started_at: float | None = field(default=None, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.interval_seconds, bool)
+            or not isinstance(self.interval_seconds, (int, float))
+            or not math.isfinite(self.interval_seconds)
+            or self.interval_seconds < 0
+        ):
+            raise ValueError(f"interval_seconds must be a finite non-negative number; got {self.interval_seconds!r}")
+
+    def wait(self) -> float:
+        """Wait only for the unelapsed interval and mark this attempt's start."""
+        now = time.monotonic()
+        slept_seconds = 0.0
+        if self._last_started_at is not None:
+            slept_seconds = max(0.0, self.interval_seconds - (now - self._last_started_at))
+            if slept_seconds:
+                time.sleep(slept_seconds)
+                now = time.monotonic()
+        self._last_started_at = now
+        return slept_seconds
 
 
 @dataclass(frozen=True)
@@ -458,6 +505,7 @@ def download_content(
     request_kwargs: dict[str, Any] = {}
     if timeout is not None:
         request_kwargs["timeout"] = timeout
+    download_started_perf = time.perf_counter()
     request_started_at_utc: str | None = None
     current_url = url
     redirect_urls: list[str] = []
@@ -522,6 +570,7 @@ def download_content(
             ) from error
         data = b"".join(chunks)
         download_completed_at_utc = _utc_now()
+        retrieval_duration_ms = max(0, round((time.perf_counter() - download_started_perf) * 1000))
         redirect_chain = [redact_url(item) for item in redirect_urls]
         provenance = {
             **_url_receipt_fields("requested", url),
@@ -531,6 +580,7 @@ def download_content(
             # Backward-compatible name; unlike the former implementation this
             # is the time the full payload finished, not the request start.
             "downloaded_at_utc": download_completed_at_utc,
+            "retrieval_duration_ms": retrieval_duration_ms,
             "status_code": response.status_code,
             "content_type": response.headers.get("Content-Type"),
             "content_encoding": response.headers.get("Content-Encoding"),
@@ -614,15 +664,14 @@ def scrape_listing_documents[ClientT, ListingItemT](
         list_page: Function that lists source-specific items for a page.
         scrape_item: Function that scrapes one listed item into a document. It
             may return None to skip a discovered item that is not a document.
-        document_delay_seconds: Delay before scraping each document after the
-            first one (default: 5.0).
+        document_delay_seconds: Minimum interval between scrape-attempt start
+            times (default: 5.0).
         first_page_items: Already-fetched first listing page items. When set,
             these are used before fetching page 2 (default: None).
     """
     if documents is not None and documents < 1:
         raise ValueError(f"documents must be at least 1; got {documents}")
-    if document_delay_seconds < 0:
-        raise ValueError(f"document_delay_seconds must be non-negative; got {document_delay_seconds}")
+    pacer = RequestStartPacer(document_delay_seconds)
 
     with client_factory() as client:
         page = 1
@@ -640,12 +689,14 @@ def scrape_listing_documents[ClientT, ListingItemT](
             for item in items:
                 if documents is not None and scraped >= documents:
                     break
-                if attempted and document_delay_seconds:
-                    time.sleep(document_delay_seconds)
+                pacing_delay_seconds = pacer.wait()
                 document = scrape_item(client, item)
                 attempted += 1
                 if document is None:
                     continue
+                provenance = dict(document.provenance)
+                provenance["request_start_pacing_delay_ms"] = max(0, round(pacing_delay_seconds * 1000))
+                document = replace(document, provenance=provenance)
                 yield document
                 scraped += 1
             page += 1
@@ -659,6 +710,7 @@ __all__ = [
     "DownloadError",
     "DownloadedContent",
     "PROVENANCE_SCHEMA_VERSION",
+    "RequestStartPacer",
     "ScrapeError",
     "ScrapeRun",
     "ScrapeTiming",

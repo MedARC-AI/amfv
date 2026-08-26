@@ -8,6 +8,7 @@ import pytest
 from amfv_datasets.scraping import base
 from amfv_datasets.scraping.base import (
     ArtifactCaptureSink,
+    RequestStartPacer,
     ScrapedDocument,
     ScrapeError,
     ScrapeRun,
@@ -103,6 +104,8 @@ def test_scrape_run_records_per_document_and_total_timing(monkeypatch: pytest.Mo
         "document_count": 1,
         "document_durations_ms": [25],
         "average_document_ms": 25,
+        "median_document_ms": 25,
+        "p90_document_ms": 25,
         "minimum_document_ms": 25,
         "maximum_document_ms": 25,
     }
@@ -124,6 +127,8 @@ def test_scrape_run_timing_finishes_for_an_empty_run(monkeypatch: pytest.MonkeyP
         "document_count": 0,
         "document_durations_ms": [],
         "average_document_ms": None,
+        "median_document_ms": None,
+        "p90_document_ms": None,
         "minimum_document_ms": None,
         "maximum_document_ms": None,
     }
@@ -232,6 +237,7 @@ def test_download_content_stays_in_memory_and_records_http_provenance() -> None:
     assert downloaded.provenance["request_started_at_utc"].endswith("Z")
     assert downloaded.provenance["download_completed_at_utc"].endswith("Z")
     assert downloaded.provenance["downloaded_at_utc"].endswith("Z")
+    assert isinstance(downloaded.provenance["retrieval_duration_ms"], int)
 
 
 def test_download_content_redacts_credentials_and_every_query_value() -> None:
@@ -448,7 +454,7 @@ def test_scrape_listing_documents_supports_all_documents() -> None:
 
 
 def test_scrape_listing_documents_delays_between_documents(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Listing scraping waits before each document after the first."""
+    """Fast listing items retain the full minimum start interval."""
     delays: list[float] = []
 
     class _FakeClient:
@@ -474,6 +480,7 @@ def test_scrape_listing_documents_delays_between_documents(monkeypatch: pytest.M
         )
 
     monkeypatch.setattr(base.time, "sleep", delays.append)
+    monkeypatch.setattr(base.time, "monotonic", lambda: 0.0)
 
     documents = list(
         scrape_listing_documents(
@@ -514,6 +521,7 @@ def test_scrape_listing_documents_skips_non_documents_without_consuming_limit(
         return ScrapedDocument("test", item, item, f"https://example.org/{item}", "content")
 
     monkeypatch.setattr(base.time, "sleep", delays.append)
+    monkeypatch.setattr(base.time, "monotonic", lambda: 0.0)
 
     documents = list(
         scrape_listing_documents(
@@ -527,3 +535,47 @@ def test_scrape_listing_documents_skips_non_documents_without_consuming_limit(
 
     assert [document.external_id for document in documents] == ["item-1", "item-2"]
     assert delays == [5.0, 5.0]
+
+
+def test_request_start_pacer_counts_processing_toward_interval(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Slow parsing absorbs pacing time instead of stacking another full delay."""
+    current = 0.0
+    delays: list[float] = []
+
+    def clock() -> float:
+        return current
+
+    def sleep(delay: float) -> None:
+        nonlocal current
+        delays.append(delay)
+        current += delay
+
+    monkeypatch.setattr(base.time, "monotonic", clock)
+    monkeypatch.setattr(base.time, "sleep", sleep)
+    pacer = RequestStartPacer(5.0)
+
+    assert pacer.wait() == 0.0
+    current += 2.0
+    assert pacer.wait() == 3.0
+    current += 7.0
+    assert pacer.wait() == 0.0
+
+    assert delays == [3.0]
+
+
+@pytest.mark.parametrize("interval", [-1.0, float("nan"), float("inf"), True])
+def test_request_start_pacer_rejects_invalid_intervals(interval: object) -> None:
+    """Misconfigured pacing cannot silently disable source throttling."""
+    with pytest.raises(ValueError, match="finite non-negative"):
+        RequestStartPacer(interval)  # type: ignore[arg-type]
+
+
+def test_scrape_timing_reports_median_and_nearest_rank_p90() -> None:
+    """Retained timing summaries preserve distribution statistics after cleanup."""
+    timing = ScrapeTiming(document_durations_ms=[10, 20, 30, 40, 100])
+
+    summary = timing.as_dict()
+
+    assert summary["average_document_ms"] == 40
+    assert summary["median_document_ms"] == 30
+    assert summary["p90_document_ms"] == 100

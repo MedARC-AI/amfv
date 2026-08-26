@@ -162,6 +162,8 @@ def _browser_receipt(
     status_code: int | None,
     attempts: int,
     retry_delays_seconds: list[float],
+    request_started_at_utc: str | None = None,
+    retrieval_duration_ms: int | None = None,
 ) -> dict[str, object]:
     data = html_text.encode("utf-8")
     completed_at = datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -170,8 +172,10 @@ def _browser_receipt(
             "requested_url": url,
             "final_url": url,
             "transport": "playwright-ephemeral-browser",
+            "request_started_at_utc": request_started_at_utc,
             "download_completed_at_utc": completed_at,
             "downloaded_at_utc": completed_at,
+            "retrieval_duration_ms": retrieval_duration_ms,
             "status_code": status_code,
             "attempts": attempts,
             "retry_delays_seconds": retry_delays_seconds,
@@ -239,6 +243,8 @@ def _playwright_client(*, headless: bool = True) -> Iterator[PageFetch]:
 
 def _playwright_fetch(page, url: str) -> FetchedHtml:  # noqa: ANN001
     _validate_retry_configuration()
+    started = time.perf_counter()
+    request_started_at_utc = datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
     is_index = urlparse(url).path == urlparse(INDEX_URL).path
     requested_ref = None if is_index else mayo_clinic_ref_from_url(url)
     if is_index:
@@ -290,6 +296,8 @@ def _playwright_fetch(page, url: str) -> FetchedHtml:  # noqa: ANN001
             status_code=status_code,
             attempts=attempt,
             retry_delays_seconds=retry_delays_seconds,
+            request_started_at_utc=request_started_at_utc,
+            retrieval_duration_ms=max(0, round((time.perf_counter() - started) * 1000)),
         )
 
     raise MayoClinicPageUnavailableError(
@@ -421,9 +429,11 @@ def _scrape_article(
         url=ref.page_url,
         metadata={"representation": "rendered_dom_serialization", "content_scope": "article_section"},
     )
+    normalization_started = time.perf_counter()
     doc = lxml_html.fromstring(html_text)
     title = _page_title(doc) or ref.title
     content, section_count = build_article_text(html_text, link_mode=link_mode, base_url=ref.page_url)
+    normalization_duration_ms = max(0, round((time.perf_counter() - normalization_started) * 1000))
     metadata: dict[str, object] = {
         "slug": ref.slug,
         "section": ref.section,
@@ -447,6 +457,14 @@ def _scrape_article(
     description = _meta_value(doc, "description")
     if description:
         metadata["description"] = description
+    phase_timings_ms = {"html_normalization": normalization_duration_ms}
+    retrieval_duration_ms = retrieval.get("retrieval_duration_ms")
+    if (
+        isinstance(retrieval_duration_ms, int)
+        and not isinstance(retrieval_duration_ms, bool)
+        and retrieval_duration_ms >= 0
+    ):
+        phase_timings_ms["article_retrieval"] = retrieval_duration_ms
     return ScrapedDocument(
         source="mayoclinic",
         external_id=f"mayo-{ref.document_id}",
@@ -459,6 +477,7 @@ def _scrape_article(
             "retrievals": ([retrieval] if item.discovery_retrieval is None else [item.discovery_retrieval, retrieval]),
             "access_method": ingestion_mode,
             "permission_id": permission_id,
+            "phase_timings_ms": phase_timings_ms,
         },
     )
 

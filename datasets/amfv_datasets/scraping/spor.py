@@ -34,6 +34,7 @@ from amfv_datasets.scraping.base import (
     DnsResolver,
     DownloadedContent,
     DownloadError,
+    RequestStartPacer,
     ScrapedDocument,
     ScrapeError,
     ScrapeRun,
@@ -449,9 +450,15 @@ def _resolve_source(
             role="inventory",
             metadata={"representation": "caller_provided_asset_map", "current_through": ASSET_MAP_CURRENT_THROUGH},
         )
+        parse_started = time.perf_counter()
+        refs = _pdf_entries_from_asset_map(asset_map_pdf, annotation_parser=annotation_parser)
+        retrieval = {
+            **_provided_asset_map_receipt(asset_map_pdf),
+            "inventory_parse_duration_ms": max(0, round((time.perf_counter() - parse_started) * 1000)),
+        }
         return _AssetMapSource(
-            refs=_pdf_entries_from_asset_map(asset_map_pdf, annotation_parser=annotation_parser),
-            retrieval=_provided_asset_map_receipt(asset_map_pdf),
+            refs=refs,
+            retrieval=retrieval,
             adapter="pdf_link_annotations",
         )
 
@@ -474,9 +481,15 @@ def _resolve_source(
         role="inventory",
         metadata={"representation": "downloaded_asset_map", "current_through": ASSET_MAP_CURRENT_THROUGH},
     )
+    parse_started = time.perf_counter()
+    refs = _pdf_entries_from_asset_map(downloaded.data, annotation_parser=annotation_parser)
+    retrieval = {
+        **downloaded.provenance,
+        "inventory_parse_duration_ms": max(0, round((time.perf_counter() - parse_started) * 1000)),
+    }
     return _AssetMapSource(
-        refs=_pdf_entries_from_asset_map(downloaded.data, annotation_parser=annotation_parser),
-        retrieval=downloaded.provenance,
+        refs=refs,
+        retrieval=retrieval,
         adapter="pdf_link_annotations",
     )
 
@@ -541,6 +554,18 @@ def scrape_guideline(
     if manifest_adapter == "pdf_link_annotations":
         capture_artifact(downloaded.data, **capture_arguments)
     retrievals = [receipt for receipt in (asset_map_retrieval, downloaded.provenance) if receipt]
+    phase_timings_ms: dict[str, int] = {}
+    for phase, receipt, field in (
+        ("inventory_retrieval", asset_map_retrieval, "retrieval_duration_ms"),
+        ("inventory_parse", asset_map_retrieval, "inventory_parse_duration_ms"),
+        ("pdf_retrieval", downloaded.provenance, "retrieval_duration_ms"),
+    ):
+        duration = receipt.get(field) if receipt else None
+        if isinstance(duration, int) and not isinstance(duration, bool) and duration >= 0:
+            phase_timings_ms[phase] = duration
+    conversion_duration = conversion.get("processing_time_ms")
+    if isinstance(conversion_duration, int) and not isinstance(conversion_duration, bool) and conversion_duration >= 0:
+        phase_timings_ms["pdf_conversion"] = conversion_duration
     return ScrapedDocument(
         source="spor",
         external_id=f"spor-{ref.guideline_id}",
@@ -578,6 +603,7 @@ def scrape_guideline(
             "authorization_asserted": True,
             "permission_id": normalized_permission_id,
             "manifest_adapter": manifest_adapter,
+            "phase_timings_ms": phase_timings_ms,
         },
     )
 
@@ -641,6 +667,7 @@ def scrape_spor(
             last_error: ScrapeError | None = None
             host_transport_failures: dict[str, int] = {}
             blocked_hosts: set[str] = set()
+            pacer = RequestStartPacer(DOCUMENT_DELAY_SECONDS)
             for ref in source.refs:
                 if documents is not None and emitted >= documents:
                     return
@@ -661,8 +688,7 @@ def scrape_spor(
                     if len(pending_failures) >= MAX_DISCOVERY_FAILURES:
                         break
                     continue
-                if attempted and DOCUMENT_DELAY_SECONDS:
-                    time.sleep(DOCUMENT_DELAY_SECONDS)
+                pacing_delay_seconds = pacer.wait()
                 attempted += 1
                 try:
                     document = scrape_guideline(
@@ -707,6 +733,13 @@ def scrape_spor(
                         },
                     )
                     pending_failures.clear()
+                document = replace(
+                    document,
+                    provenance={
+                        **document.provenance,
+                        "request_start_pacing_delay_ms": max(0, round(pacing_delay_seconds * 1000)),
+                    },
+                )
                 host_transport_failures.pop(host, None)
                 yield document
                 emitted += 1

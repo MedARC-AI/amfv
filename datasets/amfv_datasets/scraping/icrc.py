@@ -19,8 +19,8 @@ import hashlib
 import re
 import time
 from collections.abc import Callable, Iterable, Iterator
-from contextlib import AbstractContextManager, contextmanager
-from dataclasses import dataclass
+from contextlib import AbstractContextManager, ExitStack, contextmanager
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from pathlib import PurePosixPath
@@ -36,6 +36,7 @@ from amfv_datasets.scraping.base import (
     USER_AGENT,
     DownloadedContent,
     DownloadError,
+    RequestStartPacer,
     ScrapedDocument,
     ScrapeError,
     ScrapeRun,
@@ -344,6 +345,7 @@ def _shop_browser_receipt(
     html_text: str,
     *,
     status_code: int | None,
+    retrieval_duration_ms: int,
 ) -> dict[str, Any]:
     data = html_text.encode("utf-8")
     completed_at = datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -354,6 +356,7 @@ def _shop_browser_receipt(
         "download_completed_at_utc": completed_at,
         "downloaded_at_utc": completed_at,
         "status_code": status_code,
+        "retrieval_duration_ms": retrieval_duration_ms,
         "content_type": "text/html; charset=utf-8",
         "byte_count": len(data),
         "sha256": hashlib.sha256(data).hexdigest(),
@@ -390,38 +393,48 @@ def resolve_icrc_shop_pdf(shop_url: str) -> ShopPdfResolution | None:
     if not _is_shop_product_url(normalized_shop_url):
         return None
     with _shop_playwright_page() as page:
-        response = page.goto(shop_url, wait_until="domcontentloaded", timeout=45_000)
-        status_code = response.status if response is not None else None
-        if status_code is not None and status_code >= 400:
-            raise IcrcFetchError(f"ICRC shop returned HTTP {status_code} for the product page")
-        final_url = str(page.url)
-        if not _is_shop_product_url(_normalized_official_url(final_url)):
-            raise IcrcFetchError("ICRC shop navigation left the official product route")
-        try:
-            document_type = page.get_by_role("combobox", name="Type de document *")
-            document_type.select_option(label="PDF")
-            language = page.get_by_role("combobox").nth(1)
-            language.select_option(label="English")
-            download = page.locator("a[href*='/download/ebook']").first
-            download.wait_for(state="visible", timeout=20_000)
-            raw_download_url = download.get_attribute("href")
-        except PlaywrightError as error:
-            raise IcrcFetchError("ICRC shop did not expose an English PDF variant") from error
-        if not raw_download_url:
-            raise IcrcFetchError("ICRC shop exposed a download control without a URL")
-        pdf_url = _validate_shop_download_url(urljoin(final_url, raw_download_url))
-        html_text = page.content()
-        if len(html_text.encode("utf-8")) > MAX_HTML_BYTES:
-            raise IcrcFetchError(f"ICRC shop HTML exceeds the {MAX_HTML_BYTES}-byte limit")
-        return ShopPdfResolution(
-            pdf_url=pdf_url,
-            retrieval=_shop_browser_receipt(
-                shop_url,
-                final_url,
-                html_text,
-                status_code=status_code,
-            ),
-        )
+        return _resolve_icrc_shop_pdf_on_page(page, shop_url)
+
+
+def _resolve_icrc_shop_pdf_on_page(page: Any, shop_url: str) -> ShopPdfResolution | None:
+    """Resolve one product using an already-open page so manifests reuse Chromium."""
+    normalized_shop_url = _normalized_official_url(shop_url)
+    if not _is_shop_product_url(normalized_shop_url):
+        return None
+    started = time.perf_counter()
+    response = page.goto(shop_url, wait_until="domcontentloaded", timeout=45_000)
+    status_code = response.status if response is not None else None
+    if status_code is not None and status_code >= 400:
+        raise IcrcFetchError(f"ICRC shop returned HTTP {status_code} for the product page")
+    final_url = str(page.url)
+    if not _is_shop_product_url(_normalized_official_url(final_url)):
+        raise IcrcFetchError("ICRC shop navigation left the official product route")
+    try:
+        document_type = page.get_by_role("combobox", name="Type de document *")
+        document_type.select_option(label="PDF")
+        language = page.get_by_role("combobox").nth(1)
+        language.select_option(label="English")
+        download = page.locator("a[href*='/download/ebook']").first
+        download.wait_for(state="visible", timeout=20_000)
+        raw_download_url = download.get_attribute("href")
+    except PlaywrightError as error:
+        raise IcrcFetchError("ICRC shop did not expose an English PDF variant") from error
+    if not raw_download_url:
+        raise IcrcFetchError("ICRC shop exposed a download control without a URL")
+    pdf_url = _validate_shop_download_url(urljoin(final_url, raw_download_url))
+    html_text = page.content()
+    if len(html_text.encode("utf-8")) > MAX_HTML_BYTES:
+        raise IcrcFetchError(f"ICRC shop HTML exceeds the {MAX_HTML_BYTES}-byte limit")
+    return ShopPdfResolution(
+        pdf_url=pdf_url,
+        retrieval=_shop_browser_receipt(
+            shop_url,
+            final_url,
+            html_text,
+            status_code=status_code,
+            retrieval_duration_ms=max(0, round((time.perf_counter() - started) * 1000)),
+        ),
+    )
 
 
 def _default_pdf_converter(data: bytes, title: str, publication_id: str) -> PdfConversionResult:
@@ -666,6 +679,18 @@ def _build_document(
         receipt for receipt in (landing_retrieval, shop_retrieval, body.retrieval if body else None) if receipt
     ]
     conversions = [body.conversion] if body else []
+    phase_timings_ms: dict[str, int] = {}
+    for phase, receipt in (
+        ("landing_retrieval", landing_retrieval),
+        ("shop_resolution", shop_retrieval),
+        ("pdf_retrieval", body.retrieval if body else None),
+    ):
+        duration = receipt.get("retrieval_duration_ms") if receipt else None
+        if isinstance(duration, int) and not isinstance(duration, bool) and duration >= 0:
+            phase_timings_ms[phase] = duration
+    conversion_duration = body.conversion.get("processing_time_ms") if body else None
+    if isinstance(conversion_duration, int) and not isinstance(conversion_duration, bool) and conversion_duration >= 0:
+        phase_timings_ms["pdf_conversion"] = conversion_duration
     return ScrapedDocument(
         source="icrc",
         external_id=external_id,
@@ -699,6 +724,7 @@ def _build_document(
             "access_basis": "explicit_operator_authorization",
             "authorization_asserted": True,
             "permission_id": permission_id,
+            "phase_timings_ms": phase_timings_ms,
         },
     )
 
@@ -763,18 +789,39 @@ def scrape_icrc(
     total = len(refs) if documents is None else min(documents, len(refs))
 
     def scrape_manifest() -> Iterator[ScrapedDocument]:
-        with client_factory() as client:
+        with client_factory() as client, ExitStack() as browser_stack:
             attempted = 0
             emitted = 0
             consecutive_failures = 0
             pending_failures: list[dict[str, Any]] = []
             last_error: ScrapeError | None = None
             seen_pdf_sha256: set[str] = set()
+            pacer = RequestStartPacer(DOCUMENT_DELAY_SECONDS)
+            effective_shop_pdf_resolver = shop_pdf_resolver
+            shared_shop_page: Any | None = None
+            if shop_pdf_resolver is resolve_icrc_shop_pdf:
+
+                def resolve_with_shared_page(shop_url: str) -> ShopPdfResolution | None:
+                    nonlocal shared_shop_page
+                    if shared_shop_page is None:
+                        shared_shop_page = browser_stack.enter_context(_shop_playwright_page())
+                    try:
+                        return _resolve_icrc_shop_pdf_on_page(shared_shop_page, shop_url)
+                    except (IcrcFetchError, PlaywrightError) as error:
+                        if not isinstance(error, PlaywrightError) and not isinstance(error.__cause__, PlaywrightError):
+                            raise
+                        # A crashed or detached reused page must not make the
+                        # remaining manifest less reliable than the former
+                        # one-browser-per-product path. Retry once in a fresh
+                        # isolated browser and keep it for later products.
+                        shared_shop_page = browser_stack.enter_context(_shop_playwright_page())
+                        return _resolve_icrc_shop_pdf_on_page(shared_shop_page, shop_url)
+
+                effective_shop_pdf_resolver = resolve_with_shared_page
             for ref in refs:
                 if documents is not None and emitted >= documents:
                     return
-                if attempted and DOCUMENT_DELAY_SECONDS:
-                    time.sleep(DOCUMENT_DELAY_SECONDS)
+                pacing_delay_seconds = pacer.wait()
                 attempted += 1
                 try:
                     document = scrape_publication(
@@ -783,7 +830,7 @@ def scrape_icrc(
                         permission_id=normalized_permission_id,
                         link_mode=link_mode,
                         pdf_converter=pdf_converter,
-                        shop_pdf_resolver=shop_pdf_resolver,
+                        shop_pdf_resolver=effective_shop_pdf_resolver,
                         seen_pdf_sha256=seen_pdf_sha256,
                     )
                 except ScrapeError as error:
@@ -801,6 +848,13 @@ def scrape_icrc(
                         break
                     continue
                 consecutive_failures = 0
+                document = replace(
+                    document,
+                    provenance={
+                        **document.provenance,
+                        "request_start_pacing_delay_ms": max(0, round(pacing_delay_seconds * 1000)),
+                    },
+                )
                 if pending_failures:
                     document = ScrapedDocument(
                         source=document.source,

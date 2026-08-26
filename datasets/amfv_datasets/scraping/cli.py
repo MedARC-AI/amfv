@@ -325,9 +325,13 @@ def run(
     timing = scrape_run.timing.as_dict()
     elapsed_seconds = (timing["elapsed_ms"] or 0) / 1000
     average_ms = timing["average_document_ms"]
-    average_label = "n/a" if average_ms is None else f"{average_ms:.0f} ms/document"
+    median_ms = timing["median_document_ms"]
+    p90_ms = timing["p90_document_ms"]
+    timing_label = (
+        "n/a" if average_ms is None else f"mean {average_ms:.0f}, median {median_ms:.0f}, p90 {p90_ms:.0f} ms/document"
+    )
     typer.echo(
-        f"scraped {count} documents from {target} in {elapsed_seconds:.3f}s ({average_label})",
+        f"scraped {count} documents from {target} in {elapsed_seconds:.3f}s ({timing_label})",
         err=True,
     )
 

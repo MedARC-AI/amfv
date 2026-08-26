@@ -100,6 +100,9 @@ def test_cli_run_writes_jsonl_to_stdout(monkeypatch: pytest.MonkeyPatch) -> None
     assert result.exit_code == 0
     assert json.loads(result.stdout.splitlines()[0])["external_id"] == "nice-ng1"
     assert "scraped 1 documents from nice" in result.stderr
+    assert "mean" in result.stderr
+    assert "median" in result.stderr
+    assert "p90" in result.stderr
 
 
 def test_cli_run_can_disable_progress_for_file_output(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

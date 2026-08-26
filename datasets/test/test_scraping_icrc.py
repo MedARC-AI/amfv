@@ -383,6 +383,81 @@ def test_authorized_manifest_is_bounded_and_uses_injected_client(
     assert requests == urls[:2]
 
 
+def test_manifest_reuses_one_shop_browser_without_changing_documents(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Multiple shop-backed publications share Chromium but retain distinct PDFs."""
+    landing_urls = [f"{BASE_URL}/en/publication/shop-backed-{index}" for index in range(2)]
+    shop_urls = [f"https://shop.icrc.org/shop-backed-{index}-print-en.html" for index in range(2)]
+    pdf_urls = [f"https://shop.icrc.org/download/ebook?sku={index}/002-ebook" for index in range(2)]
+    page = object()
+    browser_opens = 0
+    resolution_calls: list[tuple[object, str]] = []
+
+    @contextmanager
+    def shared_page() -> Iterator[object]:
+        nonlocal browser_opens
+        browser_opens += 1
+        yield page
+
+    def resolve_on_page(received_page: object, shop_url: str) -> ShopPdfResolution:
+        resolution_calls.append((received_page, shop_url))
+        index = shop_urls.index(shop_url)
+        return ShopPdfResolution(
+            pdf_url=pdf_urls[index],
+            retrieval={
+                "requested_url": shop_url,
+                "transport": "playwright-ephemeral-browser",
+                "retrieval_duration_ms": 8,
+            },
+        )
+
+    @contextmanager
+    def client_factory() -> Iterator[httpx.Client]:
+        def handler(request: httpx.Request) -> httpx.Response:
+            url = str(request.url)
+            if url in landing_urls:
+                index = landing_urls.index(url)
+                return httpx.Response(
+                    200,
+                    text=f"<html><main><h1>Publication {index}</h1>"
+                    f"<a href='{shop_urls[index]}'>Get the publication</a></main></html>",
+                )
+            index = pdf_urls.index(url)
+            return httpx.Response(200, content=f"%PDF-1.7 publication {index}".encode())
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            yield client
+
+    def converter(data: bytes, _title: str, _publication_id: str) -> PdfConversionResult:
+        return PdfConversionResult(
+            markdown=f"# {data.decode()}",
+            provenance={"backend": "test", "processing_time_ms": 7},
+        )
+
+    monkeypatch.setattr(icrc_module, "DOCUMENT_DELAY_SECONDS", 0.0)
+    monkeypatch.setattr(icrc_module, "_shop_playwright_page", shared_page)
+    monkeypatch.setattr(icrc_module, "_resolve_icrc_shop_pdf_on_page", resolve_on_page)
+    documents = list(
+        scrape_icrc(
+            documents=2,
+            authorized=True,
+            permission_id=_PERMISSION_ID,
+            manifest=landing_urls,
+            client_factory=client_factory,
+            pdf_converter=converter,
+            shop_pdf_resolver=icrc_module.resolve_icrc_shop_pdf,
+        )
+    )
+
+    assert browser_opens == 1
+    assert resolution_calls == [(page, shop_urls[0]), (page, shop_urls[1])]
+    assert [document.url for document in documents] == landing_urls
+    assert len({document.provenance["content_sha256"] for document in documents}) == 2
+    assert documents[0].provenance["phase_timings_ms"]["shop_resolution"] == 8
+    assert documents[0].provenance["phase_timings_ms"]["pdf_conversion"] == 7
+
+
 def test_transient_download_uses_retry_after_and_records_attempts(monkeypatch: pytest.MonkeyPatch) -> None:
     """A transient publisher response is retried with bounded, auditable backoff."""
     requests: list[str] = []

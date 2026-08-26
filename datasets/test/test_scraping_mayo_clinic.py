@@ -122,7 +122,11 @@ _AEM_ARTICLE_HTML = """
   </body>
 </html>
 """
-_ARTICLE_RECEIPT = {"transport": "playwright-ephemeral-browser", "sha256": "a" * 64}
+_ARTICLE_RECEIPT = {
+    "transport": "playwright-ephemeral-browser",
+    "sha256": "a" * 64,
+    "retrieval_duration_ms": 12,
+}
 _INDEX_RECEIPT = {"transport": "playwright-ephemeral-browser", "sha256": "b" * 64}
 
 
@@ -222,6 +226,7 @@ def test_browser_fetch_accepts_only_the_manifest_article_route() -> None:
     assert receipt["status_code"] == 200
     assert receipt["attempts"] == 1
     assert receipt["retry_delays_seconds"] == []
+    assert isinstance(receipt["retrieval_duration_ms"], int)
     assert len(receipt["sha256"]) == 64
     assert page.waited_for == [mayo_module.ARTICLE_SELECTOR]
 
@@ -367,6 +372,8 @@ def test_scrape_article_preserves_clinical_markdown_and_publisher_metadata(
     assert document.provenance["permission_id"] == "MAYO-PERMISSION-2026-001"
     assert document.provenance["retrievals"][0]["transport"] == "playwright-ephemeral-browser"
     assert len(document.provenance["retrievals"][0]["sha256"]) == 64
+    assert document.provenance["phase_timings_ms"]["article_retrieval"] == 12
+    assert document.provenance["phase_timings_ms"]["html_normalization"] >= 0
     assert "## Overview" in document.content
     assert "- Whiteheads\n- Blackheads" in document.content
     assert "[policy](https://www.mayoclinic.org/about-this-site/health-information-policy)" in document.content
