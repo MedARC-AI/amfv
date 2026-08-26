@@ -13,12 +13,15 @@ from amfv_datasets.scraping.pdf import PdfConversionResult
 from amfv_datasets.scraping.spor import (
     ASSET_MAP_CURRENT_THROUGH,
     ASSET_MAP_PDF_URL,
+    SITEMAP_URL,
     SporFetchError,
     SporGuidelineRef,
     SporPermissionError,
     refs_from_json_manifest,
     refs_from_manifest,
+    relevant_sitemap_entries,
     scrape_spor,
+    sitemap_page_urls,
 )
 
 _PDF_BYTES = b"%PDF-1.7 fake publisher guideline"
@@ -131,6 +134,113 @@ def test_manifest_rejects_non_pdf_and_unsafe_urls(entry: str) -> None:
     """Explicit manifests are direct-PDF adapters, not arbitrary publisher crawlers."""
     with pytest.raises(SporFetchError):
         refs_from_manifest([entry])
+
+
+def test_asset_map_keeps_dynamic_pdf_downloads_and_deduplicates_scheme_aliases() -> None:
+    """Legacy report links may identify PDFs in queries instead of URL paths."""
+
+    def parse_annotations(_data: bytes) -> list[object]:
+        return [
+            {"url": "http://publisher.example/download.php?url=guideline.pdf", "page": 2},
+            {"url": "https://publisher.example/download.php?url=guideline.pdf", "page": 2},
+            {"url": "https://publisher.example/get?Filename=Clinical_Guideline.pdf", "page": 3},
+            {"url": "https://publisher.example/catalogue.html", "page": 4},
+        ]
+
+    refs = spor_module._pdf_entries_from_asset_map(_ASSET_MAP_BYTES, annotation_parser=parse_annotations)
+
+    assert [ref.pdf_url for ref in refs] == [
+        "http://publisher.example/download.php?url=guideline.pdf",
+        "https://publisher.example/get?Filename=Clinical_Guideline.pdf",
+    ]
+    assert [ref.title for ref in refs] == ["Guideline", "Clinical Guideline"]
+
+
+def test_spor_sitemap_discovery_keeps_only_current_cpg_inventory_surfaces() -> None:
+    """The WordPress sitemap walk is bounded to English CPG inventory pages."""
+    index = b"""<?xml version="1.0"?>
+    <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+      <sitemap><loc>https://sporevidencealliance.ca/wp-sitemap-posts-page-1.xml</loc></sitemap>
+      <sitemap><loc>https://sporevidencealliance.ca/wp-sitemap-taxonomies-category-1.xml</loc></sitemap>
+      <sitemap><loc>https://sporevidencealliance.ca/fr/wp-sitemap-posts-page-1.xml</loc></sitemap>
+    </sitemapindex>"""
+    page_url = "https://sporevidencealliance.ca/wp-sitemap-posts-page-1.xml"
+    page = b"""<?xml version="1.0"?>
+    <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+      <url><loc>https://sporevidencealliance.ca/key-activities/cpg-asset-map/</loc><lastmod>2024-01-03</lastmod></url>
+      <url><loc>https://sporevidencealliance.ca/key-activities/cpg-asset-map/cpg-database/</loc></url>
+      <url><loc>https://sporevidencealliance.ca/resources/</loc></url>
+    </urlset>"""
+
+    assert sitemap_page_urls(index) == [
+        page_url,
+        "https://sporevidencealliance.ca/wp-sitemap-taxonomies-category-1.xml",
+    ]
+    assert relevant_sitemap_entries(page, source_url=page_url) == [
+        {
+            "url": "https://sporevidencealliance.ca/key-activities/cpg-asset-map/",
+            "last_modified": "2024-01-03",
+        },
+        {
+            "url": "https://sporevidencealliance.ca/key-activities/cpg-asset-map/cpg-database/",
+            "last_modified": None,
+        },
+    ]
+    assert SITEMAP_URL == "https://sporevidencealliance.ca/wp-sitemap.xml"
+
+
+def test_default_spor_run_records_sitemap_inventory_before_fixed_report(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Default collection audits current CPG surfaces without crawling their HTML."""
+    sitemap_page_url = "https://sporevidencealliance.ca/wp-sitemap-posts-page-1.xml"
+    cpg_page_url = "https://sporevidencealliance.ca/key-activities/cpg-asset-map/cpg-database/"
+    requests: list[str] = []
+
+    @contextmanager
+    def client_factory() -> Iterator[httpx.Client]:
+        def handler(request: httpx.Request) -> httpx.Response:
+            url = str(request.url)
+            requests.append(url)
+            if url == SITEMAP_URL:
+                return httpx.Response(
+                    200,
+                    content=(f"<sitemapindex><sitemap><loc>{sitemap_page_url}</loc></sitemap></sitemapindex>").encode(),
+                )
+            if url == sitemap_page_url:
+                return httpx.Response(
+                    200,
+                    content=(
+                        f"<urlset><url><loc>{cpg_page_url}</loc><lastmod>2026-08-20</lastmod></url></urlset>"
+                    ).encode(),
+                )
+            if url == ASSET_MAP_PDF_URL:
+                return httpx.Response(200, content=_ASSET_MAP_BYTES, headers={"Content-Type": "application/pdf"})
+            assert url == _GUIDELINE_URLS[0]
+            return httpx.Response(200, content=_PDF_BYTES, headers={"Content-Type": "application/pdf"})
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            yield client
+
+    monkeypatch.setattr(spor_module, "SITEMAP_DELAY_SECONDS", 0.0)
+    monkeypatch.setattr(spor_module, "DOCUMENT_DELAY_SECONDS", 0.0)
+    documents = list(
+        scrape_spor(
+            documents=1,
+            authorized=True,
+            permission_id=_PERMISSION_ID,
+            annotation_parser=lambda _data: [{"url": _GUIDELINE_URLS[0]}],
+            client_factory=client_factory,
+            pdf_converter=_fake_converter,
+            dns_resolver=_public_dns,
+        )
+    )
+
+    assert requests == [SITEMAP_URL, sitemap_page_url, ASSET_MAP_PDF_URL, _GUIDELINE_URLS[0]]
+    assert documents[0].metadata["sitemap_inventory"]["relevant_pages"] == [
+        {"url": cpg_page_url, "last_modified": "2026-08-20"}
+    ]
+    assert cpg_page_url not in requests
 
 
 def test_unauthorized_spor_call_is_zero_network() -> None:

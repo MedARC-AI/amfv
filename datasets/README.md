@@ -36,7 +36,11 @@ authorized to retrieve the material.
 
 The `icrc` adapter accepts only official publication/document/PDF URLs and
 requires `AMFV_ICRC_PERMISSION_ID` (or `AMFV_PERMISSION_ID`). Collection mode
-also requires `AMFV_ICRC_MANIFEST`; direct `--url` mode does not. Install the
+walks the bounded official sitemap by default; `AMFV_ICRC_MANIFEST` remains an
+optional deterministic override. Auto-discovery checks each publisher title
+and description and rejects nonclinical law, institutional, annual-report,
+poster, and similar material before following or converting a PDF. Retained
+records include the matched clinical signals and sitemap position. Install the
 PDF dependencies and browser once, then run:
 
 ```bash
@@ -48,9 +52,12 @@ uv run --group pdf amfv-scrape --source icrc --url https://www.icrc.org/en/publi
 Official shop PDF/language selection uses an ephemeral browser. PDF bytes stay
 in memory, signed query values are redacted, and catalogue WAF bypass is not
 implemented. Transient transport, 429, and 5xx failures use bounded backoff
-that records attempt counts and delays. Collection mode skips isolated stale
-manifest entries, records them on the next completed document, and stops after
-20 consecutive failures rather than returning fewer documents silently.
+that records attempt counts and delays. Bounded collection mode skips isolated
+stale entries, records them on the next completed document, and stops after 20
+consecutive retrieval failures rather than returning fewer documents silently.
+`--documents all` walks the complete sitemap inventory and reports any clinical
+publication that could not be retrieved; expected nonclinical exclusions do
+not count as failures.
 Docling conversions run in isolated workers with a 900-second wall-time bound.
 For unusually long scanned publications, set a larger finite bound explicitly,
 for example `AMFV_DOCLING_TIMEOUT_SECONDS=1800`; the selected limit is retained
@@ -60,7 +67,7 @@ in conversion provenance.
 
 The `mayoclinic` adapter is permission-gated. Set `AMFV_MAYO_PERMISSION_ID`
 (or `AMFV_PERMISSION_ID`), install Playwright Chromium, and select a direct
-condition URL, a licensed `AMFV_MAYO_MANIFEST`, or the authorized A-Z index:
+condition URL, a licensed `AMFV_MAYO_MANIFEST`, or the official condition sitemap:
 
 ```bash
 uv run playwright install chromium
@@ -74,10 +81,14 @@ source is excluded from implicit `--source all` runs.
 Browser navigation, rendering timeouts, and HTTP 408/425/429/5xx throttling
 use four bounded attempts. `Retry-After` is honored up to 60 seconds; otherwise
 the adapter waits 5, 10, then 20 seconds. Successful retrieval receipts record
-the attempt count and retry delays, while isolated stale A-Z entries are
+the attempt count and retry delays, while isolated stale sitemap entries are
 recorded and skipped rather than silently reducing a requested corpus size.
-Discovery follows canonical primary A-Z results, and a bounded run fails if
-the available inventory cannot satisfy its requested document count. Both the
+Default discovery reads Mayo Clinic's official
+`condition_consolidated_concepts.xml` and keeps only canonical
+`symptoms-causes` and `diagnosis-treatment` condition pages; unrelated doctors,
+organization, procedure, and other sitemap routes are excluded. A bounded run
+fails if the inventory cannot satisfy its requested document count, and an
+all-documents run reports any unavailable sitemap entries. Both the
 legacy `#main-content` layout and the current `article.cmp-article` layout are
 supported; appointment, newsletter, and products-and-services chrome is
 removed from the converted Markdown.
@@ -94,9 +105,15 @@ uv run --group pdf amfv-scrape --source spor --documents 1 --output /data/spor.j
 ```
 
 `AMFV_SPOR_MANIFEST` can select curated direct publisher PDFs. The adapter
-never crawls publisher HTML, records/skips a bounded number of stale report
-links, retains the registry's non-endorsement/currentness warning, and keeps
-PDF bytes in memory. Transient 429 and 5xx responses honor bounded retry
+first walks the bounded English WordPress sitemap to record the current CPG
+inventory surfaces, then reads the fixed report. It never crawls publisher
+HTML. Report annotations that identify a PDF in a download query are retained,
+while explicit manifests remain restricted to direct `.pdf` paths. Bounded
+runs record/skip a bounded number of stale links; `--documents all` examines
+the complete report inventory and reports any unavailable guideline instead
+of silently truncating it. The registry's non-endorsement/currentness warning
+is retained and PDF bytes stay in memory. Transient 429 and 5xx responses honor
+bounded retry
 backoff; transport failures receive one retry. Two transport failures open a
 per-host circuit for the rest of that historical run, with every skipped URL
 retained in provenance, so one defunct publisher cannot monopolize a trial.

@@ -11,6 +11,7 @@ from amfv_datasets.scraping.html import LinkMode
 from amfv_datasets.scraping.mayo_clinic import (
     BASE_URL,
     INDEX_URL,
+    SITEMAP_URL,
     MayoClinicArticleRef,
     MayoClinicFetchError,
     MayoClinicPageUnavailableError,
@@ -18,10 +19,12 @@ from amfv_datasets.scraping.mayo_clinic import (
     list_mayo_clinic_index,
     mayo_clinic_ref_from_url,
     refs_from_manifest,
+    refs_from_sitemap_xml,
     scrape_mayo_clinic,
 )
 
 _ARTICLE_URL = f"{BASE_URL}/diseases-conditions/acne/symptoms-causes/syc-20368047"
+_DIAGNOSIS_URL = f"{BASE_URL}/diseases-conditions/acne/diagnosis-treatment/drc-20368050"
 _UNAVAILABLE_URL = f"{BASE_URL}/diseases-conditions/bartholin-cyst/symptoms-causes/syc-20369976"
 _AEM_ARTICLE_URL = f"{BASE_URL}/diseases-conditions/acanthosis-nigricans/symptoms-causes/syc-20368983"
 _ARTICLE_HTML = """
@@ -128,6 +131,14 @@ _ARTICLE_RECEIPT = {
     "retrieval_duration_ms": 12,
 }
 _INDEX_RECEIPT = {"transport": "playwright-ephemeral-browser", "sha256": "b" * 64}
+_SITEMAP_XML = f"""
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>{_ARTICLE_URL}</loc><lastmod>2026-08-20</lastmod></url>
+  <url><loc>{_DIAGNOSIS_URL}</loc><lastmod>2026-08-21</lastmod></url>
+  <url><loc>{_ARTICLE_URL}?duplicate=1</loc><lastmod>2026-08-22</lastmod></url>
+  <url><loc>{BASE_URL}/diseases-conditions/acne/doctors-departments/ddc-20368049</loc></url>
+</urlset>
+"""
 
 
 class _CaptureSink:
@@ -176,6 +187,16 @@ def test_refs_from_manifest_deduplicates_canonical_urls() -> None:
     )
 
     assert refs == [mayo_clinic_ref_from_url(_ARTICLE_URL)]
+
+
+def test_condition_sitemap_keeps_both_clinical_section_families() -> None:
+    """The official inventory retains symptoms and diagnosis pages without duplicates."""
+    refs = refs_from_sitemap_xml(_SITEMAP_XML)
+
+    assert [ref.page_url for ref in refs] == [_ARTICLE_URL, _DIAGNOSIS_URL]
+    assert [ref.section for ref in refs] == ["symptoms-causes", "diagnosis-treatment"]
+    assert [ref.sitemap_last_modified for ref in refs] == ["2026-08-20", "2026-08-21"]
+    assert all(ref.discovery_url == SITEMAP_URL for ref in refs)
 
 
 class _FakePage:
@@ -471,16 +492,16 @@ def test_scrape_article_supports_current_aem_metadata(monkeypatch: pytest.Monkey
     assert "Newsletter" not in document.content
 
 
-def test_authorized_corpus_uses_a_z_discovery(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Documented permission enables bounded A-Z discovery and article reads."""
+def test_authorized_corpus_uses_sitemap_discovery(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Documented permission enables official-sitemap discovery and article reads."""
     calls: list[str] = []
 
     @contextmanager
     def fake_client(*, headless: bool = True) -> Iterator[mayo_module.PageFetch]:
         def fetch(url: str) -> mayo_module.FetchedHtml:
             calls.append(url)
-            if url.startswith(INDEX_URL):
-                return _INDEX_HTML, _INDEX_RECEIPT
+            if url == SITEMAP_URL:
+                return _SITEMAP_XML, _INDEX_RECEIPT
             return _ARTICLE_HTML, _ARTICLE_RECEIPT
 
         yield fetch
@@ -496,31 +517,34 @@ def test_authorized_corpus_uses_a_z_discovery(monkeypatch: pytest.MonkeyPatch) -
         )
     )
 
-    assert calls == [f"{INDEX_URL}?letter=A", _ARTICLE_URL]
+    assert calls == [SITEMAP_URL, _ARTICLE_URL]
     assert len(documents) == 1
-    assert documents[0].metadata["ingestion_mode"] == "authorized_a_z_discovery"
+    assert documents[0].metadata["ingestion_mode"] == "authorized_sitemap_discovery"
+    assert documents[0].metadata["discovery_method"] == "official_condition_sitemap"
+    assert documents[0].metadata["discovery_url"] == SITEMAP_URL
+    assert documents[0].metadata["sitemap_last_modified"] == "2026-08-20"
+    assert documents[0].metadata["inventory_index"] == 0
+    assert documents[0].metadata["inventory_total"] == 2
     assert [receipt["sha256"] for receipt in documents[0].provenance["retrievals"]] == [
         "b" * 64,
         "a" * 64,
     ]
 
 
-def test_a_z_discovery_records_and_skips_unavailable_article(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A stale A-Z result does not abort a bounded corpus run or disappear silently."""
-    index_html = f"""
-    <html><body><main>
-      <div id="cmp-skip-to-main__content" class="cmp-azresults">
-        <a class="cmp-result-name__link" href="{_UNAVAILABLE_URL}">Bartholin cyst</a>
-        <a class="cmp-result-name__link" href="{_ARTICLE_URL}">Acne</a>
-      </div>
-    </main></body></html>
+def test_sitemap_discovery_records_and_skips_unavailable_article(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A stale sitemap result does not abort a bounded corpus run or disappear silently."""
+    sitemap_xml = f"""
+    <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+      <url><loc>{_UNAVAILABLE_URL}</loc></url>
+      <url><loc>{_ARTICLE_URL}</loc></url>
+    </urlset>
     """
 
     @contextmanager
     def fake_client(*, headless: bool = True) -> Iterator[mayo_module.PageFetch]:
         def fetch(url: str) -> mayo_module.FetchedHtml:
-            if url.startswith(INDEX_URL):
-                return index_html, _INDEX_RECEIPT
+            if url == SITEMAP_URL:
+                return sitemap_xml, _INDEX_RECEIPT
             if url == _UNAVAILABLE_URL:
                 raise MayoClinicPageUnavailableError("page content did not render")
             return _ARTICLE_HTML, _ARTICLE_RECEIPT
@@ -550,7 +574,7 @@ def test_a_z_discovery_records_and_skips_unavailable_article(monkeypatch: pytest
 
 
 def test_manifest_does_not_skip_unavailable_article(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Operator-selected URLs remain strict even when A-Z discovery can skip staleness."""
+    """Operator-selected URLs remain strict even when sitemap discovery can skip staleness."""
 
     @contextmanager
     def fake_client(*, headless: bool = True) -> Iterator[mayo_module.PageFetch]:

@@ -2,9 +2,10 @@
 
 The legacy Meditron adapter downloaded an unofficial third-party archive.  This
 module deliberately does not reproduce that workflow: it accepts only official
-``icrc.org`` publication/document URLs supplied by the operator, and it makes
-no request until the caller asserts that the planned conversion and use are
-authorized.
+``icrc.org`` publication/document URLs, discovers them through the official
+sitemap when requested, and filters automatic discovery to clinically relevant
+publisher metadata before PDF retrieval. It makes no request until the caller
+asserts that the planned conversion and use are authorized.
 
 ICRC's general website terms permit narrow, intact, unmodified, non-commercial
 copying.  Converting a publication to Markdown is a transformation, so the
@@ -25,9 +26,10 @@ from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from pathlib import PurePosixPath
 from typing import Any
-from urllib.parse import urljoin, urlsplit, urlunsplit
+from urllib.parse import parse_qs, urljoin, urlsplit, urlunsplit
 
 import httpx
+from lxml import etree
 from lxml import html as lxml_html
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
@@ -51,12 +53,99 @@ from amfv_datasets.scraping.pdf import PdfConversionResult, convert_pdf, count_m
 
 BASE_URL = "https://www.icrc.org"
 TERMS_URL = f"{BASE_URL}/en/copyright-and-terms-use"
+SITEMAP_URL = f"{BASE_URL}/sitemap.xml"
 DOCUMENT_DELAY_SECONDS = 5.0
+SITEMAP_DELAY_SECONDS = 1.0
 PDF_TIMEOUT_SECONDS = 180.0
 MAX_HTML_BYTES = 16 * 1024 * 1024
+MAX_SITEMAP_PAGES = 100
 MAX_DOWNLOAD_RETRIES = 4
 MAX_RETRY_DELAY_SECONDS = 60.0
 MAX_CONSECUTIVE_FAILURES = 20
+_CLINICAL_RELEVANCE_TERMS = (
+    "aids",
+    "ambulance",
+    "anaesthesia",
+    "anesthesia",
+    "bleeding",
+    "blood",
+    "burn",
+    "cholera",
+    "clinic",
+    "clinical",
+    "covid",
+    "disease",
+    "doctor",
+    "ebola",
+    "epidemic",
+    "first aid",
+    "fracture",
+    "health emergencies",
+    "health needs",
+    "health promotion",
+    "health services",
+    "health systems",
+    "healthcare worker",
+    "hiv",
+    "hospital",
+    "infection",
+    "injury",
+    "malaria",
+    "maternal",
+    "medical",
+    "medicine",
+    "mental health",
+    "neonatal",
+    "newborn",
+    "nurse",
+    "nursing",
+    "nutrition",
+    "orthotic",
+    "palliative",
+    "paramedic",
+    "patient",
+    "physician",
+    "physiotherapy",
+    "physical rehabilitation",
+    "pre-hospital",
+    "prosthetic",
+    "psychosocial",
+    "public health",
+    "reproductive",
+    "sexual health",
+    "surgery",
+    "surgical",
+    "trauma",
+    "tuberculosis",
+    "wound",
+)
+_NONCLINICAL_PUBLICATION_MARKERS = (
+    "annual report",
+    "business card",
+    "cemetary",
+    "conference",
+    "economic security",
+    "engineering",
+    "exhibition",
+    "factsheet",
+    "handling dead",
+    "health care danger",
+    "health strategy",
+    "institutional strategy",
+    "icrc response",
+    "legal framework",
+    "legislative checklist",
+    "management dead",
+    "managing dead",
+    "note protection",
+    "our response",
+    "poster",
+    "postcard",
+    "recruitment",
+    "response covid",
+    "stories",
+    "violence against health care",
+)
 _RETRYABLE_STATUS_CODES = frozenset({408, 425, 429, 500, 502, 503, 504})
 _ICRC_URL_POLICY = UrlPolicy.allow_hosts("icrc.org", allow_subdomains=True)
 
@@ -77,6 +166,10 @@ class IcrcFetchError(ScrapeError):
     """Raised when an explicitly configured ICRC publication cannot be read."""
 
 
+class IcrcNotClinicallyRelevantError(IcrcFetchError):
+    """Raised before PDF retrieval when an auto-discovered publication lacks clinical signals."""
+
+
 class IcrcPermissionError(IcrcFetchError):
     """Raised before network I/O when authorization has not been asserted."""
 
@@ -93,6 +186,11 @@ class IcrcPublicationRef:
     title: str
     page_url: str
     direct_pdf: bool = False
+    sitemap_last_modified: str | None = None
+    discovery_url: str | None = None
+    sitemap_index_sha256: str | None = None
+    sitemap_index_retrieval: dict[str, Any] | None = None
+    discovery_retrieval: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -223,6 +321,104 @@ def refs_from_manifest(urls: Iterable[str]) -> list[IcrcPublicationRef]:
     return refs
 
 
+def _normalize_sitemap_url(url: str) -> str:
+    """Accept only the official root sitemap and its bounded numeric pages."""
+    parsed = urlsplit(url.strip())
+    if parsed.scheme != "https" or (parsed.hostname or "").casefold() not in {"icrc.org", "www.icrc.org"}:
+        raise IcrcFetchError(f"ICRC sitemap discovery left the official host: {redact_url(url)!r}")
+    if parsed.path != "/sitemap.xml" or parsed.fragment:
+        raise IcrcFetchError(f"ICRC sitemap discovery used an unexpected route: {redact_url(url)!r}")
+    query = parse_qs(parsed.query)
+    if query:
+        if set(query) != {"page"} or len(query["page"]) != 1 or not query["page"][0].isdigit():
+            raise IcrcFetchError(f"ICRC sitemap discovery used an unexpected query: {redact_url(url)!r}")
+        page = int(query["page"][0])
+        if not 1 <= page <= MAX_SITEMAP_PAGES:
+            raise IcrcFetchError(f"ICRC sitemap page must be between 1 and {MAX_SITEMAP_PAGES}; got {page}")
+    return urlunsplit(("https", "www.icrc.org", parsed.path, parsed.query, ""))
+
+
+def _xml_root(data: bytes, *, source_url: str) -> etree._Element:
+    """Parse one bounded sitemap document without network/entity expansion."""
+    if len(data) > MAX_HTML_BYTES:
+        raise IcrcFetchError(f"ICRC sitemap exceeds the {MAX_HTML_BYTES}-byte limit: {redact_url(source_url)!r}")
+    parser = etree.XMLParser(resolve_entities=False, no_network=True, recover=False)
+    try:
+        return etree.fromstring(data, parser=parser)
+    except etree.XMLSyntaxError as error:
+        raise IcrcFetchError(f"Could not parse ICRC sitemap {redact_url(source_url)!r}: {error}") from error
+
+
+def sitemap_page_urls(data: bytes, *, source_url: str = SITEMAP_URL) -> list[str]:
+    """Extract and validate the publisher's paginated sitemap URLs."""
+    root = _xml_root(data, source_url=source_url)
+    urls = [
+        _normalize_sitemap_url(value.strip())
+        for value in root.xpath("//*[local-name()='sitemap']/*[local-name()='loc']/text()")
+        if value.strip()
+    ]
+    if not urls:
+        raise IcrcFetchError("The ICRC sitemap index contained no sitemap pages")
+    if len(urls) > MAX_SITEMAP_PAGES:
+        raise IcrcFetchError(f"The ICRC sitemap index exposed more than {MAX_SITEMAP_PAGES} pages")
+    return list(dict.fromkeys(urls))
+
+
+def refs_from_sitemap_xml(data: bytes, *, source_url: str) -> list[IcrcPublicationRef]:
+    """Extract English publication records and last-modified values from one sitemap page."""
+    root = _xml_root(data, source_url=source_url)
+    refs: list[IcrcPublicationRef] = []
+    for item in root.xpath("//*[local-name()='url']"):
+        locations = item.xpath("./*[local-name()='loc']/text()")
+        if not locations:
+            continue
+        try:
+            ref = icrc_ref_from_url(locations[0].strip())
+        except IcrcFetchError:
+            continue
+        if ref.direct_pdf or not urlsplit(ref.page_url).path.casefold().startswith("/en/publication/"):
+            continue
+        modified = item.xpath("./*[local-name()='lastmod']/text()")
+        refs.append(
+            replace(
+                ref,
+                sitemap_last_modified=modified[0].strip() if modified and modified[0].strip() else None,
+                discovery_url=_normalize_sitemap_url(source_url),
+            )
+        )
+    return refs
+
+
+def _discover_publication_refs(client: httpx.Client) -> tuple[list[IcrcPublicationRef], list[dict[str, Any]]]:
+    """Read every current official sitemap page and return a deduplicated publication inventory."""
+    receipts: list[dict[str, Any]] = []
+    index = _download_with_backoff(client, SITEMAP_URL, max_bytes=MAX_HTML_BYTES, url_policy=_ICRC_URL_POLICY)
+    receipts.append(index.provenance)
+    page_urls = sitemap_page_urls(index.data)
+    pacer = RequestStartPacer(SITEMAP_DELAY_SECONDS)
+    refs: list[IcrcPublicationRef] = []
+    seen: set[str] = set()
+    for page_url in page_urls:
+        pacer.wait()
+        downloaded = _download_with_backoff(client, page_url, max_bytes=MAX_HTML_BYTES, url_policy=_ICRC_URL_POLICY)
+        receipts.append(downloaded.provenance)
+        for ref in refs_from_sitemap_xml(downloaded.data, source_url=page_url):
+            if ref.page_url in seen:
+                continue
+            seen.add(ref.page_url)
+            refs.append(
+                replace(
+                    ref,
+                    sitemap_index_sha256=str(index.provenance["sha256"]),
+                    sitemap_index_retrieval=index.provenance,
+                    discovery_retrieval=downloaded.provenance,
+                )
+            )
+    if not refs:
+        raise IcrcFetchError("The current ICRC sitemap contained no English publication URLs")
+    return refs, receipts
+
+
 def _safe_id(value: str) -> str:
     return _SAFE_ID_RE.sub("-", value.casefold()).strip("-")
 
@@ -260,6 +456,15 @@ def _publication_date(doc: lxml_html.HtmlElement) -> str | None:
         return value
     values = doc.xpath("//time[@datetime][1]/@datetime | //time[1]/text()")
     return clean_text(values[0], drop_numeric_citations=False) if values else None
+
+
+def _clinical_relevance_terms(*values: str | None) -> list[str]:
+    """Return auditable clinical signals from publication-owned title and description text."""
+    title = (values[0] or "").casefold().replace("–", "-").replace("—", "-") if values else ""
+    haystack = " ".join(value for value in values if value).casefold().replace("–", "-").replace("—", "-")
+    if any(marker in title for marker in _NONCLINICAL_PUBLICATION_MARKERS):
+        return []
+    return [term for term in _CLINICAL_RELEVANCE_TERMS if re.search(rf"\b{re.escape(term)}\b", haystack)]
 
 
 def _landing_markdown(html_text: str, *, page_url: str, link_mode: LinkMode) -> str:
@@ -528,6 +733,7 @@ def scrape_publication(
     pdf_converter: PdfMarkdownConverter | None = None,
     shop_pdf_resolver: ShopPdfResolver | None = None,
     seen_pdf_sha256: set[str] | None = None,
+    require_clinical_relevance: bool = False,
 ) -> ScrapedDocument:
     """Ingest one explicitly authorized official ICRC publication."""
     normalized_permission_id = clean_text(permission_id, drop_numeric_citations=False)
@@ -571,6 +777,12 @@ def scrape_publication(
         fallback=ref.title,
         suffixes=(" | International Committee of the Red Cross", " | ICRC"),
     )
+    description = _meta_value(doc, "description", "og:description")
+    clinical_terms = _clinical_relevance_terms(title, description)
+    if require_clinical_relevance and not clinical_terms:
+        raise IcrcNotClinicallyRelevantError(
+            f"Auto-discovered ICRC publication has no clinical title/description signals: {ref.page_url!r}"
+        )
     landing_content = _landing_markdown(html_text, page_url=ref.page_url, link_mode=link_mode)
     candidates = _pdf_candidates(html_text, page_url=ref.page_url)
     body: _PublicationBody | None = None
@@ -615,7 +827,9 @@ def scrape_publication(
 
     page_metadata = {
         "publication_date": _publication_date(doc),
-        "description": _meta_value(doc, "description", "og:description"),
+        "description": description,
+        "clinical_relevance_terms": clinical_terms,
+        "clinical_relevance_basis": "publication_title_and_meta_description",
         "language": doc.get("lang") or _meta_value(doc, "language", "og:locale"),
         "pdf_error": pdf_error,
         "pdf_candidates": candidates,
@@ -676,7 +890,15 @@ def _build_document(
         ["application/pdf"] if body else []
     )
     retrievals = [
-        receipt for receipt in (landing_retrieval, shop_retrieval, body.retrieval if body else None) if receipt
+        receipt
+        for receipt in (
+            ref.sitemap_index_retrieval,
+            ref.discovery_retrieval,
+            landing_retrieval,
+            shop_retrieval,
+            body.retrieval if body else None,
+        )
+        if receipt
     ]
     conversions = [body.conversion] if body else []
     phase_timings_ms: dict[str, int] = {}
@@ -691,6 +913,18 @@ def _build_document(
     conversion_duration = body.conversion.get("processing_time_ms") if body else None
     if isinstance(conversion_duration, int) and not isinstance(conversion_duration, bool) and conversion_duration >= 0:
         phase_timings_ms["pdf_conversion"] = conversion_duration
+    discovery_metadata: dict[str, Any] = {}
+    if ref.discovery_url:
+        discovery_metadata = {
+            "discovery_method": "official_sitemap",
+            "discovery_url": ref.discovery_url,
+            "sitemap_index_url": SITEMAP_URL,
+            "sitemap_index_sha256": ref.sitemap_index_sha256,
+            "sitemap_index_retrieval": ref.sitemap_index_retrieval,
+            "sitemap_last_modified": ref.sitemap_last_modified,
+            "inventory_format_type": "xml",
+            "inventory_media_type": "application/xml",
+        }
     return ScrapedDocument(
         source="icrc",
         external_id=external_id,
@@ -716,6 +950,7 @@ def _build_document(
             "permission_id": permission_id,
             "terms_url": TERMS_URL,
             "general_copy_constraints": list(_ICRC_COPY_CONSTRAINTS),
+            **discovery_metadata,
             **page_metadata,
         },
         provenance={
@@ -741,12 +976,11 @@ def scrape_icrc(
     pdf_converter: PdfMarkdownConverter | None = None,
     shop_pdf_resolver: ShopPdfResolver | None = resolve_icrc_shop_pdf,
 ) -> ScrapeRun:
-    """Configure permission-gated ICRC ingestion from one URL or a manifest.
+    """Configure permission-gated ICRC ingestion from one URL, manifest, or sitemap.
 
-    No catalogue discovery is implemented.  Listing mode requires a caller-
-    supplied manifest so this adapter cannot expand its own collection scope.
-    Authorization and its permission reference are checked before URL parsing
-    or client construction.
+    Listing mode reads the official sitemap when no manifest is supplied and
+    filters it to English publication routes. Authorization and its permission
+    reference are checked before URL parsing or client construction.
     """
     if documents is not None and documents < 1:
         raise ValueError(f"documents must be at least 1; got {documents}")
@@ -778,22 +1012,24 @@ def scrape_icrc(
 
         return ScrapeRun(documents=scrape_url(), total=1)
 
-    if manifest is None:
-        raise IcrcFetchError(
-            "ICRC listing mode requires an explicit official publication URL manifest; automatic discovery and the "
-            "legacy third-party archive are disabled."
-        )
-    refs = refs_from_manifest(manifest)
-    if not refs:
+    refs = refs_from_manifest(manifest) if manifest is not None else None
+    if refs is not None and not refs:
         raise IcrcFetchError("The ICRC publication URL manifest is empty")
-    total = len(refs) if documents is None else min(documents, len(refs))
+    total = None if refs is None else (len(refs) if documents is None else min(documents, len(refs)))
 
     def scrape_manifest() -> Iterator[ScrapedDocument]:
         with client_factory() as client, ExitStack() as browser_stack:
+            if refs is None:
+                configured_refs, _sitemap_receipts = _discover_publication_refs(client)
+                ingestion_mode = "authorized_sitemap_discovery"
+            else:
+                configured_refs = refs
+                ingestion_mode = "authorized_url_manifest"
             attempted = 0
             emitted = 0
             consecutive_failures = 0
             pending_failures: list[dict[str, Any]] = []
+            excluded_nonclinical = 0
             last_error: ScrapeError | None = None
             seen_pdf_sha256: set[str] = set()
             pacer = RequestStartPacer(DOCUMENT_DELAY_SECONDS)
@@ -822,7 +1058,7 @@ def scrape_icrc(
                         return _resolve_icrc_shop_pdf_on_page(shared_shop_page, shop_url)
 
                 effective_shop_pdf_resolver = resolve_with_shared_page
-            for ref in refs:
+            for inventory_index, ref in enumerate(configured_refs):
                 if documents is not None and emitted >= documents:
                     return
                 pacing_delay_seconds = pacer.wait()
@@ -836,7 +1072,11 @@ def scrape_icrc(
                         pdf_converter=pdf_converter,
                         shop_pdf_resolver=effective_shop_pdf_resolver,
                         seen_pdf_sha256=seen_pdf_sha256,
+                        require_clinical_relevance=ingestion_mode == "authorized_sitemap_discovery",
                     )
+                except IcrcNotClinicallyRelevantError:
+                    excluded_nonclinical += 1
+                    continue
                 except ScrapeError as error:
                     last_error = error
                     consecutive_failures += 1
@@ -848,12 +1088,26 @@ def scrape_icrc(
                             "message": " ".join(str(error).split()),
                         }
                     )
-                    if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                    if documents is not None and consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
                         break
                     continue
                 consecutive_failures = 0
                 document = replace(
                     document,
+                    metadata={
+                        **document.metadata,
+                        "ingestion_mode": ingestion_mode,
+                        "inventory_index": inventory_index,
+                        "inventory_total": len(configured_refs),
+                        **(
+                            {
+                                "discovery_scope": "clinically_relevant_publications",
+                                "excluded_nonclinical_candidates_before_document": excluded_nonclinical,
+                            }
+                            if ingestion_mode == "authorized_sitemap_discovery"
+                            else {}
+                        ),
+                    },
                     provenance={
                         **document.provenance,
                         "request_start_pacing_delay_ms": max(0, round(pacing_delay_seconds * 1000)),
@@ -901,9 +1155,12 @@ __all__ = [
     "MAX_CONSECUTIVE_FAILURES",
     "MAX_DOWNLOAD_RETRIES",
     "MAX_RETRY_DELAY_SECONDS",
+    "MAX_SITEMAP_PAGES",
+    "SITEMAP_URL",
     "TERMS_URL",
     "ClientFactory",
     "IcrcFetchError",
+    "IcrcNotClinicallyRelevantError",
     "IcrcDuplicatePublicationError",
     "IcrcPermissionError",
     "IcrcPublicationRef",
@@ -912,7 +1169,9 @@ __all__ = [
     "ShopPdfResolver",
     "icrc_ref_from_url",
     "refs_from_manifest",
+    "refs_from_sitemap_xml",
     "resolve_icrc_shop_pdf",
     "scrape_icrc",
     "scrape_publication",
+    "sitemap_page_urls",
 ]

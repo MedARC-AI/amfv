@@ -11,14 +11,17 @@ from amfv_datasets.scraping.base import artifact_capture_context
 from amfv_datasets.scraping.html import LinkMode
 from amfv_datasets.scraping.icrc import (
     BASE_URL,
+    SITEMAP_URL,
     IcrcFetchError,
     IcrcPermissionError,
     IcrcPublicationRef,
     ShopPdfResolution,
     icrc_ref_from_url,
     refs_from_manifest,
+    refs_from_sitemap_xml,
     scrape_icrc,
     scrape_publication,
+    sitemap_page_urls,
 )
 from amfv_datasets.scraping.pdf import PdfConversionResult
 
@@ -67,6 +70,25 @@ _LANDING_HTML = f"""
 def test_markdown_title_uses_meaningful_cover_heading(markdown: str, expected: str | None) -> None:
     """Direct-PDF titles come from front matter rather than later OCR headings."""
     assert icrc_module._markdown_title(markdown) == expected
+
+
+@pytest.mark.parametrize(
+    ("title", "is_clinical"),
+    [
+        ("ICRC nursing guidelines", True),
+        ("Nutrition for hospitalized adult and paediatric patients", True),
+        ("Pre-hospital emergency care guidance: managing severe bleeding", True),
+        ("Physical rehabilitation programme 2025 annual report", False),
+        ("Violence against health care legislative checklist", False),
+        ("ICRC response to COVID-19 in Eurasia", False),
+        ("Restoring an economic lifeline for border communities", False),
+        ("The Geneva Conventions of 12 August 1949", False),
+        ("Practical guidelines on web scraping for the HICP", False),
+    ],
+)
+def test_clinical_relevance_boundary_matches_dataset_scope(title: str, is_clinical: bool) -> None:
+    """Keep clinical guidance while excluding reports, law, and legacy contamination."""
+    assert bool(icrc_module._clinical_relevance_terms(title)) is is_clinical
 
 
 class _CaptureSink:
@@ -160,16 +182,102 @@ def test_unauthorized_icrc_call_is_zero_network() -> None:
         )
 
 
-def test_authorized_listing_still_requires_manifest_before_network() -> None:
-    """Authorization never enables catalogue discovery implicitly."""
-    with pytest.raises(IcrcFetchError, match="requires an explicit official publication URL manifest"):
+def test_authorized_sitemap_discovery_remains_lazy() -> None:
+    """Authorized discovery does not create a network client until iteration."""
+    run = scrape_icrc(
+        documents=1,
+        link_mode=LinkMode.KEEP,
+        authorized=True,
+        permission_id=_PERMISSION_ID,
+        client_factory=lambda: pytest.fail("network client must not be created before iteration"),
+    )
+
+    assert run.total is None
+
+
+def test_icrc_sitemap_parsers_keep_only_english_publications() -> None:
+    """Official sitemap pages retain update metadata and reject unrelated routes."""
+    index = b"""<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+      <sitemap><loc>https://www.icrc.org/sitemap.xml?page=1</loc></sitemap>
+      <sitemap><loc>https://www.icrc.org/sitemap.xml?page=2</loc></sitemap>
+    </sitemapindex>"""
+    page = f"""<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+      <url><loc>{_PUBLICATION_URL}</loc><lastmod>2026-08-26T10:00:00+02:00</lastmod></url>
+      <url><loc>{BASE_URL}/en/news/example</loc><lastmod>2026-08-25</lastmod></url>
+      <url><loc>{BASE_URL}/fr/publication/exemple</loc></url>
+    </urlset>""".encode()
+
+    assert sitemap_page_urls(index) == [f"{SITEMAP_URL}?page=1", f"{SITEMAP_URL}?page=2"]
+    refs = refs_from_sitemap_xml(page, source_url=f"{SITEMAP_URL}?page=1")
+    assert [ref.page_url for ref in refs] == [_PUBLICATION_URL]
+    assert refs[0].sitemap_last_modified == "2026-08-26T10:00:00+02:00"
+    assert refs[0].discovery_url == f"{SITEMAP_URL}?page=1"
+
+
+def test_sitemap_discovery_excludes_nonclinical_publications_before_pdf_fetch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The broad publication sitemap cannot pull a nonclinical publication PDF into the dataset."""
+    nonclinical_url = f"{BASE_URL}/en/publication/international-humanitarian-law-overview"
+    nonclinical_pdf = f"{BASE_URL}/sites/default/files/publications/law-overview.pdf"
+    sitemap_page_url = f"{SITEMAP_URL}?page=1"
+    requests: list[str] = []
+
+    @contextmanager
+    def client_factory() -> Iterator[httpx.Client]:
+        def handler(request: httpx.Request) -> httpx.Response:
+            url = str(request.url)
+            requests.append(url)
+            if url == SITEMAP_URL:
+                return httpx.Response(
+                    200,
+                    content=(f"<sitemapindex><sitemap><loc>{sitemap_page_url}</loc></sitemap></sitemapindex>").encode(),
+                )
+            if url == sitemap_page_url:
+                return httpx.Response(
+                    200,
+                    content=(
+                        "<urlset>"
+                        f"<url><loc>{nonclinical_url}</loc></url>"
+                        f"<url><loc>{_PUBLICATION_URL}</loc></url>"
+                        "</urlset>"
+                    ).encode(),
+                )
+            if url == nonclinical_url:
+                return httpx.Response(
+                    200,
+                    text=(
+                        '<html><head><meta property="og:title" content="International humanitarian law overview">'
+                        '<meta name="description" content="Rules governing armed conflict"></head>'
+                        f'<body><main><h1>Law overview</h1><a href="{nonclinical_pdf}">PDF</a></main></body></html>'
+                    ),
+                )
+            if url == _PUBLICATION_URL:
+                return httpx.Response(200, text=_LANDING_HTML)
+            assert url == _PDF_URL
+            return httpx.Response(200, content=_PDF_BYTES, headers={"Content-Type": "application/pdf"})
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            yield client
+
+    monkeypatch.setattr(icrc_module, "SITEMAP_DELAY_SECONDS", 0.0)
+    monkeypatch.setattr(icrc_module, "DOCUMENT_DELAY_SECONDS", 0.0)
+    documents = list(
         scrape_icrc(
             documents=1,
-            link_mode=LinkMode.KEEP,
             authorized=True,
             permission_id=_PERMISSION_ID,
-            client_factory=lambda: pytest.fail("network client must not be created"),
+            client_factory=client_factory,
+            pdf_converter=_fake_converter,
         )
+    )
+
+    assert len(documents) == 1
+    assert nonclinical_pdf not in requests
+    assert requests == [SITEMAP_URL, sitemap_page_url, nonclinical_url, _PUBLICATION_URL, _PDF_URL]
+    assert documents[0].metadata["discovery_scope"] == "clinically_relevant_publications"
+    assert documents[0].metadata["excluded_nonclinical_candidates_before_document"] == 1
+    assert "mental health" in documents[0].metadata["clinical_relevance_terms"]
 
 
 def test_authorized_icrc_call_requires_permission_reference_before_network() -> None:

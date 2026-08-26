@@ -3,9 +3,9 @@
 Mayo Clinic's current terms restrict automated scraping and reuse. This module
 therefore makes no network request unless a caller explicitly asserts
 authorization and records a permission identifier. Authorized callers may use
-an explicit URL manifest, one direct condition URL, or the publisher's A-Z
-condition index. Rendered HTML is fetched through an ephemeral browser and kept
-in memory because Mayo's CDN rejects plain clients.
+an explicit URL manifest, one direct condition URL, or the publisher's official
+condition sitemap. Rendered HTML is fetched through an ephemeral browser and
+kept in memory because Mayo's CDN rejects plain clients.
 """
 
 from __future__ import annotations
@@ -40,6 +40,7 @@ from amfv_datasets.scraping.html import LinkMode, clean_text, html_to_markdown
 
 BASE_URL = "https://www.mayoclinic.org"
 TERMS_URL = f"{BASE_URL}/about-this-site/terms-conditions-use-policy"
+SITEMAP_URL = f"{BASE_URL}/condition_consolidated_concepts.xml"
 DOCUMENT_DELAY_SECONDS = 10.0
 INDEX_URL = f"{BASE_URL}/diseases-conditions/index"
 INDEX_LETTERS = tuple(letter for letter in string.ascii_uppercase if letter != "Q") + ("#",)
@@ -84,14 +85,18 @@ class MayoClinicArticleRef:
     document_id: str
     title: str
     page_url: str
+    sitemap_last_modified: str | None = None
+    discovery_url: str | None = None
 
 
 @dataclass(frozen=True)
 class MayoClinicListingItem:
-    """One discovered article plus the A-Z page receipt that exposed it."""
+    """One discovered article plus the inventory receipt that exposed it."""
 
     ref: MayoClinicArticleRef
     discovery_retrieval: dict[str, object] | None = None
+    inventory_index: int | None = None
+    inventory_total: int | None = None
 
 
 def mayo_clinic_ref_from_url(url: str, *, title: str | None = None) -> MayoClinicArticleRef:
@@ -134,6 +139,56 @@ def refs_from_manifest(urls: Iterable[str]) -> list[MayoClinicArticleRef]:
     return refs
 
 
+def _validate_sitemap_url(url: str) -> str:
+    parsed = urlparse(url.strip())
+    if (
+        parsed.scheme != "https"
+        or parsed.netloc.lower() != "www.mayoclinic.org"
+        or parsed.path != urlparse(SITEMAP_URL).path
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise MayoClinicFetchError("Mayo Clinic sitemap navigation left the official condition sitemap route")
+    return SITEMAP_URL
+
+
+def refs_from_sitemap_xml(xml_text: str, *, retrieval: dict[str, object] | None = None) -> list[MayoClinicArticleRef]:
+    """Parse all supported condition article sections from Mayo's official sitemap."""
+    data = xml_text.encode("utf-8")
+    if len(data) > MAX_HTML_BYTES:
+        raise MayoClinicFetchError(f"Mayo Clinic sitemap exceeds the {MAX_HTML_BYTES}-byte limit")
+    parser = etree.XMLParser(resolve_entities=False, no_network=True, recover=False)
+    try:
+        root = etree.fromstring(data, parser=parser)
+    except etree.XMLSyntaxError as error:
+        raise MayoClinicFetchError(f"Could not parse the Mayo Clinic condition sitemap: {error}") from error
+    refs: list[MayoClinicArticleRef] = []
+    seen: set[str] = set()
+    for item in root.xpath("//*[local-name()='url']"):
+        locations = item.xpath("./*[local-name()='loc']/text()")
+        if not locations:
+            continue
+        try:
+            ref = mayo_clinic_ref_from_url(locations[0].strip())
+        except MayoClinicFetchError:
+            continue
+        if ref.page_url in seen:
+            continue
+        seen.add(ref.page_url)
+        modified = item.xpath("./*[local-name()='lastmod']/text()")
+        refs.append(
+            replace(
+                ref,
+                sitemap_last_modified=modified[0].strip() if modified and modified[0].strip() else None,
+                discovery_url=SITEMAP_URL,
+            )
+        )
+    if not refs:
+        detail = f" ({retrieval.get('status_code')})" if retrieval and retrieval.get("status_code") else ""
+        raise MayoClinicFetchError(f"Mayo Clinic condition sitemap contained no supported article sections{detail}")
+    return refs
+
+
 def _index_url(letter: str) -> str:
     normalized = letter.strip().upper()
     if normalized not in INDEX_LETTERS:
@@ -164,6 +219,7 @@ def _browser_receipt(
     retry_delays_seconds: list[float],
     request_started_at_utc: str | None = None,
     retrieval_duration_ms: int | None = None,
+    content_type: str = "text/html; charset=utf-8",
 ) -> dict[str, object]:
     data = html_text.encode("utf-8")
     completed_at = datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -179,7 +235,7 @@ def _browser_receipt(
             "status_code": status_code,
             "attempts": attempts,
             "retry_delays_seconds": retry_delays_seconds,
-            "content_type": "text/html; charset=utf-8",
+            "content_type": content_type,
             "byte_count": len(data),
             "sha256": hashlib.sha256(data).hexdigest(),
         }
@@ -246,9 +302,12 @@ def _playwright_fetch(page, url: str) -> FetchedHtml:  # noqa: ANN001
     started = time.perf_counter()
     request_started_at_utc = datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
     is_index = urlparse(url).path == urlparse(INDEX_URL).path
-    requested_ref = None if is_index else mayo_clinic_ref_from_url(url)
+    is_sitemap = urlparse(url).path == urlparse(SITEMAP_URL).path
+    requested_ref = None if is_index or is_sitemap else mayo_clinic_ref_from_url(url)
     if is_index:
         _validate_index_url(url)
+    elif is_sitemap:
+        _validate_sitemap_url(url)
     retry_delays_seconds: list[float] = []
     last_error: PlaywrightError | None = None
     for attempt in range(1, MAX_FETCH_ATTEMPTS + 1):
@@ -274,8 +333,15 @@ def _playwright_fetch(page, url: str) -> FetchedHtml:  # noqa: ANN001
             continue
 
         try:
-            selector = _validate_rendered_route(page, url, is_index=is_index, requested_ref=requested_ref)
-            page.wait_for_selector(selector, timeout=15_000)
+            selector = _validate_rendered_route(
+                page,
+                url,
+                is_index=is_index,
+                is_sitemap=is_sitemap,
+                requested_ref=requested_ref,
+            )
+            if selector is not None:
+                page.wait_for_selector(selector, timeout=15_000)
         except MayoClinicPageUnavailableError:
             raise
         except PlaywrightError as error:
@@ -287,7 +353,12 @@ def _playwright_fetch(page, url: str) -> FetchedHtml:  # noqa: ANN001
             time.sleep(delay)
             continue
 
-        html_text = page.content()
+        if is_sitemap:
+            if response is None:
+                raise MayoClinicPageUnavailableError("Mayo Clinic sitemap navigation returned no response")
+            html_text = response.body().decode("utf-8")
+        else:
+            html_text = page.content()
         if len(html_text.encode("utf-8")) > MAX_HTML_BYTES:
             raise MayoClinicFetchError(f"Mayo Clinic HTML response exceeds the {MAX_HTML_BYTES}-byte limit")
         return html_text, _browser_receipt(
@@ -298,6 +369,7 @@ def _playwright_fetch(page, url: str) -> FetchedHtml:  # noqa: ANN001
             retry_delays_seconds=retry_delays_seconds,
             request_started_at_utc=request_started_at_utc,
             retrieval_duration_ms=max(0, round((time.perf_counter() - started) * 1000)),
+            content_type="text/xml; charset=utf-8" if is_sitemap else "text/html; charset=utf-8",
         )
 
     raise MayoClinicPageUnavailableError(
@@ -310,12 +382,16 @@ def _validate_rendered_route(
     url: str,
     *,
     is_index: bool,
+    is_sitemap: bool,
     requested_ref: MayoClinicArticleRef | None,
-) -> str:
+) -> str | None:
     """Validate the browser's final route and return its required content selector."""
     if is_index:
         _validate_index_url(page.url)
         return INDEX_RESULT_SELECTOR
+    if is_sitemap:
+        _validate_sitemap_url(page.url)
+        return None
     assert requested_ref is not None
     try:
         final_ref = mayo_clinic_ref_from_url(page.url)
@@ -438,6 +514,7 @@ def _scrape_article(
         "slug": ref.slug,
         "section": ref.section,
         "document_id": ref.document_id,
+        "condition_id": ref.slug,
         "publication": "Mayo Clinic",
         "content_scope": "article_section",
         "source_format_types": ["html"],
@@ -448,6 +525,16 @@ def _scrape_article(
         "ingestion_mode": ingestion_mode,
         "terms_url": TERMS_URL,
     }
+    if ref.discovery_url:
+        metadata.update(
+            {
+                "discovery_method": "official_condition_sitemap",
+                "discovery_url": ref.discovery_url,
+                "sitemap_last_modified": ref.sitemap_last_modified,
+                "inventory_index": item.inventory_index,
+                "inventory_total": item.inventory_total,
+            }
+        )
     published = _published_date(doc)
     if published:
         metadata["published"] = published
@@ -492,11 +579,11 @@ def scrape_mayo_clinic(
     manifest: Iterable[str] | None = None,
     headless: bool = True,
 ) -> ScrapeRun:
-    """Configure permission-gated manifest, direct-URL, or A-Z ingestion.
+    """Configure permission-gated manifest, direct-URL, or sitemap ingestion.
 
     Authorization and permission checks precede URL fetching and browser
     startup. A manifest remains the deterministic production option; without
-    one, a direct URL is accepted or the publisher A-Z index is traversed.
+    one, a direct URL is accepted or the publisher's condition sitemap is read.
     """
     if documents is not None and documents < 1:
         raise ValueError(f"documents must be at least 1; got {documents}")
@@ -532,24 +619,27 @@ def scrape_mayo_clinic(
     else:
         items = None
         total = None
-        ingestion_mode = "authorized_a_z_discovery"
-        seen: set[str] = set()
+        ingestion_mode = "authorized_sitemap_discovery"
 
         def list_discovery_page(fetch: PageFetch, page: int) -> Iterable[MayoClinicListingItem]:
-            if page > len(INDEX_LETTERS):
+            if page > 1:
                 return ()
-            refs, retrieval = list_mayo_clinic_index(fetch, letter=INDEX_LETTERS[page - 1])
-            page_items: list[MayoClinicListingItem] = []
-            for ref in refs:
-                if ref.page_url in seen:
-                    continue
-                seen.add(ref.page_url)
-                page_items.append(MayoClinicListingItem(ref, discovery_retrieval=retrieval))
-            return page_items
+            xml_text, retrieval = fetch(SITEMAP_URL)
+            refs = refs_from_sitemap_xml(xml_text, retrieval=retrieval)
+            return [
+                MayoClinicListingItem(
+                    ref,
+                    discovery_retrieval=retrieval,
+                    inventory_index=index,
+                    inventory_total=len(refs),
+                )
+                for index, ref in enumerate(refs)
+            ]
 
         listing_page_fn = list_discovery_page
 
     pending_discovery_failures: list[dict[str, str]] = []
+    all_discovery_failures: list[dict[str, str]] = []
     consecutive_discovery_failures = 0
     emitted = 0
 
@@ -564,7 +654,7 @@ def scrape_mayo_clinic(
                 ingestion_mode=ingestion_mode,
             )
         except MayoClinicPageUnavailableError as error:
-            if ingestion_mode != "authorized_a_z_discovery":
+            if ingestion_mode != "authorized_sitemap_discovery":
                 raise
             consecutive_discovery_failures += 1
             pending_discovery_failures.append(
@@ -575,10 +665,11 @@ def scrape_mayo_clinic(
                     "message": " ".join(str(error).split()),
                 }
             )
-            if consecutive_discovery_failures >= MAX_CONSECUTIVE_DISCOVERY_FAILURES:
+            all_discovery_failures.append(pending_discovery_failures[-1])
+            if documents is not None and consecutive_discovery_failures >= MAX_CONSECUTIVE_DISCOVERY_FAILURES:
                 failed_ids = ", ".join(failure["document_id"] for failure in pending_discovery_failures)
                 raise MayoClinicFetchError(
-                    "Mayo Clinic A-Z discovery stopped after "
+                    "Mayo Clinic sitemap discovery stopped after "
                     f"{consecutive_discovery_failures} consecutive unavailable articles ({failed_ids})"
                 ) from error
             return None
@@ -615,6 +706,12 @@ def scrape_mayo_clinic(
             raise MayoClinicFetchError(
                 f"Mayo Clinic {ingestion_mode} produced {emitted} of {expected_documents} requested documents"
                 f"{failure_detail}"
+            )
+        if expected_documents is None and all_discovery_failures:
+            raise MayoClinicFetchError(
+                "Mayo Clinic sitemap discovery attempted its complete inventory but could not render "
+                f"{len(all_discovery_failures)} article sections; last failure: "
+                f"{all_discovery_failures[-1]['message']}"
             )
 
     return ScrapeRun(
@@ -716,6 +813,7 @@ __all__ = [
     "MAX_FETCH_ATTEMPTS",
     "MAX_RETRY_DELAY_SECONDS",
     "RETRIABLE_STATUS_CODES",
+    "SITEMAP_URL",
     "TERMS_URL",
     "MayoClinicArticleRef",
     "MayoClinicFetchError",
@@ -727,5 +825,6 @@ __all__ = [
     "list_mayo_clinic_index",
     "mayo_clinic_ref_from_url",
     "refs_from_manifest",
+    "refs_from_sitemap_xml",
     "scrape_mayo_clinic",
 ]

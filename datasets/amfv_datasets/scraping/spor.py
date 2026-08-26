@@ -1,11 +1,13 @@
-"""Read the historical SPOR guideline asset map through explicit manifests.
+"""Audit current SPOR CPG surfaces and read the historical guideline asset map.
 
 The SPOR Evidence Alliance asset map is a static inventory that is current only
 through April 2018.  It is neither a current guideline crawler nor an endorsement
 of the linked documents.  This adapter can read link annotations from the
 official report PDF entirely in memory, or consume an operator-provided JSON/URL
 manifest.  It downloads only direct PDF entries and never follows publisher HTML
-pages to discover more material.
+pages to discover more material. Default collection walks the bounded official
+WordPress sitemap first so current inventory surfaces remain visible in each
+record's provenance.
 
 External guideline downloads require both an authorization assertion and a
 nonempty permission reference because the asset map does not grant
@@ -26,9 +28,10 @@ from email.utils import parsedate_to_datetime
 from io import BytesIO
 from pathlib import PurePosixPath
 from typing import Any
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import parse_qsl, unquote, urlsplit, urlunsplit
 
 import httpx
+from lxml import etree
 
 from amfv_datasets.scraping.base import (
     DnsResolver,
@@ -53,6 +56,7 @@ except ImportError:
     _PdfReader = None
 
 BASE_URL = "https://sporevidencealliance.ca"
+SITEMAP_URL = f"{BASE_URL}/wp-sitemap.xml"
 ASSET_MAP_PAGE_URL = f"{BASE_URL}/key-activities/cpg-asset-map/"
 ASSET_MAP_PDF_URL = (
     f"{BASE_URL}/wp-content/uploads/2018/04/SPOR-Evidence-Alliance_Asset-Map-of-Canadian-CPGs_Reportv3.pdf"
@@ -60,11 +64,14 @@ ASSET_MAP_PDF_URL = (
 ASSET_MAP_CURRENT_THROUGH = "2018-04"
 DOCUMENT_DELAY_SECONDS = 5.0
 PDF_TIMEOUT_SECONDS = 180.0
+MAX_HTML_BYTES = 16 * 1024 * 1024
 PUBLISHER_CONNECT_TIMEOUT_SECONDS = 15.0
 MAX_DISCOVERY_FAILURES = 128
 MAX_DOWNLOAD_RETRIES = 4
 MAX_TRANSPORT_RETRIES = 1
 MAX_RETRY_DELAY_SECONDS = 60.0
+MAX_SITEMAP_PAGES = 32
+SITEMAP_DELAY_SECONDS = 1.0
 HOST_CIRCUIT_FAILURES = 2
 _RETRYABLE_STATUS_CODES = frozenset({408, 425, 429, 500, 502, 503, 504})
 
@@ -169,6 +176,99 @@ class _AssetMapSource:
     refs: list[SporGuidelineRef]
     retrieval: dict[str, Any] | None
     adapter: str
+    sitemap_inventory: dict[str, Any] | None = None
+
+
+def _normalize_sitemap_url(url: str) -> str:
+    """Accept only SPOR's official WordPress sitemap routes."""
+    parsed = urlsplit(url.strip())
+    host = (parsed.hostname or "").casefold().rstrip(".")
+    if parsed.scheme != "https" or host not in _ASSET_MAP_HOSTS or parsed.query or parsed.fragment:
+        raise SporFetchError(f"SPOR sitemap discovery left the official host: {redact_url(url)!r}")
+    if parsed.path != "/wp-sitemap.xml" and not (
+        parsed.path.startswith("/wp-sitemap-") and parsed.path.endswith(".xml")
+    ):
+        raise SporFetchError(f"SPOR sitemap discovery used an unexpected route: {redact_url(url)!r}")
+    return urlunsplit(("https", "sporevidencealliance.ca", parsed.path, "", ""))
+
+
+def _sitemap_root(data: bytes, *, source_url: str) -> etree._Element:
+    if len(data) > MAX_HTML_BYTES:
+        raise SporFetchError(f"SPOR sitemap exceeds the {MAX_HTML_BYTES}-byte limit: {redact_url(source_url)!r}")
+    parser = etree.XMLParser(resolve_entities=False, no_network=True, recover=False)
+    try:
+        return etree.fromstring(data, parser=parser)
+    except etree.XMLSyntaxError as error:
+        raise SporFetchError(f"Could not parse SPOR sitemap {redact_url(source_url)!r}: {error}") from error
+
+
+def sitemap_page_urls(data: bytes, *, source_url: str = SITEMAP_URL) -> list[str]:
+    """Extract bounded English sitemap pages from SPOR's official index."""
+    root = _sitemap_root(data, source_url=source_url)
+    urls: list[str] = []
+    for value in root.xpath("//*[local-name()='sitemap']/*[local-name()='loc']/text()"):
+        raw_url = value.strip()
+        if urlsplit(raw_url).path.startswith("/fr/"):
+            continue
+        urls.append(_normalize_sitemap_url(raw_url))
+    urls = list(dict.fromkeys(urls))
+    if not urls or len(urls) > MAX_SITEMAP_PAGES:
+        raise SporFetchError(f"SPOR sitemap index must contain between 1 and {MAX_SITEMAP_PAGES} English pages")
+    return urls
+
+
+def relevant_sitemap_entries(data: bytes, *, source_url: str) -> list[dict[str, str | None]]:
+    """Keep sitemap pages that can define or describe the Canadian CPG inventory."""
+    root = _sitemap_root(data, source_url=source_url)
+    entries: list[dict[str, str | None]] = []
+    for item in root.xpath("//*[local-name()='url']"):
+        locations = item.xpath("./*[local-name()='loc']/text()")
+        if not locations:
+            continue
+        url = locations[0].strip()
+        parsed = urlsplit(url)
+        host = (parsed.hostname or "").casefold().rstrip(".")
+        path = parsed.path.casefold()
+        if parsed.scheme != "https" or host not in _ASSET_MAP_HOSTS or "/fr/" in path:
+            continue
+        if not any(marker in path for marker in ("cpg-asset-map", "clinical-practice-guideline")):
+            continue
+        modified = item.xpath("./*[local-name()='lastmod']/text()")
+        entries.append(
+            {
+                "url": urlunsplit(("https", "sporevidencealliance.ca", parsed.path, "", "")),
+                "last_modified": modified[0].strip() if modified else None,
+            }
+        )
+    return entries
+
+
+def _discover_sitemap_inventory(client: httpx.Client) -> dict[str, Any]:
+    """Read every English SPOR sitemap page and summarize current CPG catalogue surfaces."""
+    index = _download_with_backoff(client, SITEMAP_URL, max_bytes=MAX_HTML_BYTES, url_policy=_ASSET_MAP_URL_POLICY)
+    pages = sitemap_page_urls(index.data)
+    pacer = RequestStartPacer(SITEMAP_DELAY_SECONDS)
+    entries: list[dict[str, str | None]] = []
+    page_receipts: list[dict[str, Any]] = []
+    for page_url in pages:
+        pacer.wait()
+        downloaded = _download_with_backoff(
+            client, page_url, max_bytes=MAX_HTML_BYTES, url_policy=_ASSET_MAP_URL_POLICY
+        )
+        page_receipts.append(downloaded.provenance)
+        entries.extend(relevant_sitemap_entries(downloaded.data, source_url=page_url))
+    unique_entries = list({entry["url"]: entry for entry in entries}.values())
+    if not unique_entries:
+        raise SporFetchError("SPOR's current sitemap contained no clinical-practice-guideline inventory pages")
+    return {
+        "discovery_method": "official_wordpress_sitemap",
+        "sitemap_url": SITEMAP_URL,
+        "sitemap_index_retrieval": index.provenance,
+        "sitemap_page_retrievals": page_receipts,
+        "relevant_pages": unique_entries,
+        "inventory_format_type": "xml",
+        "inventory_media_type": "application/xml",
+    }
 
 
 def _normalize_asset_map_url(url: str) -> str:
@@ -223,6 +323,23 @@ def _normalize_direct_pdf_url(url: str) -> str:
     return _normalize_external_url(url, require_pdf_path=True)
 
 
+def _normalize_asset_map_pdf_url(url: str) -> str:
+    """Accept a fixed-report annotation that explicitly names a PDF anywhere in its URL."""
+    normalized = _normalize_external_url(url, require_pdf_path=False)
+    if ".pdf" not in normalized.casefold():
+        raise SporFetchError(f"SPOR asset-map entry does not identify a PDF resource; got {redact_url(url)!r}")
+    return normalized
+
+
+def _pdf_title_from_url(url: str) -> str:
+    """Derive a readable title from either a PDF path or a download query value."""
+    parsed = urlsplit(url)
+    candidates = [parsed.path, *(value for _name, value in parse_qsl(parsed.query, keep_blank_values=True))]
+    pdf_candidate = next((value for value in reversed(candidates) if ".pdf" in value.casefold()), parsed.path)
+    filename = PurePosixPath(unquote(pdf_candidate).split("?", 1)[0]).stem
+    return filename.replace("-", " ").replace("_", " ").strip().title() or "Guideline"
+
+
 def _manifest_dedup_key(url: str) -> tuple[str, str, str]:
     """Return a scheme-insensitive identity for an already validated PDF URL.
 
@@ -248,10 +365,11 @@ def _entry_value(entry: Mapping[str, Any], *keys: str) -> Any:
     return None
 
 
-def _ref_from_entry(entry: ManifestEntry) -> SporGuidelineRef:
+def _ref_from_entry(entry: ManifestEntry, *, asset_map_annotation: bool = False) -> SporGuidelineRef:
     """Normalize a string/object manifest entry into a direct-PDF reference."""
+    normalize_url = _normalize_asset_map_pdf_url if asset_map_annotation else _normalize_direct_pdf_url
     if isinstance(entry, SporGuidelineRef):
-        url = _normalize_direct_pdf_url(entry.pdf_url)
+        url = normalize_url(entry.pdf_url)
         return SporGuidelineRef(
             guideline_id=entry.guideline_id or _stable_guideline_id(url),
             title=entry.title,
@@ -261,11 +379,10 @@ def _ref_from_entry(entry: ManifestEntry) -> SporGuidelineRef:
             asset_map_page=entry.asset_map_page,
         )
     if isinstance(entry, str):
-        url = _normalize_direct_pdf_url(entry)
-        filename = PurePosixPath(urlsplit(url).path).stem
+        url = normalize_url(entry)
         return SporGuidelineRef(
             guideline_id=_stable_guideline_id(url),
-            title=filename.replace("-", " ").replace("_", " ").strip().title() or "Guideline",
+            title=_pdf_title_from_url(url),
             pdf_url=url,
         )
     if not isinstance(entry, Mapping):
@@ -273,11 +390,11 @@ def _ref_from_entry(entry: ManifestEntry) -> SporGuidelineRef:
     raw_url = _entry_value(entry, "url", "pdf_url", "download_url", "uri")
     if not isinstance(raw_url, str):
         raise SporFetchError("Each SPOR manifest object requires a direct PDF url")
-    url = _normalize_direct_pdf_url(raw_url)
+    url = normalize_url(raw_url)
     raw_title = _entry_value(entry, "title", "name", "guideline_title")
     title = clean_text(str(raw_title), drop_numeric_citations=False) if raw_title else ""
     if not title:
-        title = PurePosixPath(urlsplit(url).path).stem.replace("-", " ").replace("_", " ").title()
+        title = _pdf_title_from_url(url)
     raw_id = _entry_value(entry, "id", "guideline_id", "external_id")
     guideline_id = clean_text(str(raw_id), drop_numeric_citations=False) if raw_id else _stable_guideline_id(url)
     publisher = _entry_value(entry, "publisher", "developer", "organization")
@@ -378,7 +495,7 @@ def _pdf_entries_from_asset_map(
     seen: set[tuple[str, str, str]] = set()
     for entry in parsed:
         try:
-            ref = _ref_from_entry(entry)
+            ref = _ref_from_entry(entry, asset_map_annotation=True)
         except SporFetchError:
             # The report legitimately links publisher pages and references.
             # Those are inventory context, never implicit crawl targets.
@@ -462,6 +579,7 @@ def _resolve_source(
             adapter="pdf_link_annotations",
         )
 
+    sitemap_inventory = _discover_sitemap_inventory(client) if url is None else None
     report_url = _normalize_asset_map_url(url or ASSET_MAP_PDF_URL)
     downloaded = _download_with_backoff(
         client,
@@ -491,6 +609,7 @@ def _resolve_source(
         refs=refs,
         retrieval=retrieval,
         adapter="pdf_link_annotations",
+        sitemap_inventory=sitemap_inventory,
     )
 
 
@@ -668,7 +787,7 @@ def scrape_spor(
             host_transport_failures: dict[str, int] = {}
             blocked_hosts: set[str] = set()
             pacer = RequestStartPacer(DOCUMENT_DELAY_SECONDS)
-            for ref in source.refs:
+            for inventory_index, ref in enumerate(source.refs):
                 if documents is not None and emitted >= documents:
                     return
                 host = (urlsplit(ref.pdf_url).hostname or "").casefold().rstrip(".")
@@ -685,7 +804,7 @@ def scrape_spor(
                             ),
                         }
                     )
-                    if len(pending_failures) >= MAX_DISCOVERY_FAILURES:
+                    if documents is not None and len(pending_failures) >= MAX_DISCOVERY_FAILURES:
                         break
                     continue
                 pacing_delay_seconds = pacer.wait()
@@ -717,7 +836,7 @@ def scrape_spor(
                             "message": " ".join(str(error).split()),
                         }
                     )
-                    if len(pending_failures) >= MAX_DISCOVERY_FAILURES:
+                    if documents is not None and len(pending_failures) >= MAX_DISCOVERY_FAILURES:
                         break
                     continue
                 if pending_failures:
@@ -735,9 +854,16 @@ def scrape_spor(
                     pending_failures.clear()
                 document = replace(
                     document,
+                    metadata={
+                        **document.metadata,
+                        "inventory_index": inventory_index,
+                        "inventory_total": len(source.refs),
+                        **({"sitemap_inventory": source.sitemap_inventory} if source.sitemap_inventory else {}),
+                    },
                     provenance={
                         **document.provenance,
                         "request_start_pacing_delay_ms": max(0, round(pacing_delay_seconds * 1000)),
+                        **({"sitemap_inventory": source.sitemap_inventory} if source.sitemap_inventory else {}),
                     },
                 )
                 host_transport_failures.pop(host, None)
@@ -783,6 +909,8 @@ __all__ = [
     "MAX_DOWNLOAD_RETRIES",
     "MAX_RETRY_DELAY_SECONDS",
     "MAX_TRANSPORT_RETRIES",
+    "MAX_SITEMAP_PAGES",
+    "SITEMAP_URL",
     "AnnotationParser",
     "ClientFactory",
     "ManifestEntry",
@@ -792,6 +920,8 @@ __all__ = [
     "SporPermissionError",
     "refs_from_json_manifest",
     "refs_from_manifest",
+    "relevant_sitemap_entries",
     "scrape_guideline",
     "scrape_spor",
+    "sitemap_page_urls",
 ]

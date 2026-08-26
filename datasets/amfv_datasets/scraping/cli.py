@@ -62,10 +62,10 @@ def _permission_id(source_specific_env: str) -> str:
     return value
 
 
-def _icrc_manifest() -> list[str]:
+def _icrc_manifest() -> list[str] | None:
     manifest_value = os.environ.get(ICRC_MANIFEST_ENV, "").strip()
     if not manifest_value:
-        raise ScrapeError(f"ICRC collection mode requires {ICRC_MANIFEST_ENV}; direct --url mode does not")
+        return None
     path = Path(manifest_value).expanduser()
     try:
         size = path.stat().st_size
