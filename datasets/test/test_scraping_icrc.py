@@ -181,6 +181,8 @@ def test_scrape_publication_converts_official_pdf_with_provenance() -> None:
     assert document.title == "Guidelines on Mental Health and Psychosocial Support"
     assert document.metadata["publication_date"] == "2020-06-12"
     assert document.metadata["content_scope"] == "landing_page_and_full_pdf"
+    assert document.metadata["source_format_types"] == ["html", "pdf"]
+    assert document.metadata["source_media_types"] == ["text/html", "application/pdf"]
     assert document.metadata["pdf_resolution_status"] == "converted"
     assert document.metadata["pdf_url"] == _PDF_URL
     assert document.metadata["pdf_retrieval"]["byte_count"] == len(_PDF_BYTES)
@@ -253,6 +255,8 @@ def test_shop_html_falls_back_to_explicit_landing_scope() -> None:
     )
 
     assert document.metadata["content_scope"] == "landing_page_only"
+    assert document.metadata["source_format_types"] == ["html"]
+    assert document.metadata["source_media_types"] == ["text/html"]
     assert document.metadata["pdf_resolution_status"] == "unresolved"
     assert "did not resolve to a PDF" in document.metadata["pdf_error"]
     assert "Provide an official direct PDF URL" in document.metadata["resolution_action"]
@@ -593,6 +597,10 @@ def test_direct_pdf_capture_precedes_conversion() -> None:
         )
 
     assert document.metadata["pdf_conversion"]["page_count"] == 2
+    assert document.title == "Clinical framework"
+    assert document.external_id == "icrc-002-4311"
+    assert document.metadata["source_format_types"] == ["pdf"]
+    assert document.metadata["source_media_types"] == ["application/pdf"]
     assert len(sink.artifacts) == 1
     artifact = sink.artifacts[0]
     assert artifact["data"] == _PDF_BYTES

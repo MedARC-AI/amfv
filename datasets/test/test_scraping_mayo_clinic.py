@@ -358,6 +358,8 @@ def test_scrape_article_preserves_clinical_markdown_and_publisher_metadata(
     assert document.metadata["authors"] == ["Mayo Clinic Staff"]
     assert document.metadata["description"] == "Causes, symptoms and care for acne."
     assert document.metadata["content_scope"] == "article_section"
+    assert document.metadata["source_format_types"] == ["html"]
+    assert document.metadata["source_media_types"] == ["text/html"]
     assert document.metadata["license"] == "All rights reserved"
     assert document.metadata["permission_required"] is True
     assert document.metadata["permission_id"] == "MAYO-PERMISSION-2026-001"

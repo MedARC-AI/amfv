@@ -429,6 +429,16 @@ def _default_pdf_converter(data: bytes, title: str, publication_id: str) -> PdfC
     return convert_pdf(data, running_header=title, name=f"{publication_id}.pdf")
 
 
+def _markdown_title(markdown: str) -> str | None:
+    """Return the first level-one heading from converted PDF Markdown."""
+    for line in markdown.splitlines():
+        match = re.fullmatch(r"#\s+(.+?)\s*", line)
+        if match:
+            title = clean_text(match.group(1), drop_numeric_citations=False)
+            return title or None
+    return None
+
+
 def _converted_body(
     client: httpx.Client,
     *,
@@ -511,7 +521,7 @@ def scrape_publication(
             raise IcrcFetchError(str(error)) from error
         return _build_document(
             ref=ref,
-            title=ref.title,
+            title=_markdown_title(body.markdown) or ref.title,
             content=body.markdown,
             content_scope="full_pdf",
             pdf_url=ref.page_url,
@@ -632,13 +642,20 @@ def _build_document(
     permission_id: str,
 ) -> ScrapedDocument:
     """Assemble the stable metadata/provenance envelope for an ICRC record."""
+    external_id = (
+        ref.publication_id if ref.publication_id.casefold().startswith("icrc-") else f"icrc-{ref.publication_id}"
+    )
+    source_format_types = (["html"] if landing_retrieval is not None else []) + (["pdf"] if body else [])
+    source_media_types = (["text/html"] if landing_retrieval is not None else []) + (
+        ["application/pdf"] if body else []
+    )
     retrievals = [
         receipt for receipt in (landing_retrieval, shop_retrieval, body.retrieval if body else None) if receipt
     ]
     conversions = [body.conversion] if body else []
     return ScrapedDocument(
         source="icrc",
-        external_id=f"icrc-{ref.publication_id}",
+        external_id=external_id,
         title=title,
         url=ref.page_url,
         content=content,
@@ -647,6 +664,8 @@ def _build_document(
             "publication_id": ref.publication_id,
             "publication": "International Committee of the Red Cross",
             "content_scope": content_scope,
+            "source_format_types": source_format_types,
+            "source_media_types": source_media_types,
             "pdf_url": redact_url(pdf_url) if pdf_url else None,
             "pdf_resolution_status": pdf_status,
             "pdf_retrieval": body.retrieval if body else None,

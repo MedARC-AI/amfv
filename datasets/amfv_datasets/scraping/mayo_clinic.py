@@ -430,6 +430,8 @@ def _scrape_article(
         "document_id": ref.document_id,
         "publication": "Mayo Clinic",
         "content_scope": "article_section",
+        "source_format_types": ["html"],
+        "source_media_types": ["text/html"],
         "license": "All rights reserved",
         "permission_required": True,
         "permission_id": permission_id,

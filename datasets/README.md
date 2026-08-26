@@ -13,6 +13,12 @@ URL, stable external ID, normalized Markdown, source metadata, provenance, and
 the wall-clock time for that document. The command also reports total elapsed
 time and mean time per document on stderr.
 
+ICRC, Mayo Clinic, and SPOR records expose `source_format_types` and
+`source_media_types` in metadata. These describe the retrieved source
+artifacts (for example, `html`, `pdf`, `text/html`, and `application/pdf`),
+while `provenance.content_type` continues to describe the normalized Markdown
+output.
+
 ```console
 uv run amfv-scrape \
   --source nice \

@@ -556,6 +556,8 @@ def scrape_guideline(
             "authorization_asserted": True,
             "permission_id": normalized_permission_id,
             "content_scope": "full_pdf",
+            "source_format_types": ["pdf"],
+            "source_media_types": ["application/pdf"],
             "pdf_url": redact_url(ref.pdf_url),
             "pdf_retrieval": downloaded.provenance,
             "pdf_conversion": conversion,

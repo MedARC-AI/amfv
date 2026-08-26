@@ -181,6 +181,8 @@ def test_asset_map_annotation_adapter_converts_bounded_pdf_with_provenance() -> 
     document = documents[0]
     assert document.external_id == "spor-asset-alpha"
     assert document.metadata["content_scope"] == "full_pdf"
+    assert document.metadata["source_format_types"] == ["pdf"]
+    assert document.metadata["source_media_types"] == ["application/pdf"]
     assert document.metadata["publisher"] == "Example Health"
     assert document.metadata["document_license"] == "CC BY 4.0"
     assert document.metadata["asset_map_page"] == 7
