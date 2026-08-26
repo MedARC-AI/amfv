@@ -813,7 +813,11 @@ def scrape_icrc(
                         # A crashed or detached reused page must not make the
                         # remaining manifest less reliable than the former
                         # one-browser-per-product path. Retry once in a fresh
-                        # isolated browser and keep it for later products.
+                        # isolated browser and keep it for later products. Close
+                        # the former sync Playwright context first: Playwright
+                        # rejects starting a second sync context while its event
+                        # loop is still active in this thread.
+                        browser_stack.pop_all().close()
                         shared_shop_page = browser_stack.enter_context(_shop_playwright_page())
                         return _resolve_icrc_shop_pdf_on_page(shared_shop_page, shop_url)
 

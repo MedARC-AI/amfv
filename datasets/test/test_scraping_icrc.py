@@ -458,6 +458,86 @@ def test_manifest_reuses_one_shop_browser_without_changing_documents(
     assert documents[0].provenance["phase_timings_ms"]["pdf_conversion"] == 7
 
 
+def test_manifest_closes_failed_shop_browser_before_fresh_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A failed reused page is closed before Playwright is started again."""
+    landing_urls = [f"{BASE_URL}/en/publication/shop-retry-{index}" for index in range(2)]
+    shop_urls = [f"https://shop.icrc.org/shop-retry-{index}-print-en.html" for index in range(2)]
+    pdf_urls = [f"https://shop.icrc.org/download/ebook?sku=retry-{index}/002-ebook" for index in range(2)]
+    events: list[str] = []
+    browser_opens = 0
+    second_product_attempts = 0
+
+    @contextmanager
+    def shared_page() -> Iterator[str]:
+        nonlocal browser_opens
+        page = f"page-{browser_opens}"
+        browser_opens += 1
+        events.append(f"open:{page}")
+        try:
+            yield page
+        finally:
+            events.append(f"close:{page}")
+
+    def resolve_on_page(page: str, shop_url: str) -> ShopPdfResolution:
+        nonlocal second_product_attempts
+        index = shop_urls.index(shop_url)
+        events.append(f"resolve:{page}:{index}")
+        if index == 1:
+            second_product_attempts += 1
+            if second_product_attempts == 1:
+                raise icrc_module.PlaywrightError("detached reused page")
+        return ShopPdfResolution(
+            pdf_url=pdf_urls[index],
+            retrieval={"requested_url": shop_url, "transport": "playwright-ephemeral-browser"},
+        )
+
+    @contextmanager
+    def client_factory() -> Iterator[httpx.Client]:
+        def handler(request: httpx.Request) -> httpx.Response:
+            url = str(request.url)
+            if url in landing_urls:
+                index = landing_urls.index(url)
+                return httpx.Response(
+                    200,
+                    text=f"<html><main><h1>Publication {index}</h1>"
+                    f"<a href='{shop_urls[index]}'>Get the publication</a></main></html>",
+                )
+            index = pdf_urls.index(url)
+            return httpx.Response(200, content=f"%PDF-1.7 retry {index}".encode())
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            yield client
+
+    def converter(data: bytes, _title: str, _publication_id: str) -> PdfConversionResult:
+        return PdfConversionResult(markdown=f"# {data.decode()}", provenance={"backend": "test"})
+
+    monkeypatch.setattr(icrc_module, "DOCUMENT_DELAY_SECONDS", 0.0)
+    monkeypatch.setattr(icrc_module, "_shop_playwright_page", shared_page)
+    monkeypatch.setattr(icrc_module, "_resolve_icrc_shop_pdf_on_page", resolve_on_page)
+    documents = list(
+        scrape_icrc(
+            documents=2,
+            authorized=True,
+            permission_id=_PERMISSION_ID,
+            manifest=landing_urls,
+            client_factory=client_factory,
+            pdf_converter=converter,
+            shop_pdf_resolver=icrc_module.resolve_icrc_shop_pdf,
+        )
+    )
+
+    assert len(documents) == 2
+    assert events == [
+        "open:page-0",
+        "resolve:page-0:0",
+        "resolve:page-0:1",
+        "close:page-0",
+        "open:page-1",
+        "resolve:page-1:1",
+        "close:page-1",
+    ]
+
+
 def test_transient_download_uses_retry_after_and_records_attempts(monkeypatch: pytest.MonkeyPatch) -> None:
     """A transient publisher response is retried with bounded, auditable backoff."""
     requests: list[str] = []
