@@ -140,11 +140,11 @@ class DecompositionPrediction(_StrictModel):
 
 
 class DecompositionCase(_StrictModel):
-    """One stable prompt-and-response input case."""
+    """One stable response input case with an optional query."""
 
     schema_version: SchemaVersion
     case_id: Identifier
-    user_prompt: NonblankText
+    user_prompt: NonblankText | None = None
     assistant_response: NonblankText
 
 
@@ -188,7 +188,7 @@ class FactDecompRow(_StrictModel):
     external_id: Annotated[str, StringConstraints(pattern=_SHA256_PATTERN)]
     case_id: Identifier
     source: Literal["LLM"]
-    user_prompt: NonblankText
+    user_prompt: NonblankText | None
     assistant_response: NonblankText
     arm_id: Identifier
     generator: GeneratorProvenance

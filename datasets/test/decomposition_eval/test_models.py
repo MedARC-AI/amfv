@@ -76,6 +76,19 @@ def test_zero_claims_and_exact_prompt_bytes_are_valid() -> None:
         DecompositionPrediction.model_validate({})
 
 
+def test_response_only_case_projects_null_query() -> None:
+    """Preserve the absence of a query in the import artifact."""
+    case = DecompositionCase(schema_version=1, case_id="document-a", assistant_response="Alpha.")
+    prediction = DecompositionPrediction(
+        claims=[ExtractedClaim(claim="Alpha.", source_texts=["Alpha."], label="vital")]
+    )
+
+    row = project_prediction(case, prediction, arm_id="arm-a", generator=_generator())
+
+    assert row.user_prompt is None
+    assert json.loads(canonical_json(row))["user_prompt"] is None
+
+
 def test_model_schema_asks_for_quotes_and_not_offsets() -> None:
     """Keep deterministic character offsets outside the model contract."""
     schema = json.dumps(DecompositionPrediction.model_json_schema())

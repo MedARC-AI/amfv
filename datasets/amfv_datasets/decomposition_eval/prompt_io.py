@@ -60,14 +60,11 @@ def load_cases(path: Path) -> list[DecompositionCase]:
 
 def render_case(case: DecompositionCase) -> str:
     """Render the deterministic guidance-free case envelope."""
-    return (
-        "<USER_PROMPT>\n"
-        f"{case.user_prompt}\n"
-        "</USER_PROMPT>\n"
-        "<ASSISTANT_RESPONSE>\n"
-        f"{case.assistant_response}\n"
-        "</ASSISTANT_RESPONSE>"
-    )
+    sections: list[str] = []
+    if case.user_prompt is not None:
+        sections.append(f"## Query\n\n```plaintext\n{case.user_prompt}\n```")
+    sections.append(f"## Response\n\n```plaintext\n{case.assistant_response}\n```")
+    return "\n\n".join(sections)
 
 
 def build_preview(

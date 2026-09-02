@@ -15,10 +15,13 @@ PydanticAI requests provider-native JSON Schema output and validates it as a
 Pydantic model; generation does not use function tools or prompted JSON. The
 model copies exact source quotations but does not calculate character offsets.
 The harness deterministically resolves those quotations to Python code-point
-spans before it builds an import row.
+spans before it builds an import row. Each model request presents the query and
+response in labeled, three-backtick Markdown blocks.
 
-Generator input contains exactly `schema_version`, `case_id`, `user_prompt`,
-and `assistant_response`. Version 1 output is a strict `FACT_DECOMP` import row.
+Generator input contains `schema_version`, `case_id`, `assistant_response`, and
+an optional `user_prompt`. Omitting the prompt supports response-only material
+such as documents and reasoning traces. Version 1 output is a strict
+`FACT_DECOMP` import row.
 Each ordered claim has nonblank text, one or more exact Python code-point spans
 in the assistant response, and one label: `vital`, `supporting`, `peripheral`,
 or `duplicate`. Zero claims is valid. Unknown fields are rejected.

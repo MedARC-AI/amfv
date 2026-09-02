@@ -37,7 +37,7 @@ def test_prompt_bytes_and_case_envelope_are_exact(tmp_path: Path) -> None:
     assert preview["model"]["model_revision"] == "revision-a"
     assert preview["case_envelope"] == render_case(case)
     assert preview["case_envelope"] == (
-        "<USER_PROMPT>\nWhy?\n</USER_PROMPT>\n<ASSISTANT_RESPONSE>\nBecause.\n</ASSISTANT_RESPONSE>"
+        "## Query\n\n```plaintext\nWhy?\n```\n\n## Response\n\n```plaintext\nBecause.\n```"
     )
 
 
@@ -54,6 +54,20 @@ def test_prompt_has_no_fallback_and_duplicate_cases_fail(tmp_path: Path) -> None
     cases.write_text(row + row, encoding="utf-8")
     with pytest.raises(ValueError, match="duplicate case_id"):
         load_cases(cases)
+
+
+def test_response_only_case_omits_query_section(tmp_path: Path) -> None:
+    """Render documents and reasoning traces without an invented query."""
+    cases = tmp_path / "cases.jsonl"
+    cases.write_text(
+        '{"schema_version":1,"case_id":"document-a","assistant_response":"Standalone document."}\n',
+        encoding="utf-8",
+    )
+
+    case = load_cases(cases)[0]
+
+    assert case.user_prompt is None
+    assert render_case(case) == "## Response\n\n```plaintext\nStandalone document.\n```"
 
 
 def test_invalid_case_errors_do_not_disclose_input_values(tmp_path: Path) -> None:
