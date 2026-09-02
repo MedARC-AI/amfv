@@ -9,12 +9,17 @@ dependencies = [
     "httpx>=0.25.1,<1.0.0",
     "lxml>=5.0.0",
     "markdownify>=0.14.0,<2.0.0",
+    "pydantic>=2.12,<3",
     "rich>=13.7.0,<15.0.0",
     "typer>=0.12.0,<1.0.0",
 ]
 
+[project.optional-dependencies]
+decomposition-eval = ["pydantic-ai-slim[openai]==2.33.0"]
+
 [project.scripts]
 amfv-scrape = "amfv_datasets.scraping.cli:main"
+amfv-decomposition-eval = "amfv_datasets.decomposition_eval.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.11,<0.12"]

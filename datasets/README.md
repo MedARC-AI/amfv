@@ -6,6 +6,28 @@ Covers ingesting and normalizing source corpora, generating synthetic data with 
 
 Workspace member (`amfv-datasets`).
 
+## Decomposition-evaluation JSONL contract
+
+Install the `decomposition-eval` extra to preview prompts or generate model
+artifacts. The command always reads the evaluation instructions from a caller-
+supplied UTF-8 file; the package contains no default evaluation prompt.
+PydanticAI requests provider-native JSON Schema output and validates it as a
+Pydantic model; generation does not use function tools or prompted JSON. The
+model copies exact source quotations but does not calculate character offsets.
+The harness deterministically resolves those quotations to Python code-point
+spans before it builds an import row.
+
+Generator input contains exactly `schema_version`, `case_id`, `user_prompt`,
+and `assistant_response`. Version 1 output is a strict `FACT_DECOMP` import row.
+Each ordered claim has nonblank text, one or more exact Python code-point spans
+in the assistant response, and one label: `vital`, `supporting`, `peripheral`,
+or `duplicate`. Zero claims is valid. Unknown fields are rejected.
+
+`external_id` is the SHA-256 digest of `case_id`, a null byte, and `arm_id`.
+The prompt hash covers the exact prompt-file bytes. Canonical output contains no
+timestamps, run identifiers, credentials, provider messages, or free-form
+metadata, so rerunning the same case and arm produces a stable identity.
+
 ## Scraped-document JSONL contract
 
 `amfv-scrape` emits one deterministic UTF-8 JSON object per line for each
