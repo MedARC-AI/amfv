@@ -37,38 +37,29 @@ def validate_fact_decomp_ratings(
     item: EvalItem,
     facts: list[EvalFact],
     *,
-    fact_calls: dict[str, str],
+    fact_calls: list[str],
     values: dict[str, str],
 ) -> dict:
     if item.eval_type != EvalType.FACT_DECOMP:
         raise ValueError(
             "Fact-decomposition ratings can only be submitted for FACT_DECOMP items."
         )
-    required = {fact.fact_uuid for fact in facts}
-    submitted = set(fact_calls)
-    if submitted != required:
-        missing = sorted(required - submitted)
-        extra = sorted(submitted - required)
-        pieces = []
-        if missing:
-            pieces.append(f"missing calls for {', '.join(missing)}")
-        if extra:
-            pieces.append(f"unknown fact ids {', '.join(extra)}")
-        raise ValueError("; ".join(pieces))
-    unknown_calls = {
-        call for call in fact_calls.values() if call not in FACT_CALL_OPTIONS
-    }
+    ordered = sorted(facts, key=lambda fact: fact.position)
+    if len(fact_calls) != len(ordered):
+        raise ValueError(
+            "FACT_DECOMP fact_calls must contain exactly one call per fact."
+        )
+    unknown_calls = {call for call in fact_calls if call not in FACT_CALL_OPTIONS}
     if unknown_calls:
         raise ValueError(f"Unknown fact call: {', '.join(sorted(unknown_calls))}")
     _validate_options(values, _allowed_options(FACT_DECOMP_DIMENSIONS))
-    polarity_by_uuid = {fact.fact_uuid: fact.polarity.value for fact in facts}
     return {
         **values,
         "fact_calls": fact_calls,
-        "fact_agreement": {
-            fact_uuid: _fact_agreement(call, polarity_by_uuid[fact_uuid])
-            for fact_uuid, call in fact_calls.items()
-        },
+        "fact_agreement": [
+            _fact_agreement(call, fact.polarity.value)
+            for fact, call in zip(ordered, fact_calls, strict=True)
+        ],
     }
 
 

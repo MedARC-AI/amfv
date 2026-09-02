@@ -20,7 +20,7 @@ from amfv_datasets.decomposition_eval.models import (
     prompt_hash_for,
     validate_identifier,
 )
-from amfv_datasets.decomposition_eval.prompt_io import load_cases, load_prompt
+from amfv_datasets.decomposition_eval.prompt_io import load_cases, load_prompt, validate_output_path
 from amfv_datasets.decomposition_eval.runtime import OwnedModelRuntime, RuntimeConfig, build_model_runtime
 
 __all__ = ["generate_artifact", "run_arm"]
@@ -90,6 +90,7 @@ async def generate_artifact(
     runtime_factory: Callable[[RuntimeConfig], OwnedModelRuntime] = build_model_runtime,
 ) -> list[FactDecompRow]:
     """Generate all rows and atomically replace the output only after success."""
+    validate_output_path(output_path, input_path=input_path, prompt_path=prompt_path)
     cases = load_cases(input_path)
     instructions = load_prompt(prompt_path)
     if concurrency < 1:

@@ -199,12 +199,6 @@ def _evidence_count(paragraph_indices: list, chunk_ids: list) -> int:
 def _validate_fact_decomp(result: ValidationResult, facts: list[EvalFact]) -> None:
     if any(not normalize_text(fact.fact_text) for fact in facts):
         result.blocking.append("Facts cannot be empty.")
-    fact_uuids = [fact.fact_uuid for fact in facts]
-    duplicate_uuids = {
-        fact_uuid for fact_uuid in fact_uuids if fact_uuids.count(fact_uuid) > 1
-    }
-    if duplicate_uuids:
-        result.blocking.append("FACT_DECOMP fact UUIDs must be unique.")
     positions = [fact.position for fact in facts]
     duplicate_positions = {
         position for position in positions if positions.count(position) > 1

@@ -166,6 +166,7 @@ def dataset_judgments_for_all(
             EvalItem,
             col(ReviewTask.item_a_id) == col(EvalItem.id),
         )
+        .where(col(FactDecompReview.source) != "web_model_eval")
     )
     if dataset_id is not None:
         statement = statement.where(col(ReviewTask.dataset_id) == dataset_id)
@@ -185,9 +186,11 @@ def dataset_judgments_for_all(
         if not review.ratings:
             continue
         for key, value in review.ratings.items():
-            if key == "fact_calls" and isinstance(value, dict):
-                for fact_uuid, call in value.items():
-                    output["fact_call"][f"fact:{fact_uuid}"][review.user_id] = str(call)
+            if key == "fact_calls" and isinstance(value, list):
+                for position, call in enumerate(value):
+                    output["fact_call"][f"task:{task.id}:fact:{position}"][
+                        review.user_id
+                    ] = str(call)
             elif key == "found_in":
                 continue
             elif isinstance(value, str):

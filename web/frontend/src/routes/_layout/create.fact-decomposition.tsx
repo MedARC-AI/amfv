@@ -78,20 +78,16 @@ function uncertainFactSaveMessage(command: FactSaveCommandKind): string {
     : "Submission outcome is unknown. It was not retried automatically; do not assume the item was submitted."
 }
 
-function newFact(position: number, polarity: FactDraft["polarity"]): FactDraft {
+function newFact(polarity: FactDraft["polarity"]): FactDraft {
   return {
-    fact_uuid:
-      globalThis.crypto?.randomUUID?.() ??
-      `fact-${Date.now().toString(36)}-${position}`,
     fact_text: "",
     polarity,
-    position,
     provenance_spans: [],
   }
 }
 
 function initialFacts(): FactDraft[] {
-  return [newFact(0, "SHOULD_LIST"), newFact(1, "SHOULD_NOT_LIST")]
+  return [newFact("SHOULD_LIST"), newFact("SHOULD_NOT_LIST")]
 }
 
 function evidenceForSubmit(spans: EvidenceSpan[] | undefined): EvidenceSpan[] {
@@ -104,13 +100,10 @@ function evidenceForSubmit(spans: EvidenceSpan[] | undefined): EvidenceSpan[] {
 }
 
 function normalizeFacts(facts: FactDraft[]): FactDraft[] {
-  return [...facts]
-    .sort((left, right) => left.position - right.position)
-    .map((fact, position) => ({
-      ...fact,
-      position,
-      provenance_spans: evidenceForSubmit(fact.provenance_spans),
-    }))
+  return facts.map((fact) => ({
+    ...fact,
+    provenance_spans: evidenceForSubmit(fact.provenance_spans),
+  }))
 }
 
 function moveSpan(
@@ -145,9 +138,9 @@ function FactDecompositionCreate() {
   )
   const [sourceText, setSourceText] = React.useState("")
   const [facts, setFacts] = React.useState<FactDraft[]>(() => initialFacts())
-  const [selectedFactUuid, setSelectedFactUuid] = React.useState<string | null>(
-    null,
-  )
+  const [selectedFactIndex, setSelectedFactIndex] = React.useState<
+    number | null
+  >(null)
   const [validation, setValidation] = React.useState<ValidationPreview | null>(
     null,
   )
@@ -157,18 +150,19 @@ function FactDecompositionCreate() {
   const [writeOutcomeUnknown, setWriteOutcomeUnknown] = React.useState(false)
 
   const selectedFact =
-    facts.find((fact) => fact.fact_uuid === selectedFactUuid) ?? facts[0]
+    (selectedFactIndex !== null ? facts[selectedFactIndex] : undefined) ??
+    facts[0]
 
   React.useEffect(() => {
-    if (!selectedFactUuid && facts[0]) {
-      setSelectedFactUuid(facts[0].fact_uuid)
+    if (selectedFactIndex === null && facts[0]) {
+      setSelectedFactIndex(0)
     } else if (
-      selectedFactUuid &&
-      !facts.some((fact) => fact.fact_uuid === selectedFactUuid)
+      selectedFactIndex !== null &&
+      selectedFactIndex >= facts.length
     ) {
-      setSelectedFactUuid(facts[0]?.fact_uuid ?? null)
+      setSelectedFactIndex(facts.length > 0 ? facts.length - 1 : null)
     }
-  }, [facts, selectedFactUuid])
+  }, [facts, selectedFactIndex])
 
   const optionsQuery = useQuery({
     queryKey: ["create-options"],
@@ -339,7 +333,7 @@ function FactDecompositionCreate() {
     setActiveDocumentId(null)
     setSourceText("")
     setFacts(initialFacts())
-    setSelectedFactUuid(null)
+    setSelectedFactIndex(null)
     setValidation(null)
     setResultMessage(null)
     setDraftIdentity(null)
@@ -362,12 +356,12 @@ function FactDecompositionCreate() {
   }
 
   const addProvenanceSpan = (span: EvidenceSpan) => {
-    if (!selectedFact) {
+    if (selectedFactIndex === null || !selectedFact) {
       return
     }
     updateFacts(
-      facts.map((fact) =>
-        fact.fact_uuid === selectedFact.fact_uuid
+      facts.map((fact, index) =>
+        index === selectedFactIndex
           ? {
               ...fact,
               provenance_spans: [
@@ -385,12 +379,12 @@ function FactDecompositionCreate() {
   )
 
   const updateSelectedFactSpans = (nextSpans: EvidenceSpan[]) => {
-    if (!selectedFact) {
+    if (selectedFactIndex === null || !selectedFact) {
       return
     }
     updateFacts(
-      facts.map((fact) =>
-        fact.fact_uuid === selectedFact.fact_uuid
+      facts.map((fact, index) =>
+        index === selectedFactIndex
           ? { ...fact, provenance_spans: nextSpans }
           : fact,
       ),
@@ -453,18 +447,16 @@ function FactDecompositionCreate() {
             <Label>Selected fact</Label>
             <Select
               disabled={facts.length === 0}
-              onValueChange={setSelectedFactUuid}
-              value={selectedFact?.fact_uuid}
+              onValueChange={(value) => setSelectedFactIndex(Number(value))}
+              value={selectedFactIndex?.toString()}
             >
               <SelectTrigger className="w-full" data-testid="fact-select">
                 <SelectValue placeholder="Select fact for provenance" />
               </SelectTrigger>
               <SelectContent>
-                {facts.map((fact) => (
-                  <SelectItem key={fact.fact_uuid} value={fact.fact_uuid}>
-                    {`Fact ${fact.position + 1}: ${
-                      fact.fact_text || "Untitled"
-                    }`}
+                {facts.map((fact, index) => (
+                  <SelectItem key={index} value={index.toString()}>
+                    {`Fact ${index + 1}: ${fact.fact_text || "Untitled"}`}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -498,7 +490,12 @@ function FactDecompositionCreate() {
             />
           </div>
 
-          <FactListEditor facts={facts} onChange={updateFacts} />
+          <FactListEditor
+            facts={facts}
+            onChange={updateFacts}
+            onSelectedFactIndexChange={setSelectedFactIndex}
+            selectedFactIndex={selectedFactIndex}
+          />
 
           {activeDocumentQuery.isLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -554,7 +551,7 @@ function FactDecompositionCreate() {
             spans={factEvidenceTraySpans(selectedFact)}
             title={
               selectedFact
-                ? `Provenance for fact ${selectedFact.position + 1}`
+                ? `Provenance for fact ${(selectedFactIndex ?? 0) + 1}`
                 : "Provenance"
             }
           />

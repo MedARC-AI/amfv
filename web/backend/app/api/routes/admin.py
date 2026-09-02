@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator, Sequence
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from sqlalchemy import String, cast
 from sqlmodel import col, func, select
 
 from app.api.deps import (
@@ -20,6 +21,7 @@ from app.models import (
     EvalFact,
     EvalItem,
     EvalType,
+    FactDecompReview,
     ItemStatus,
     RetrievalQAReview,
     ReviewerKind,
@@ -29,6 +31,9 @@ from app.models import (
 from app.schemas import (
     AdminAgreementMetric,
     AdminExport,
+    AdminExportAuthoredItem,
+    AdminExportItem,
+    AdminExportModelCorrectionItem,
     AdminInterUserAgreementMetric,
     AdminItemSummary,
     AdminModerationAction,
@@ -42,8 +47,9 @@ from app.schemas import (
     DocumentImportError,
     DocumentImportSummary,
     DocumentSummary,
+    FactDecompImportSummary,
 )
-from app.services import document_import
+from app.services import document_import, fact_decomp_import
 from app.services.admin_metrics import user_activity_metrics
 from app.services.agreement import (
     JudgmentVolumeExceeded,
@@ -53,6 +59,13 @@ from app.services.agreement import (
 )
 from app.services.documents import (
     create_document_with_chunks,
+)
+from app.services.fact_decomp_review import (
+    CorrectionMetadataError,
+    ModelCorrectionRating,
+    is_model_correction_item,
+    project_model_claims,
+    read_correction_metadata,
 )
 
 router = APIRouter(
@@ -67,6 +80,8 @@ MAX_IMPORT_ERROR_MESSAGE_CHARS = 1_024
 DEFAULT_ADMIN_PAGE_SIZE = 100
 MAX_ADMIN_METRIC_PAGE_SIZE = 500
 MAX_ADMIN_EXPORT_PAGE_SIZE = 1_000
+MAX_ADMIN_EXPORT_REVIEW_ROWS = 5_000
+MAX_ADMIN_EXPORT_SERIALIZED_BYTES = 16 * 1024 * 1024
 MAX_SYNC_AGREEMENT_JUDGMENTS = 5_000
 
 
@@ -439,9 +454,70 @@ def read_inter_user_agreement(
     return rows
 
 
-@router.post("/ingest")
-def ingest_dataset() -> Any:
-    raise HTTPException(status_code=501, detail="Ingest is not implemented yet")
+@router.post("/ingest", response_model=FactDecompImportSummary)
+async def ingest_dataset(
+    session: SessionDep,
+    dataset_id: int = Form(...),
+    file: UploadFile = File(...),
+    dry_run: bool = Form(False),
+    current_user: User = Depends(get_current_active_superuser),
+) -> FactDecompImportSummary:
+    """Import bounded, versioned FACT_DECOMP JSONL rows."""
+    _ = current_user
+    dataset = _get_dataset_or_404(session, dataset_id)
+    if not dataset.is_active or dataset.eval_type != EvalType.FACT_DECOMP:
+        raise HTTPException(
+            status_code=404, detail="Active FACT_DECOMP dataset not found"
+        )
+
+    summary = FactDecompImportSummary(
+        created=0,
+        unchanged=0,
+        rejected=0,
+        errors=[],
+        dry_run=dry_run,
+    )
+    try:
+        _ensure_import_transaction(session)
+        async for line_number, raw_line in _iter_jsonl_lines(file):
+            if not raw_line.strip():
+                continue
+            try:
+                payload = _decode_jsonl_object(raw_line)
+                row = fact_decomp_import.parse_fact_decomp_row(payload)
+                result = fact_decomp_import.import_fact_decomp(
+                    session,
+                    dataset=dataset,
+                    row=row,
+                    # Keep preview rows visible to later lines so duplicate and
+                    # conflict checks match a real import. The request-level
+                    # rollback below keeps the preview side-effect free.
+                    dry_run=False,
+                )
+            except (
+                UnicodeDecodeError,
+                document_import.DocumentImportRowError,
+                fact_decomp_import.FactDecompImportRowError,
+            ) as exc:
+                _record_import_error(summary, line_number, str(exc))
+                continue
+            if result.status == "created":
+                summary.created += 1
+            else:
+                summary.unchanged += 1
+        if dry_run:
+            session.rollback()
+        else:
+            session.commit()
+    except ImportArtifactTooLargeError as exc:
+        session.rollback()
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        await file.close()
+    return summary
 
 
 @router.get("/export", response_model=AdminExport)
@@ -455,22 +531,102 @@ def export_dataset(
         le=MAX_ADMIN_EXPORT_PAGE_SIZE,
     ),
 ) -> Any:
-    statement = select(EvalItem).order_by(col(EvalItem.dataset_id), col(EvalItem.id))
+    statement = select(EvalItem.id).order_by(col(EvalItem.dataset_id), col(EvalItem.id))
     count_statement = select(func.count(col(EvalItem.id)))
     if dataset_id is not None:
         _get_dataset_or_404(session, dataset_id)
         statement = statement.where(col(EvalItem.dataset_id) == dataset_id)
         count_statement = count_statement.where(col(EvalItem.dataset_id) == dataset_id)
     total = session.exec(count_statement).one()
-    items = session.exec(statement.offset(offset).limit(limit)).all()
+    item_ids = list(session.exec(statement.offset(offset).limit(limit)).all())
+    _ensure_export_content_budget(session, item_ids)
+    items = (
+        session.exec(
+            select(EvalItem)
+            .where(col(EvalItem.id).in_(item_ids))
+            .order_by(col(EvalItem.dataset_id), col(EvalItem.id))
+        ).all()
+        if item_ids
+        else []
+    )
+    exported_items = _export_items(session, items)
+    serialized_bytes = sum(
+        len(item.model_dump_json().encode("utf-8")) for item in exported_items
+    )
+    if serialized_bytes > MAX_ADMIN_EXPORT_SERIALIZED_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                "Export exceeds the "
+                f"{MAX_ADMIN_EXPORT_SERIALIZED_BYTES}-byte serialized-content limit"
+            ),
+        )
     return AdminExport(
         dataset_id=dataset_id,
         offset=offset,
         limit=limit,
         total=total,
         next_offset=offset + len(items) if offset + len(items) < total else None,
-        items=_export_items(session, items),
+        items=exported_items,
     )
+
+
+def _ensure_export_content_budget(session: SessionDep, item_ids: list[int]) -> None:
+    """Reject oversized pages before loading claim-heavy JSON and fact rows."""
+    if not item_ids:
+        return
+    item_characters = session.exec(
+        select(
+            func.coalesce(
+                func.sum(
+                    func.coalesce(func.length(EvalItem.prompt_text), 0)
+                    + func.coalesce(func.length(EvalItem.lazy_query), 0)
+                    + func.coalesce(func.length(EvalItem.expected_answer), 0)
+                    + func.coalesce(
+                        func.length(cast(EvalItem.item_metadata, String)), 0
+                    )
+                    + func.coalesce(
+                        func.length(cast(EvalItem.evidence_spans, String)), 0
+                    )
+                ),
+                0,
+            )
+        ).where(col(EvalItem.id).in_(item_ids))
+    ).one()
+    fact_characters = session.exec(
+        select(func.coalesce(func.sum(func.length(EvalFact.fact_text)), 0)).where(
+            col(EvalFact.item_id).in_(item_ids)
+        )
+    ).one()
+    review_characters = session.exec(
+        select(
+            func.coalesce(
+                func.sum(
+                    func.coalesce(
+                        func.length(cast(FactDecompReview.ratings, String)), 0
+                    )
+                    + func.coalesce(func.length(FactDecompReview.comment), 0)
+                    + func.coalesce(
+                        func.length(cast(FactDecompReview.flags, String)), 0
+                    )
+                ),
+                0,
+            )
+        )
+        .join(ReviewTask, col(FactDecompReview.task_id) == col(ReviewTask.id))
+        .where(col(ReviewTask.item_a_id).in_(item_ids))
+    ).one()
+    # Four bytes per code point is a conservative UTF-8 upper bound. The exact
+    # serialized-size check below accounts for JSON punctuation and escaping.
+    estimated_bytes = 4 * int(item_characters + fact_characters + review_characters)
+    if estimated_bytes > MAX_ADMIN_EXPORT_SERIALIZED_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                "Export exceeds the "
+                f"{MAX_ADMIN_EXPORT_SERIALIZED_BYTES}-byte content limit"
+            ),
+        )
 
 
 def _get_dataset_or_404(session: SessionDep, dataset_id: int) -> Dataset:
@@ -527,7 +683,7 @@ def _decode_jsonl_object(raw_line: bytes) -> object:
 
 
 def _record_import_error(
-    summary: DocumentImportSummary,
+    summary: DocumentImportSummary | FactDecompImportSummary,
     line_number: int,
     message: str,
 ) -> None:
@@ -612,7 +768,9 @@ def _moderate_item(
     return item
 
 
-def _export_items(session: SessionDep, items: Sequence[EvalItem]) -> list[dict]:
+def _export_items(
+    session: SessionDep, items: Sequence[EvalItem]
+) -> list[AdminExportItem]:
     """Serialize one bounded export page with a fixed query count."""
     item_ids = [item.id for item in items if item.id is not None]
     if not item_ids:
@@ -655,13 +813,34 @@ def _export_items(session: SessionDep, items: Sequence[EvalItem]) -> list[dict]:
         if document_ids
         else {}
     )
-    task_counts = dict(
-        session.exec(
-            select(col(ReviewTask.item_a_id), func.count(col(ReviewTask.id)))
-            .where(col(ReviewTask.item_a_id).in_(item_ids))
-            .group_by(col(ReviewTask.item_a_id))
-        ).all()
-    )
+    tasks_by_item: defaultdict[int, list[ReviewTask]] = defaultdict(list)
+    fact_reviews_by_task: defaultdict[int, list[FactDecompReview]] = defaultdict(list)
+    task_review_rows = session.exec(
+        select(ReviewTask, FactDecompReview)
+        .join(
+            FactDecompReview,
+            col(FactDecompReview.task_id) == col(ReviewTask.id),
+            isouter=True,
+        )
+        .where(col(ReviewTask.item_a_id).in_(item_ids))
+        .order_by(
+            col(ReviewTask.item_a_id), col(ReviewTask.id), col(FactDecompReview.id)
+        )
+        .limit(MAX_ADMIN_EXPORT_REVIEW_ROWS + 1)
+    ).all()
+    if len(task_review_rows) > MAX_ADMIN_EXPORT_REVIEW_ROWS:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Export exceeds the {MAX_ADMIN_EXPORT_REVIEW_ROWS} review-row limit",
+        )
+    seen_task_ids: set[int] = set()
+    for task, review in task_review_rows:
+        if task.id is not None and task.id not in seen_task_ids:
+            tasks_by_item[task.item_a_id].append(task)
+            seen_task_ids.add(task.id)
+        if review is not None:
+            fact_reviews_by_task[review.task_id].append(review)
+    task_counts = {item_id: len(tasks) for item_id, tasks in tasks_by_item.items()}
     reviews_by_item: defaultdict[int, list[RetrievalQAReview]] = defaultdict(list)
     for review in session.exec(
         select(RetrievalQAReview)
@@ -670,7 +849,7 @@ def _export_items(session: SessionDep, items: Sequence[EvalItem]) -> list[dict]:
     ).all():
         reviews_by_item[review.item_id].append(review)
 
-    rows = []
+    rows: list[AdminExportItem] = []
     for item in items:
         assert item.id is not None
         chunks = [
@@ -683,63 +862,174 @@ def _export_items(session: SessionDep, items: Sequence[EvalItem]) -> list[dict]:
             for document_id in sorted({chunk.document_id for chunk in chunks})
             if document_id in documents_by_id
         ]
-        rows.append(
-            {
-                "id": item.id,
-                "dataset_id": item.dataset_id,
-                "eval_type": item.eval_type,
-                "status": item.status,
-                "prompt_text": item.prompt_text,
-                "expected_answer": item.expected_answer,
-                "category": item.category,
-                "evidence_spans": item.evidence_spans or [],
-                "evidence_chunks": [
-                    {
-                        "id": chunk.id,
-                        "document_id": chunk.document_id,
-                        "external_id": chunk.external_id,
-                        "position": chunk.position,
-                        "text": chunk.text,
-                    }
-                    for chunk in chunks
-                ],
-                "evidence_documents": [
-                    {
-                        "id": document.id,
-                        "external_id": document.external_id,
-                        "title": document.title,
-                    }
-                    for document in documents
-                ],
-                "facts": [
-                    {
-                        "fact_uuid": fact.fact_uuid,
-                        "fact_text": fact.fact_text,
-                        "polarity": fact.polarity,
-                        "position": fact.position,
-                    }
-                    for fact in facts_by_item[item.id]
-                ],
-                "review_task_count": task_counts.get(item.id, 0),
-                "retrieval_reviews": [
-                    {
-                        "id": review.id,
-                        "assignment_id": review.assignment_id,
-                        "user_id": str(review.user_id),
-                        "question_validity": review.question_validity,
-                        "evidence_quality": review.evidence_quality,
-                        "answer_correctness": review.answer_correctness,
-                        "answer_faithfulness": review.answer_faithfulness,
-                        "notes": review.notes,
-                        "verdict": review.verdict,
-                        "skipped": review.skipped,
-                        "skip_reason": review.skip_reason,
-                    }
-                    for review in reviews_by_item[item.id]
-                ],
-            }
-        )
+        if is_model_correction_item(item):
+            try:
+                metadata = read_correction_metadata(item)
+            except CorrectionMetadataError as exc:
+                raise HTTPException(status_code=500, detail=str(exc)) from exc
+            if item.external_id is None:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Imported correction item has no external identity",
+                )
+            rows.append(
+                AdminExportModelCorrectionItem(
+                    review_mode="MODEL_LABEL_CORRECTION",
+                    id=item.id,
+                    dataset_id=item.dataset_id,
+                    eval_type=EvalType.FACT_DECOMP,
+                    status=item.status,
+                    external_id=item.external_id,
+                    case_id=metadata.case_id,
+                    arm_id=metadata.arm_id,
+                    canonical_row_sha256=metadata.canonical_row_sha256,
+                    user_prompt=item.lazy_query,
+                    assistant_response=item.prompt_text,
+                    generator=metadata.generator.model_dump(mode="json"),
+                    claims=_export_model_claims(item, facts_by_item[item.id]),
+                    review_task=(
+                        _export_review_task(tasks_by_item[item.id][0])
+                        if tasks_by_item[item.id]
+                        else None
+                    ),
+                    review_task_count=task_counts.get(item.id, 0),
+                    correction_reviews=[
+                        _export_correction_review(review)
+                        for task in tasks_by_item[item.id]
+                        for review in _reviews_for_task(fact_reviews_by_task, task)
+                    ],
+                )
+            )
+        else:
+            rows.append(
+                AdminExportAuthoredItem(
+                    review_mode="AUTHORED",
+                    id=item.id,
+                    dataset_id=item.dataset_id,
+                    eval_type=item.eval_type,
+                    status=item.status,
+                    prompt_text=item.prompt_text,
+                    expected_answer=item.expected_answer,
+                    category=item.category,
+                    evidence_spans=item.evidence_spans or [],
+                    evidence_chunks=[
+                        {
+                            "id": chunk.id,
+                            "document_id": chunk.document_id,
+                            "external_id": chunk.external_id,
+                            "position": chunk.position,
+                            "text": chunk.text,
+                        }
+                        for chunk in chunks
+                    ],
+                    evidence_documents=[
+                        {
+                            "id": document.id,
+                            "external_id": document.external_id,
+                            "title": document.title,
+                        }
+                        for document in documents
+                    ],
+                    facts=[
+                        {
+                            "fact_text": fact.fact_text,
+                            "polarity": fact.polarity,
+                            "position": fact.position,
+                        }
+                        for fact in facts_by_item[item.id]
+                    ],
+                    review_task_count=task_counts.get(item.id, 0),
+                    retrieval_reviews=[
+                        {
+                            "id": review.id,
+                            "assignment_id": review.assignment_id,
+                            "user_id": str(review.user_id),
+                            "question_validity": review.question_validity,
+                            "evidence_quality": review.evidence_quality,
+                            "answer_correctness": review.answer_correctness,
+                            "answer_faithfulness": review.answer_faithfulness,
+                            "notes": review.notes,
+                            "verdict": review.verdict,
+                            "skipped": review.skipped,
+                            "skip_reason": review.skip_reason,
+                        }
+                        for review in reviews_by_item[item.id]
+                    ],
+                    fact_decomp_reviews=[
+                        _export_fact_review(review)
+                        for task in tasks_by_item[item.id]
+                        for review in _reviews_for_task(fact_reviews_by_task, task)
+                    ],
+                )
+            )
     return rows
+
+
+def _reviews_for_task(
+    reviews_by_task: defaultdict[int, list[FactDecompReview]],
+    task: ReviewTask,
+) -> list[FactDecompReview]:
+    return reviews_by_task[task.id] if task.id is not None else []
+
+
+def _export_model_claims(item: EvalItem, facts: list[EvalFact]) -> list[dict]:
+    try:
+        _metadata, claims = project_model_claims(item, facts)
+    except CorrectionMetadataError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return [
+        {
+            "claim": claim.claim_text,
+            "position": claim.position,
+            "spans": [span.model_dump(mode="json") for span in claim.response_spans],
+            "proposed_label": claim.proposed_label,
+        }
+        for claim in claims
+    ]
+
+
+def _export_review_task(task: ReviewTask) -> dict:
+    return {
+        "id": task.id,
+        "is_active": task.is_active,
+        "is_gold": task.is_gold,
+        "labels_count": task.labels_count,
+        "priority_score": task.priority_score,
+    }
+
+
+def _export_fact_review(review: FactDecompReview) -> dict:
+    return {
+        "id": review.id,
+        "user_id": str(review.user_id),
+        "item_revision": review.item_revision,
+        "ratings": review.ratings or {},
+        "reviewer_kind": review.reviewer_kind,
+        "comment": review.comment,
+        "flags": review.flags or {},
+        "source": review.source,
+    }
+
+
+def _export_correction_review(review: FactDecompReview) -> dict:
+    try:
+        ratings = ModelCorrectionRating.model_validate(review.ratings or {})
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=500, detail="Stored correction review is invalid"
+        ) from exc
+    return {
+        "id": review.id,
+        "user_id": str(review.user_id),
+        "item_revision": review.item_revision,
+        "proposed_labels": ratings.proposed_labels,
+        "final_labels": ratings.final_labels,
+        "missing_claims": [
+            claim.model_dump(mode="json") for claim in ratings.missing_claims
+        ],
+        "reviewer_kind": review.reviewer_kind,
+        "source": review.source,
+    }
 
 
 def _item_chunk_ids(item: EvalItem) -> set[int]:

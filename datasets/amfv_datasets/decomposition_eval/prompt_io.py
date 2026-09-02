@@ -16,7 +16,19 @@ from amfv_datasets.decomposition_eval.models import (
     validate_identifier,
 )
 
-__all__ = ["build_preview", "load_cases", "load_prompt", "render_case"]
+__all__ = ["build_preview", "load_cases", "load_prompt", "render_case", "validate_output_path"]
+
+
+def validate_output_path(output_path: Path, *, input_path: Path, prompt_path: Path) -> None:
+    """Reject an output path that aliases either immutable source file."""
+    for source_name, source_path in (("input", input_path), ("prompt", prompt_path)):
+        same_resolved_path = output_path.resolve() == source_path.resolve()
+        try:
+            same_file = output_path.samefile(source_path)
+        except FileNotFoundError:
+            same_file = False
+        if same_resolved_path or same_file:
+            raise ValueError(f"output path must not alias the {source_name} file: {output_path}")
 
 
 def load_prompt(path: Path) -> str:

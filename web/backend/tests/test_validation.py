@@ -83,7 +83,6 @@ def test_fact_decomp_requires_both_polarities() -> None:
         facts = [
             EvalFact(
                 item_id=item.id,
-                fact_uuid="fact-1",
                 fact_text="A listed fact.",
                 polarity=FactPolarity.SHOULD_LIST,
                 position=0,
@@ -117,21 +116,18 @@ def test_fact_decomp_warns_on_duplicate_and_context_dependent_facts() -> None:
         facts = [
             EvalFact(
                 item_id=item.id,
-                fact_uuid="fact-1",
                 fact_text="This drug reduced symptoms.",
                 polarity=FactPolarity.SHOULD_LIST,
                 position=0,
             ),
             EvalFact(
                 item_id=item.id,
-                fact_uuid="fact-2",
                 fact_text="Noise answer choice.",
                 polarity=FactPolarity.SHOULD_NOT_LIST,
                 position=1,
             ),
             EvalFact(
                 item_id=item.id,
-                fact_uuid="fact-3",
                 fact_text="Noise answer choice.",
                 polarity=FactPolarity.SHOULD_NOT_LIST,
                 position=2,

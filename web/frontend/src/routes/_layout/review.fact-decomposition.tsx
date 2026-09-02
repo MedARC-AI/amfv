@@ -6,10 +6,16 @@ import * as React from "react"
 import {
   type FactDecompReviewSubmit,
   type JudgmentConfidence,
+  type ModelEvalReviewSubmit,
+  type ModelFactDecompReviewPayload,
   type ReviewFact,
   type ReviewRubricDimension,
   ReviewService,
 } from "@/client"
+import {
+  type CorrectionInputClaim,
+  FactDecompositionCorrection,
+} from "@/components/annotation/FactDecompositionCorrection"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -52,12 +58,8 @@ function optionLabel(value: string): string {
     .join(" ")
 }
 
-function initialFactCalls(
-  facts: ReviewFact[] | undefined,
-): Record<string, string> {
-  return Object.fromEntries(
-    (facts ?? []).map((fact) => [fact.fact_uuid, fact.polarity]),
-  )
+function initialFactCalls(facts: ReviewFact[] | undefined): string[] {
+  return (facts ?? []).map((fact) => fact.polarity)
 }
 
 function initialRubricValues(
@@ -71,8 +73,19 @@ function initialRubricValues(
   )
 }
 
+function correctionClaims(
+  payload: ModelFactDecompReviewPayload,
+): CorrectionInputClaim[] {
+  return payload.claims.map((entry) => ({
+    claim_text: entry.claim_text,
+    position: entry.position,
+    response_spans: entry.response_spans,
+    proposed_label: entry.proposed_label,
+  }))
+}
+
 function FactDecompositionReview() {
-  const [factCalls, setFactCalls] = React.useState<Record<string, string>>({})
+  const [factCalls, setFactCalls] = React.useState<string[]>([])
   const [rubricValues, setRubricValues] = React.useState<
     Record<string, string>
   >({})
@@ -83,6 +96,7 @@ function FactDecompositionReview() {
     string | null
   >(null)
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
+  const [modelSubmitting, setModelSubmitting] = React.useState(false)
   const initializedTaskId = React.useRef<number | null>(null)
 
   const nextQuery = useQuery({
@@ -114,11 +128,14 @@ function FactDecompositionReview() {
       return
     }
     initializedTaskId.current = payload.task_id
-    setFactCalls(initialFactCalls(payload.facts))
-    setRubricValues(initialRubricValues(payload.rubric_dimensions))
+    if (payload.review_mode === "AUTHORED_RUBRIC") {
+      setFactCalls(initialFactCalls(payload.facts))
+      setRubricValues(initialRubricValues(payload.rubric_dimensions))
+    }
     setComments("")
     setCompletionMessage(null)
     setErrorMessage(null)
+    setModelSubmitting(false)
   }, [payload])
 
   const submitMutation = useMutation({
@@ -139,6 +156,7 @@ function FactDecompositionReview() {
   const submitReview = () => {
     if (
       !payload ||
+      payload.review_mode !== "AUTHORED_RUBRIC" ||
       completionMessage ||
       !isReviewActionAllowed(payload.allowed_actions, "save_review")
     ) {
@@ -196,6 +214,41 @@ function FactDecompositionReview() {
     return null
   }
 
+  if (payload.review_mode === "MODEL_LABEL_CORRECTION") {
+    return (
+      <FactDecompositionCorrection
+        key={payload.task_id}
+        canSubmit={isReviewActionAllowed(
+          payload.allowed_actions,
+          "save_model_eval",
+        )}
+        claims={correctionClaims(payload)}
+        completionMessage={completionMessage}
+        errorMessage={errorMessage}
+        onSubmit={(submission) => {
+          setErrorMessage(null)
+          setModelSubmitting(true)
+          const requestBody: ModelEvalReviewSubmit = {
+            ...submission,
+            item_revision: payload.item_revision,
+          }
+          ReviewService.submitModelEvalReview({
+            taskId: taskId as number,
+            requestBody,
+          })
+            .then(() => {
+              setCompletionMessage("Correction submitted.")
+            })
+            .catch((error: unknown) => setErrorMessage(apiErrorMessage(error)))
+            .finally(() => setModelSubmitting(false))
+        }}
+        query={payload.user_prompt}
+        response={payload.assistant_response}
+        submitting={modelSubmitting}
+      />
+    )
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -220,8 +273,8 @@ function FactDecompositionReview() {
             <h2 className="text-base font-semibold tracking-normal">
               Ordered Facts
             </h2>
-            {(payload.facts ?? []).map((fact) => (
-              <div className="rounded-md border p-4" key={fact.fact_uuid}>
+            {(payload.facts ?? []).map((fact, index) => (
+              <div className="rounded-md border p-4" key={index}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-xs text-muted-foreground">
@@ -239,16 +292,17 @@ function FactDecompositionReview() {
                   <Label>Reviewer call</Label>
                   <Select
                     onValueChange={(value) =>
-                      setFactCalls((current) => ({
-                        ...current,
-                        [fact.fact_uuid]: value,
-                      }))
+                      setFactCalls((current) =>
+                        current.map((call, callIndex) =>
+                          callIndex === index ? value : call,
+                        ),
+                      )
                     }
-                    value={factCalls[fact.fact_uuid] ?? fact.polarity}
+                    value={factCalls[index] ?? fact.polarity}
                   >
                     <SelectTrigger
                       className="w-full"
-                      data-testid={`fact-call-${fact.fact_uuid}`}
+                      data-testid={`fact-call-${index}`}
                     >
                       <SelectValue />
                     </SelectTrigger>

@@ -387,10 +387,12 @@ class FactDecompSaveReceipt(TimestampMixin, table=True):
 
 class EvalFact(TimestampMixin, table=True):
     __tablename__ = "eval_fact"
+    __table_args__ = (
+        UniqueConstraint("item_id", "position", name="uq_eval_fact_item_position"),
+    )
 
     id: int | None = Field(default=None, primary_key=True)
     item_id: int = Field(foreign_key="eval_item.id", nullable=False, index=True)
-    fact_uuid: str = Field(index=True, nullable=False)
     fact_text: str = Field(nullable=False)
     polarity: FactPolarity = Field(nullable=False, max_length=32)
     position: int = Field(default=0, nullable=False)

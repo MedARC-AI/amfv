@@ -83,17 +83,13 @@ def _fact_payload(dataset: Dataset, source_text: str) -> dict:
         "source_text": source_text,
         "facts": [
             {
-                "fact_uuid": "wanted",
                 "fact_text": "Baker appears in the source text.",
                 "polarity": "SHOULD_LIST",
-                "position": 0,
                 "provenance_spans": [],
             },
             {
-                "fact_uuid": "unwanted",
                 "fact_text": "An unsupported answer should not be listed.",
                 "polarity": "SHOULD_NOT_LIST",
-                "position": 1,
                 "provenance_spans": [],
             },
         ],

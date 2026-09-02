@@ -134,6 +134,68 @@ test("saves one fact-decomposition draft twice, then submits that same item", as
   ).toBe(3)
 })
 
+test("keeps provenance on the selected fact after move and preceding-row removal", async ({
+  page,
+}) => {
+  await chooseDataset(page)
+  await chooseSourceDocument(page)
+  await page.getByRole("button", { name: "Use document text" }).click()
+
+  await page.getByLabel("Fact 1").fill("Remove this preceding fact.")
+  await page
+    .getByLabel("Fact 2")
+    .fill("Baker does not appear in the E2E source.")
+  await page.getByRole("button", { name: "Add fact" }).click()
+  await page.getByLabel("Fact 3").fill("Baker appears in the E2E source.")
+
+  await page.getByTestId("fact-select").click()
+  await page
+    .getByRole("option", {
+      name: "Fact 2: Baker does not appear in the E2E source.",
+    })
+    .click()
+
+  const intendedRow = page.getByLabel("Fact 2").locator("xpath=ancestor::li")
+  await intendedRow.getByRole("button", { name: "Move fact down" }).click()
+
+  const precedingRow = page.getByLabel("Fact 1").locator("xpath=ancestor::li")
+  await precedingRow.getByRole("button", { name: "Remove fact" }).click()
+
+  await expect(page.getByTestId("fact-select")).toContainText(
+    "Fact 2: Baker does not appear in the E2E source.",
+  )
+  await selectEvidenceText(page, "Baker")
+
+  let submissionRequest: Record<string, unknown> | undefined
+  await page.route("**/api/v1/create/fact-decomp/submit", async (route) => {
+    submissionRequest = route.request().postDataJSON() as Record<
+      string,
+      unknown
+    >
+    await route.continue()
+  })
+  await page.getByRole("button", { name: "Validate" }).click()
+  await expect(page.getByText("Validation passed")).toBeVisible()
+  await page.getByRole("button", { name: "Save draft" }).click()
+  await expect(
+    page.getByText(/Draft saved as item \d+ \(revision 1\)\./),
+  ).toBeVisible()
+  await page.getByRole("button", { name: "Submit" }).click()
+  await expect(page.getByText(/Submitted item \d+\./)).toBeVisible()
+
+  const submittedFacts = submissionRequest?.facts as
+    | Array<Record<string, unknown>>
+    | undefined
+  expect(submittedFacts?.[1]).toMatchObject({
+    fact_text: "Baker does not appear in the E2E source.",
+    provenance_spans: [expect.objectContaining({ text: "Baker" })],
+  })
+  expect(submittedFacts?.[0]).toMatchObject({
+    fact_text: "Baker appears in the E2E source.",
+    provenance_spans: [],
+  })
+})
+
 test("does not report a first fact draft as saved when the request fails before commit", async ({
   page,
 }) => {

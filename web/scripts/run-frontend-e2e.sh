@@ -18,12 +18,14 @@ cleanup() {
 trap cleanup EXIT
 
 ensure_node() {
-  if command -v node >/dev/null 2>&1; then
+  if command -v node >/dev/null 2>&1 \
+    && node -e 'process.exit(process.versions.bun ? 1 : 0)' 2>/dev/null; then
     NODE_BIN="$(command -v node)"
     return
   fi
 
-  local node_version="v22.12.0"
+  # Playwright 1.58 uses the modern ESM loader hooks available in Node 24.
+  local node_version="v24.8.0"
   local node_dir="${TMP_DIR}/node-${node_version}"
   local node_archive="${TMP_DIR}/node-${node_version}.tar.xz"
 
@@ -57,6 +59,10 @@ export VITE_API_URL="http://127.0.0.1:8000"
 export PLAYWRIGHT_HTML_OPEN="never"
 
 ensure_node
+# `bun run` injects a Bun-backed NODE path. Playwright's real Node process must
+# choose its own executable when it starts ESM transform workers.
+unset NODE npm_node_execpath npm_execpath
+export PATH="$(dirname "${NODE_BIN}"):${PATH}"
 
 cd "${ROOT_DIR}/backend"
 uv run python -m app.scripts.bootstrap wait-for-database

@@ -8,7 +8,7 @@ Current baseline
 
 - `backend/`: FastAPI, SQLModel, Alembic, SQLite.
 - `frontend/`: Vite, React, TypeScript, TanStack Router/Query, Bun tooling.
-- `docs/ingest-format.md`: versioned producer-to-document JSONL contract.
+- `docs/ingest-format.md`: versioned document and FACT_DECOMP JSONL contracts.
 - `docs/frontend-architecture.md`: React/API ownership, auth notes, and text-span contract.
 - `docs/operations.md`: launch, tooling, generated-artifact, and deferred deployment ownership.
 
@@ -118,7 +118,11 @@ The interactive product currently includes:
 - home/my-work summary counts and next-task recommendation;
 - admin datasets, generic JSONL document import, documents, moderation, task generation, bounded export, paginated user metrics, agreement, and inter-user agreement.
 
-The AMFV-specific `/api/v1/admin/users*`, user-review-history, and legacy item-ingest endpoints are still intentionally deferred and should not be presented as working surfaces. Document import is the separate, working `/api/v1/admin/documents/import` contract described in `docs/ingest-format.md`.
+The AMFV-specific `/api/v1/admin/users*` and user-review-history endpoints are
+still intentionally deferred. Document import uses
+`/api/v1/admin/documents/import`; generated FACT_DECOMP item import uses
+`/api/v1/admin/ingest`. Both contracts are described in
+`docs/ingest-format.md`.
 
 Signup is invite-gated. OAuth is postponed. SQLite is the current database target, with Alembic migrations rather than `create_all`.
 

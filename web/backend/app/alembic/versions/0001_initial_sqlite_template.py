@@ -180,15 +180,14 @@ def upgrade():
         "eval_fact",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("item_id", sa.Integer(), nullable=False),
-        sa.Column("fact_uuid", _str(), nullable=False),
         sa.Column("fact_text", _str(), nullable=False),
         sa.Column("polarity", _str(32), nullable=False),
         sa.Column("position", sa.Integer(), nullable=False),
         *_timestamps(),
         sa.ForeignKeyConstraint(["item_id"], ["eval_item.id"]),
         sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("item_id", "position", name="uq_eval_fact_item_position"),
     )
-    op.create_index(op.f("ix_eval_fact_fact_uuid"), "eval_fact", ["fact_uuid"])
     op.create_index(op.f("ix_eval_fact_item_id"), "eval_fact", ["item_id"])
 
     op.create_table(

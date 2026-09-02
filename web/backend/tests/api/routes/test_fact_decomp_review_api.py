@@ -59,7 +59,6 @@ def test_fact_decomp_next_selects_task_without_placeholder_review(
     db.add(
         EvalFact(
             item_id=item.id,
-            fact_uuid="fact-1",
             fact_text="Alpha is true.",
             polarity=FactPolarity.SHOULD_LIST,
             position=1,
@@ -92,7 +91,11 @@ def test_fact_decomp_next_selects_task_without_placeholder_review(
     assert payload.status_code == 200
     body = payload.json()
     assert body["kind"] == "fact_decomp"
-    assert body["facts"][0]["fact_uuid"] == "fact-1"
+    assert body["facts"][0] == {
+        "fact_text": "Alpha is true.",
+        "polarity": "SHOULD_LIST",
+        "position": 1,
+    }
     assert [row["key"] for row in body["rubric_dimensions"]] == [
         "independently_verifiable",
         "noise_removed",
@@ -249,14 +252,12 @@ def test_fact_decomp_review_submit_persists_review_and_updates_labels(
     db.flush()
     should_fact = EvalFact(
         item_id=item.id,
-        fact_uuid="fact-should",
         fact_text="Alpha is true.",
         polarity=FactPolarity.SHOULD_LIST,
         position=0,
     )
     should_not_fact = EvalFact(
         item_id=item.id,
-        fact_uuid="fact-should-not",
         fact_text="Beta is true.",
         polarity=FactPolarity.SHOULD_NOT_LIST,
         position=1,
@@ -271,10 +272,7 @@ def test_fact_decomp_review_submit_persists_review_and_updates_labels(
         f"{settings.API_V1_STR}/review/fact-decomp/{task.id}",
         headers=normal_user_token_headers,
         json={
-            "fact_calls": {
-                "fact-should": "SHOULD_LIST",
-                "fact-should-not": "SHOULD_NOT_LIST",
-            },
+            "fact_calls": ["SHOULD_LIST", "SHOULD_NOT_LIST"],
             "values": {
                 "independently_verifiable": "pass",
                 "noise_removed": "pass",
@@ -300,10 +298,7 @@ def test_fact_decomp_review_submit_persists_review_and_updates_labels(
     assert review.comment == "Ready."
     assert review.flags == {"confidence": "EASY_CALL"}
     assert review.ratings["independently_verifiable"] == "pass"
-    assert review.ratings["fact_agreement"] == {
-        "fact-should": "agree",
-        "fact-should-not": "agree",
-    }
+    assert review.ratings["fact_agreement"] == ["agree", "agree"]
     db.refresh(task)
     assert task.labels_count == 2
 
@@ -311,10 +306,7 @@ def test_fact_decomp_review_submit_persists_review_and_updates_labels(
         f"{settings.API_V1_STR}/review/fact-decomp/{task.id}",
         headers=normal_user_token_headers,
         json={
-            "fact_calls": {
-                "fact-should": "SHOULD_LIST",
-                "fact-should-not": "SHOULD_NOT_LIST",
-            },
+            "fact_calls": ["SHOULD_LIST", "SHOULD_NOT_LIST"],
             "values": {
                 "independently_verifiable": "pass",
                 "noise_removed": "pass",
@@ -377,7 +369,6 @@ def test_fact_decomp_review_submit_rejects_stale_invalid_and_self_review(
     db.add(
         EvalFact(
             item_id=item.id,
-            fact_uuid="fact-gamma",
             fact_text="Gamma is true.",
             polarity=FactPolarity.SHOULD_LIST,
             position=0,
@@ -386,7 +377,6 @@ def test_fact_decomp_review_submit_rejects_stale_invalid_and_self_review(
     db.add(
         EvalFact(
             item_id=invalid_item.id,
-            fact_uuid="fact-delta",
             fact_text="Delta is true.",
             polarity=FactPolarity.SHOULD_LIST,
             position=0,
@@ -404,7 +394,7 @@ def test_fact_decomp_review_submit_rejects_stale_invalid_and_self_review(
         f"{settings.API_V1_STR}/review/fact-decomp/{stale_task.id}",
         headers=normal_user_token_headers,
         json={
-            "fact_calls": {"fact-gamma": "SHOULD_LIST"},
+            "fact_calls": ["SHOULD_LIST"],
             "values": {
                 "independently_verifiable": "pass",
                 "noise_removed": "pass",
@@ -419,7 +409,7 @@ def test_fact_decomp_review_submit_rejects_stale_invalid_and_self_review(
         f"{settings.API_V1_STR}/review/fact-decomp/{invalid_task.id}",
         headers=normal_user_token_headers,
         json={
-            "fact_calls": {},
+            "fact_calls": [],
             "values": {
                 "independently_verifiable": "pass",
                 "noise_removed": "pass",
@@ -429,13 +419,13 @@ def test_fact_decomp_review_submit_rejects_stale_invalid_and_self_review(
         },
     )
     assert invalid.status_code == 400
-    assert "missing calls" in invalid.json()["detail"][0]["message"]
+    assert "exactly one call per fact" in invalid.json()["detail"][0]["message"]
 
     self_review = client.post(
         f"{settings.API_V1_STR}/review/fact-decomp/{self_task.id}",
         headers=normal_user_token_headers,
         json={
-            "fact_calls": {},
+            "fact_calls": [],
             "values": {
                 "independently_verifiable": "pass",
                 "noise_removed": "pass",

@@ -8,7 +8,13 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from amfv_datasets.decomposition_eval.models import GenerationSettings
-from amfv_datasets.decomposition_eval.prompt_io import build_preview, load_cases, load_prompt, preview_json
+from amfv_datasets.decomposition_eval.prompt_io import (
+    build_preview,
+    load_cases,
+    load_prompt,
+    preview_json,
+    validate_output_path,
+)
 from amfv_datasets.decomposition_eval.run import generate_artifact
 from amfv_datasets.decomposition_eval.runtime import ModelFamily, RuntimeConfig
 
@@ -58,6 +64,8 @@ def _generation(arguments: argparse.Namespace) -> GenerationSettings:
 
 
 def _preview(arguments: argparse.Namespace) -> None:
+    if arguments.output is not None:
+        validate_output_path(arguments.output, input_path=arguments.input, prompt_path=arguments.prompt_file)
     cases = load_cases(arguments.input)
     if arguments.case_id is None:
         case = cases[0]

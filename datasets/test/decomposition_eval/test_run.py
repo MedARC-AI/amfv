@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +54,23 @@ def _config() -> RuntimeConfig:
         timeout_seconds=2,
         generation={"max_tokens": 50, "temperature": 0.1},
     )
+
+
+def _source_alias(kind: str, *, input_path: Path, prompt_path: Path, tmp_path: Path) -> Path:
+    if kind == "exact-input":
+        return input_path
+    if kind == "normalized-input":
+        (tmp_path / "nested").mkdir()
+        return tmp_path / "nested" / ".." / input_path.name
+    if kind == "symlink-prompt":
+        alias = tmp_path / "prompt-symlink.txt"
+        alias.symlink_to(prompt_path)
+        return alias
+    if kind == "hardlink-prompt":
+        alias = tmp_path / "prompt-hardlink.txt"
+        os.link(prompt_path, alias)
+        return alias
+    raise AssertionError(f"unknown test alias: {kind}")
 
 
 def test_batch_is_bounded_ordered_and_closes_client(tmp_path: Path) -> None:
@@ -180,6 +198,41 @@ def test_invalid_arm_fails_before_runtime_construction(tmp_path: Path) -> None:
         )
     assert not constructed
     assert not output_path.exists()
+
+
+@pytest.mark.parametrize(
+    "alias_kind",
+    ["exact-input", "normalized-input", "symlink-prompt", "hardlink-prompt"],
+)
+def test_output_alias_fails_before_runtime_construction_and_preserves_sources(tmp_path: Path, alias_kind: str) -> None:
+    """Reject lexical and inode aliases before provider construction or writes."""
+    input_path, _output_path, prompt_path = _paths(tmp_path)
+    output_path = _source_alias(alias_kind, input_path=input_path, prompt_path=prompt_path, tmp_path=tmp_path)
+    original_input = input_path.read_bytes()
+    original_prompt = prompt_path.read_bytes()
+    constructed = False
+
+    def factory(_config: RuntimeConfig) -> Any:
+        nonlocal constructed
+        constructed = True
+        raise AssertionError("runtime must not be constructed")
+
+    with pytest.raises(ValueError, match=r"output path must not alias the (input|prompt) file"):
+        asyncio.run(
+            generate_artifact(
+                input_path,
+                output_path,
+                prompt_path,
+                prompt_id="prompt-a",
+                arm_id="arm-a",
+                config=_config(),
+                runtime_factory=factory,
+            )
+        )
+
+    assert not constructed
+    assert input_path.read_bytes() == original_input
+    assert prompt_path.read_bytes() == original_prompt
 
 
 def test_rows_exclude_private_and_volatile_fields(tmp_path: Path) -> None:

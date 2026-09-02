@@ -63,7 +63,6 @@ def representative_admin_data(db: Session) -> Generator[Dataset, None, None]:
         db.add(
             EvalFact(
                 item_id=item.id,
-                fact_uuid=f"bounded-fact-{index:03d}",
                 fact_text=f"Representative fact {index}",
                 polarity=FactPolarity.SHOULD_LIST,
                 position=0,
@@ -217,7 +216,7 @@ def test_export_is_paginated_with_constant_query_count(
     assert volume.json()["items"][0]["facts"][0]["fact_text"]
     assert volume.json()["items"][0]["review_task_count"] == 1
     assert small_queries == volume_queries
-    assert volume_queries == 7
+    assert volume_queries == 11
 
     too_large = client.get(
         f"{settings.API_V1_STR}/admin/export?limit=1001",

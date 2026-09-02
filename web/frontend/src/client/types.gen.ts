@@ -8,13 +8,136 @@ export type AdminAgreementMetric = {
 
 export type AdminExport = {
     dataset_id?: (number | null);
-    items?: Array<{
-        [key: string]: unknown;
-    }>;
+    items?: Array<(AdminExportAuthoredItem | AdminExportModelCorrectionItem)>;
     limit: number;
     next_offset?: (number | null);
     offset: number;
     total: number;
+};
+
+export type AdminExportAuthoredItem = {
+    category: (RetrievalCategory | null);
+    dataset_id: number;
+    eval_type: EvalType;
+    evidence_chunks: Array<AdminExportEvidenceChunk>;
+    evidence_documents: Array<AdminExportEvidenceDocument>;
+    evidence_spans: Array<EvidenceSpan>;
+    expected_answer: (string | null);
+    fact_decomp_reviews: Array<AdminExportFactReview>;
+    facts: Array<AdminExportFact>;
+    id: number;
+    prompt_text: string;
+    retrieval_reviews: Array<AdminExportRetrievalReview>;
+    review_mode: "AUTHORED";
+    review_task_count: number;
+    status: ItemStatus;
+};
+
+export type AdminExportCorrectionReview = {
+    final_labels: Array<('vital' | 'supporting' | 'peripheral' | 'duplicate')>;
+    id: number;
+    item_revision: number;
+    missing_claims: Array<MissingModelClaim>;
+    proposed_labels: Array<('vital' | 'supporting' | 'peripheral' | 'duplicate')>;
+    reviewer_kind: string;
+    source: string;
+    user_id: string;
+};
+
+export type AdminExportEvidenceChunk = {
+    document_id: number;
+    external_id: string;
+    id: number;
+    position: number;
+    text: string;
+};
+
+export type AdminExportEvidenceDocument = {
+    external_id: string;
+    id: number;
+    title: string;
+};
+
+export type AdminExportFact = {
+    fact_text: string;
+    polarity: FactPolarity;
+    position: number;
+};
+
+export type AdminExportFactReview = {
+    comment: (string | null);
+    flags: {
+        [key: string]: unknown;
+    };
+    id: number;
+    item_revision: number;
+    ratings: {
+        [key: string]: unknown;
+    };
+    reviewer_kind: string;
+    source: string;
+    user_id: string;
+};
+
+export type AdminExportGenerator = {
+    generation: {
+        [key: string]: (string | number);
+    };
+    model_id: string;
+    model_revision: (string | null);
+    prompt_hash: string;
+    prompt_id: string;
+    pydantic_ai_version: string;
+};
+
+export type AdminExportModelClaim = {
+    claim: string;
+    position: number;
+    proposed_label: 'vital' | 'supporting' | 'peripheral' | 'duplicate';
+    spans: Array<ResponseClaimSpan>;
+};
+
+export type proposed_label = 'vital' | 'supporting' | 'peripheral' | 'duplicate';
+
+export type AdminExportModelCorrectionItem = {
+    arm_id: string;
+    assistant_response: string;
+    canonical_row_sha256: string;
+    case_id: string;
+    claims: Array<AdminExportModelClaim>;
+    correction_reviews: Array<AdminExportCorrectionReview>;
+    dataset_id: number;
+    eval_type: "FACT_DECOMP";
+    external_id: string;
+    generator: AdminExportGenerator;
+    id: number;
+    review_mode: "MODEL_LABEL_CORRECTION";
+    review_task: (AdminExportReviewTask | null);
+    review_task_count: number;
+    status: ItemStatus;
+    user_prompt: (string | null);
+};
+
+export type AdminExportRetrievalReview = {
+    answer_correctness: (number | null);
+    answer_faithfulness: (number | null);
+    assignment_id: number;
+    evidence_quality: (number | null);
+    id: number;
+    notes: (string | null);
+    question_validity: (number | null);
+    skip_reason: (string | null);
+    skipped: boolean;
+    user_id: string;
+    verdict: (ItemVerdict | null);
+};
+
+export type AdminExportReviewTask = {
+    id: number;
+    is_active: boolean;
+    is_gold: boolean;
+    labels_count: number;
+    priority_score: number;
 };
 
 export type AdminInterUserAgreementMetric = {
@@ -106,6 +229,23 @@ export type AssignmentTerminalConflictResponse = {
     detail: AssignmentTerminalConflict;
 };
 
+export type AuthoredFactDecompReviewPayload = {
+    allowed_actions: Array<("save_review")>;
+    chunks?: Array<ChunkSummary>;
+    dataset: ReviewDataset;
+    documents?: Array<DocumentDetail>;
+    existing_review?: ({
+    [key: string]: unknown;
+} | null);
+    facts: Array<ReviewFact>;
+    item: ReviewItem;
+    item_revision: number;
+    kind?: "fact_decomp";
+    review_mode: "AUTHORED_RUBRIC";
+    rubric_dimensions: Array<ReviewRubricDimension>;
+    task_id: number;
+};
+
 /**
  * Structured conflict returned for stale drafts or reused idempotency keys.
  */
@@ -137,6 +277,12 @@ export type AuthoringItemState = {
 };
 
 export type Body_admin_import_admin_documents = {
+    dataset_id: number;
+    dry_run?: boolean;
+    file: string;
+};
+
+export type Body_admin_ingest_dataset = {
     dataset_id: number;
     dry_run?: boolean;
     file: string;
@@ -271,20 +417,15 @@ export type FactDecompCreateResponse = {
     validation: ValidationPreview;
 };
 
-export type FactDecompReviewPayload = {
-    allowed_actions?: Array<("save_review")>;
-    chunks?: Array<ChunkSummary>;
-    dataset: ReviewDataset;
-    documents?: Array<DocumentDetail>;
-    existing_review?: ({
-    [key: string]: unknown;
-} | null);
-    facts?: Array<ReviewFact>;
-    item: ReviewItem;
-    item_revision: number;
-    kind?: "fact_decomp";
-    rubric_dimensions?: Array<ReviewRubricDimension>;
-    task_id: number;
+/**
+ * Counts and bounded errors produced by a FACT_DECOMP JSONL import.
+ */
+export type FactDecompImportSummary = {
+    created: number;
+    dry_run: boolean;
+    errors: Array<DocumentImportError>;
+    rejected: number;
+    unchanged: number;
 };
 
 export type FactDecompReviewSubmissionResponse = {
@@ -298,9 +439,7 @@ export type FactDecompReviewSubmissionResponse = {
 export type FactDecompReviewSubmit = {
     comments?: (string | null);
     confidence?: (JudgmentConfidence | null);
-    fact_calls: {
-        [key: string]: (string);
-    };
+    fact_calls: Array<(string)>;
     item_revision: number;
     values: {
         [key: string]: (string);
@@ -333,9 +472,7 @@ export type command = 'draft' | 'submit';
 
 export type FactDraft = {
     fact_text: string;
-    fact_uuid: string;
     polarity: FactPolarity;
-    position: number;
     provenance_spans?: Array<EvidenceSpan>;
 };
 
@@ -375,6 +512,44 @@ export type JudgmentConfidence = 'EASY_CALL' | 'DELIBERATED';
 
 export type Message = {
     message: string;
+};
+
+/**
+ * A reviewer-added claim with exact provenance in the response.
+ */
+export type MissingModelClaim = {
+    claim_text: string;
+    label: 'vital' | 'supporting' | 'peripheral' | 'duplicate';
+    response_spans: Array<ResponseClaimSpan>;
+};
+
+export type label = 'vital' | 'supporting' | 'peripheral' | 'duplicate';
+
+/**
+ * Position-aligned human corrections for an imported model decomposition.
+ */
+export type ModelEvalReviewSubmit = {
+    final_labels: Array<('vital' | 'supporting' | 'peripheral' | 'duplicate')>;
+    item_revision: number;
+    missing_claims: Array<MissingModelClaim>;
+};
+
+export type ModelFactDecompReviewPayload = {
+    allowed_actions: Array<("save_model_eval")>;
+    assistant_response: string;
+    chunks?: Array<ChunkSummary>;
+    claims: Array<ReviewModelClaim>;
+    dataset: ReviewDataset;
+    documents?: Array<DocumentDetail>;
+    existing_review?: ({
+    [key: string]: unknown;
+} | null);
+    item: ReviewItem;
+    item_revision: number;
+    kind?: "fact_decomp";
+    review_mode: "MODEL_LABEL_CORRECTION";
+    task_id: number;
+    user_prompt: (string | null);
 };
 
 export type NewPassword = {
@@ -444,6 +619,15 @@ export type RelevanceReviewSubmit = {
     confidence?: (JudgmentConfidence | null);
     grade: number;
     item_revision: number;
+};
+
+/**
+ * A code-point span selected from the assistant response.
+ */
+export type ResponseClaimSpan = {
+    end: number;
+    start: number;
+    text: string;
 };
 
 export type RetrievalCategory = 'VERBATIM' | 'PARAPHRASE' | 'MULTI_CHUNK' | 'ADVERSARIAL' | 'MULTI_DOCUMENT';
@@ -534,8 +718,6 @@ export type ReviewerKind = 'human' | 'expert';
 
 export type ReviewFact = {
     fact_text: string;
-    fact_uuid: string;
-    id: number;
     polarity: FactPolarity;
     position: number;
 };
@@ -550,6 +732,16 @@ export type ReviewItem = {
     revision: number;
     status: ItemStatus;
     why_not_answerable?: (string | null);
+};
+
+/**
+ * One imported claim with reviewer-visible response provenance.
+ */
+export type ReviewModelClaim = {
+    claim_text: string;
+    position: number;
+    proposed_label: 'vital' | 'supporting' | 'peripheral' | 'duplicate';
+    response_spans: Array<ResponseClaimSpan>;
 };
 
 export type ReviewRubricDimension = {
@@ -743,7 +935,11 @@ export type AdminExportDatasetData = {
 
 export type AdminExportDatasetResponse = (AdminExport);
 
-export type AdminIngestDatasetResponse = (unknown);
+export type AdminIngestDatasetData = {
+    formData: Body_admin_ingest_dataset;
+};
+
+export type AdminIngestDatasetResponse = (FactDecompImportSummary);
 
 export type AdminReadAdminItemsData = {
     datasetId?: (number | null);
@@ -961,7 +1157,7 @@ export type ReviewReadFactDecompReviewData = {
     taskId: number;
 };
 
-export type ReviewReadFactDecompReviewResponse = (FactDecompReviewPayload);
+export type ReviewReadFactDecompReviewResponse = ((AuthoredFactDecompReviewPayload | ModelFactDecompReviewPayload));
 
 export type ReviewSubmitFactDecompReviewData = {
     requestBody: FactDecompReviewSubmit;
@@ -969,6 +1165,13 @@ export type ReviewSubmitFactDecompReviewData = {
 };
 
 export type ReviewSubmitFactDecompReviewResponse = (FactDecompReviewSubmissionResponse);
+
+export type ReviewSubmitModelEvalReviewData = {
+    requestBody: ModelEvalReviewSubmit;
+    taskId: number;
+};
+
+export type ReviewSubmitModelEvalReviewResponse = (FactDecompReviewSubmissionResponse);
 
 export type ReviewReadNextReviewTaskData = {
     evalType: EvalType;

@@ -307,29 +307,28 @@ def fact_models(item_id: int, facts: list[FactDraft]) -> list[EvalFact]:
     return [
         EvalFact(
             item_id=item_id,
-            fact_uuid=fact.fact_uuid,
             fact_text=fact.fact_text,
             polarity=fact.polarity,
-            position=fact.position,
+            position=position,
         )
-        for fact in sorted(facts, key=lambda fact: fact.position)
+        for position, fact in enumerate(facts)
     ]
 
 
 def ordered_facts(facts: list[FactDraft]) -> list[FactDraft]:
     """Return fact payloads in their declared canonical order."""
 
-    return sorted(facts, key=lambda fact: fact.position)
+    return list(facts)
 
 
 def fact_provenance_dicts(facts: list[FactDraft]) -> list[dict]:
     """Flatten fact-local provenance spans for the authored item."""
 
     rows: list[dict] = []
-    for fact in ordered_facts(facts):
+    for fact_position, fact in enumerate(facts):
         for span in fact.provenance_spans:
             row = span.model_dump()
-            row["fact_uuid"] = fact.fact_uuid
+            row["fact_position"] = fact_position
             rows.append(row)
     return rows
 

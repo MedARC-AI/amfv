@@ -307,7 +307,6 @@ def _get_or_create_fact_item(
     session.add(
         EvalFact(
             item_id=item.id,
-            fact_uuid="e2e-fact-should-list",
             fact_text="Baker appears in the E2E source.",
             polarity=FactPolarity.SHOULD_LIST,
             position=0,
@@ -316,7 +315,6 @@ def _get_or_create_fact_item(
     session.add(
         EvalFact(
             item_id=item.id,
-            fact_uuid="e2e-fact-should-not-list",
             fact_text="A distractor answer should not be listed.",
             polarity=FactPolarity.SHOULD_NOT_LIST,
             position=1,

@@ -45,17 +45,13 @@ def test_fact_decomp_creation_persists_ordered_facts_and_provenance(
         "source_text": "Aspirin reduced fever, while one option was a distractor.",
         "facts": [
             {
-                "fact_uuid": "fact-b",
                 "fact_text": "The distractor answer choice should not be listed.",
                 "polarity": "SHOULD_NOT_LIST",
-                "position": 1,
                 "provenance_spans": [],
             },
             {
-                "fact_uuid": "fact-a",
                 "fact_text": "Aspirin reduced fever.",
                 "polarity": "SHOULD_LIST",
-                "position": 0,
                 "provenance_spans": [
                     {
                         "chunk_id": chunk.id,
@@ -96,18 +92,25 @@ def test_fact_decomp_creation_persists_ordered_facts_and_provenance(
     assert created.status_code == 200
     data = created.json()
     assert data["status"] == "SUBMITTED"
-    assert [fact["fact_uuid"] for fact in data["facts"]] == ["fact-a", "fact-b"]
+    assert [fact["fact_text"] for fact in data["facts"]] == [
+        "The distractor answer choice should not be listed.",
+        "Aspirin reduced fever.",
+    ]
     assert data["validation"]["ok"] is True
 
     item = db.get(EvalItem, data["id"])
     assert item is not None
     assert item.document_id == document.id
-    assert item.evidence_spans[0]["fact_uuid"] == "fact-a"
+    assert item.evidence_spans[0]["fact_position"] == 1
     facts = db.exec(
         select(EvalFact).where(EvalFact.item_id == item.id).order_by(EvalFact.position)
     ).all()
-    assert [fact.fact_uuid for fact in facts] == ["fact-a", "fact-b"]
-    assert facts[0].polarity == FactPolarity.SHOULD_LIST
+    assert [fact.position for fact in facts] == [0, 1]
+    assert [fact.fact_text for fact in facts] == [
+        "The distractor answer choice should not be listed.",
+        "Aspirin reduced fever.",
+    ]
+    assert facts[0].polarity == FactPolarity.SHOULD_NOT_LIST
 
 
 def test_fact_decomp_submit_rejects_missing_unwanted_fact(
@@ -128,10 +131,8 @@ def test_fact_decomp_submit_rejects_missing_unwanted_fact(
         "source_text": "Aspirin reduced fever.",
         "facts": [
             {
-                "fact_uuid": "fact-a",
                 "fact_text": "Aspirin reduced fever.",
                 "polarity": "SHOULD_LIST",
-                "position": 0,
                 "provenance_spans": [],
             }
         ],
@@ -157,14 +158,14 @@ def test_fact_decomp_submit_rejects_missing_unwanted_fact(
     assert any("SHOULD_NOT_LIST" in row["message"] for row in rejected.json()["detail"])
 
 
-def test_fact_decomp_submit_rejects_duplicate_fact_uuid(
+def test_fact_decomp_rejects_client_position_field(
     client: TestClient,
     normal_user_token_headers: dict[str, str],
     db: Session,
 ) -> None:
     dataset = Dataset(
-        name="api-fact-duplicate-uuid",
-        display_name="API Fact Duplicate UUID",
+        name="api-fact-client-identity",
+        display_name="API Fact Client Identity",
         eval_type=EvalType.FACT_DECOMP,
     )
     db.add(dataset)
@@ -175,14 +176,12 @@ def test_fact_decomp_submit_rejects_duplicate_fact_uuid(
         "source_text": "Aspirin reduced fever.",
         "facts": [
             {
-                "fact_uuid": "fact-a",
                 "fact_text": "Aspirin reduced fever.",
                 "polarity": "SHOULD_LIST",
                 "position": 0,
                 "provenance_spans": [],
             },
             {
-                "fact_uuid": "fact-a",
                 "fact_text": "Noise fact.",
                 "polarity": "SHOULD_NOT_LIST",
                 "position": 1,
@@ -190,27 +189,14 @@ def test_fact_decomp_submit_rejects_duplicate_fact_uuid(
             },
         ],
     }
-    draft = client.post(
+    rejected = client.post(
         f"{settings.API_V1_STR}/create/fact-decomp/draft",
         headers=normal_user_token_headers,
         json={**payload, "request_id": f"fact-draft-{uuid4()}"},
     )
-    assert draft.status_code == 200
-    rejected = client.post(
-        f"{settings.API_V1_STR}/create/fact-decomp/submit",
-        headers=normal_user_token_headers,
-        json={
-            **payload,
-            "request_id": f"fact-submit-{uuid4()}",
-            "item_id": draft.json()["id"],
-            "expected_item_revision": draft.json()["item_revision"],
-        },
-    )
-
-    assert rejected.status_code == 400
-    assert any(
-        "UUIDs must be unique" in row["message"] for row in rejected.json()["detail"]
-    )
+    assert rejected.status_code == 422
+    locations = {tuple(row["loc"]) for row in rejected.json()["detail"]}
+    assert ("body", "facts", 0, "position") in locations
 
 
 def test_fact_decomp_draft_rejects_retrieval_dataset(
@@ -235,17 +221,13 @@ def test_fact_decomp_draft_rejects_retrieval_dataset(
             "source_text": "Should not persist.",
             "facts": [
                 {
-                    "fact_uuid": "fact-a",
                     "fact_text": "Should not persist.",
                     "polarity": "SHOULD_LIST",
-                    "position": 0,
                     "provenance_spans": [],
                 },
                 {
-                    "fact_uuid": "fact-b",
                     "fact_text": "Noise should not persist.",
                     "polarity": "SHOULD_NOT_LIST",
-                    "position": 1,
                     "provenance_spans": [],
                 },
             ],
@@ -299,10 +281,8 @@ def test_fact_decomp_draft_rejects_stale_provenance_span(
             "source_text": "Current provenance text.",
             "facts": [
                 {
-                    "fact_uuid": "fact-a",
                     "fact_text": "Current provenance text.",
                     "polarity": "SHOULD_LIST",
-                    "position": 0,
                     "provenance_spans": [
                         {
                             "chunk_id": chunk.id,
@@ -313,10 +293,8 @@ def test_fact_decomp_draft_rejects_stale_provenance_span(
                     ],
                 },
                 {
-                    "fact_uuid": "fact-b",
                     "fact_text": "Noise fact.",
                     "polarity": "SHOULD_NOT_LIST",
-                    "position": 1,
                     "provenance_spans": [],
                 },
             ],

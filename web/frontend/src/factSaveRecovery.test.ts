@@ -15,10 +15,8 @@ function command(
     expected_item_revision: null,
     facts: [
       {
-        fact_uuid: "wanted",
         fact_text: "Baker appears in the source.",
         polarity: "SHOULD_LIST",
-        position: 0,
         provenance_spans: [],
       },
     ],

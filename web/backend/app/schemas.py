@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
@@ -148,8 +148,18 @@ class DocumentImportSummary(SQLModel):
     dry_run: bool
 
 
+class FactDecompImportSummary(SQLModel):
+    """Counts and bounded errors produced by a FACT_DECOMP JSONL import."""
+
+    created: int
+    unchanged: int
+    rejected: int
+    errors: list[DocumentImportError]
+    dry_run: bool
+
+
 RetrievalReviewAction = Literal["accept", "reject"]
-FactDecompReviewAction = Literal["save_review"]
+FactDecompReviewAction = Literal["save_review", "save_model_eval"]
 RelevanceReviewAction = Literal["grade_relevance"]
 ReviewAction = RetrievalReviewAction | FactDecompReviewAction | RelevanceReviewAction
 
@@ -186,11 +196,80 @@ class ReviewItem(SQLModel):
 
 
 class ReviewFact(SQLModel):
-    id: int
-    fact_uuid: str
     fact_text: str
     polarity: FactPolarity
     position: int
+
+
+ModelClaimLabel = Literal["vital", "supporting", "peripheral", "duplicate"]
+MAX_CLAIMS = 10_000
+MAX_MISSING_CLAIMS = 1_000
+MAX_CLAIM_TEXT_LENGTH = 20_000
+MAX_SPANS_PER_CLAIM = 100
+
+
+class ResponseClaimSpan(SQLModel):
+    """A code-point span selected from the assistant response."""
+
+    model_config = SQLModelConfig(extra="forbid")
+
+    start: int = Field(ge=0)
+    end: int = Field(gt=0)
+    text: str = Field(min_length=1, max_length=MAX_CLAIM_TEXT_LENGTH)
+
+    @field_validator("start", "end", mode="before")
+    @classmethod
+    def _validate_integer_offsets(cls, value: object) -> object:
+        if type(value) is not int:
+            raise ValueError("Response span offsets must be integers")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_order(self) -> ResponseClaimSpan:
+        if self.end <= self.start:
+            raise ValueError("Response span end must be greater than start")
+        if not self.text.strip():
+            raise ValueError("Response span text must not be blank")
+        return self
+
+
+class ReviewModelClaim(SQLModel):
+    """One imported claim with reviewer-visible response provenance."""
+
+    model_config = SQLModelConfig(extra="forbid")
+
+    claim_text: str = Field(min_length=1)
+    position: int = Field(ge=0)
+    response_spans: list[ResponseClaimSpan] = Field(
+        min_length=1, max_length=MAX_SPANS_PER_CLAIM
+    )
+    proposed_label: ModelClaimLabel
+
+    @field_validator("claim_text")
+    @classmethod
+    def _validate_claim_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Claim text must not be blank")
+        return value
+
+
+class MissingModelClaim(SQLModel):
+    """A reviewer-added claim with exact provenance in the response."""
+
+    model_config = SQLModelConfig(extra="forbid")
+
+    claim_text: str = Field(min_length=1, max_length=MAX_CLAIM_TEXT_LENGTH)
+    response_spans: list[ResponseClaimSpan] = Field(
+        min_length=1, max_length=MAX_SPANS_PER_CLAIM
+    )
+    label: ModelClaimLabel
+
+    @field_validator("claim_text")
+    @classmethod
+    def _validate_claim_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Claim text must not be blank")
+        return value
 
 
 class ReviewRubricDimension(SQLModel):
@@ -266,18 +345,39 @@ class RetrievalReviewPayload(SQLModel):
     existing_submission: RetrievalReviewSubmission | None = None
 
 
-class FactDecompReviewPayload(SQLModel):
+class FactDecompReviewPayloadBase(SQLModel):
+    """Fields shared by the authored and imported review payloads."""
+
     kind: Literal["fact_decomp"] = "fact_decomp"
     dataset: ReviewDataset
     item: ReviewItem
     task_id: int
-    facts: list[ReviewFact] = Field(default_factory=list)
-    rubric_dimensions: list[ReviewRubricDimension] = Field(default_factory=list)
     documents: list[DocumentDetail] = Field(default_factory=list)
     chunks: list[ChunkSummary] = Field(default_factory=list)
-    allowed_actions: list[FactDecompReviewAction] = Field(default_factory=list)
     item_revision: int
+
+
+class AuthoredFactDecompReviewPayload(FactDecompReviewPayloadBase):
+    review_mode: Literal["AUTHORED_RUBRIC"]
+    facts: list[ReviewFact]
+    rubric_dimensions: list[ReviewRubricDimension]
+    allowed_actions: list[Literal["save_review"]]
     existing_review: dict | None = None
+
+
+class ModelFactDecompReviewPayload(FactDecompReviewPayloadBase):
+    review_mode: Literal["MODEL_LABEL_CORRECTION"]
+    user_prompt: str | None = Field(max_length=1_000_000)
+    assistant_response: str = Field(max_length=1_000_000)
+    claims: list[ReviewModelClaim] = Field(max_length=MAX_CLAIMS)
+    allowed_actions: list[Literal["save_model_eval"]]
+    existing_review: dict | None = None
+
+
+FactDecompReviewPayload = Annotated[
+    AuthoredFactDecompReviewPayload | ModelFactDecompReviewPayload,
+    Field(discriminator="review_mode"),
+]
 
 
 class RelevanceReviewPayload(SQLModel):
@@ -370,10 +470,20 @@ class FactDecompReviewSubmissionResponse(SQLModel):
 
 
 class FactDecompReviewSubmit(SQLModel):
-    fact_calls: dict[str, str]
+    fact_calls: list[str]
     values: dict[str, str]
     comments: str | None = None
     confidence: JudgmentConfidence | None = None
+    item_revision: int
+
+
+class ModelEvalReviewSubmit(SQLModel):
+    """Position-aligned human corrections for an imported model decomposition."""
+
+    model_config = SQLModelConfig(extra="forbid")
+
+    final_labels: list[ModelClaimLabel] = Field(max_length=MAX_CLAIMS)
+    missing_claims: list[MissingModelClaim] = Field(max_length=MAX_MISSING_CLAIMS)
     item_revision: int
 
 
@@ -392,10 +502,10 @@ class CreateRetrievalDraftSubmit(SQLModel):
 
 
 class FactDraft(SQLModel):
-    fact_uuid: str
+    model_config = SQLModelConfig(extra="forbid")
+
     fact_text: str = Field(min_length=1)
     polarity: FactPolarity
-    position: int
     provenance_spans: list[EvidenceSpan] = Field(default_factory=list)
 
 
@@ -522,6 +632,132 @@ class AdminItemSummary(SQLModel):
     validation_flags: list[dict] = Field(default_factory=list)
 
 
+class AdminExportEvidenceChunk(SQLModel):
+    id: int
+    document_id: int
+    external_id: str
+    position: int
+    text: str
+
+
+class AdminExportEvidenceDocument(SQLModel):
+    id: int
+    external_id: str
+    title: str
+
+
+class AdminExportFact(SQLModel):
+    fact_text: str
+    polarity: FactPolarity
+    position: int
+
+
+class AdminExportFactReview(SQLModel):
+    id: int
+    user_id: str
+    item_revision: int
+    ratings: dict[str, Any]
+    reviewer_kind: str
+    comment: str | None
+    flags: dict[str, Any]
+    source: str
+
+
+class AdminExportRetrievalReview(SQLModel):
+    id: int
+    assignment_id: int
+    user_id: str
+    question_validity: int | None
+    evidence_quality: int | None
+    answer_correctness: int | None
+    answer_faithfulness: int | None
+    notes: str | None
+    verdict: ItemVerdict | None
+    skipped: bool
+    skip_reason: str | None
+
+
+class AdminExportGenerator(SQLModel):
+    model_id: str
+    model_revision: str | None
+    prompt_id: str
+    prompt_hash: str
+    pydantic_ai_version: str
+    generation: dict[str, str | int | float]
+
+
+class AdminExportModelClaim(SQLModel):
+    claim: str
+    position: int
+    spans: list[ResponseClaimSpan]
+    proposed_label: ModelClaimLabel
+
+
+class AdminExportReviewTask(SQLModel):
+    id: int
+    is_active: bool
+    is_gold: bool
+    labels_count: int
+    priority_score: float
+
+
+class AdminExportCorrectionReview(SQLModel):
+    id: int
+    user_id: str
+    item_revision: int
+    proposed_labels: list[ModelClaimLabel]
+    final_labels: list[ModelClaimLabel]
+    missing_claims: list[MissingModelClaim]
+    reviewer_kind: str
+    source: str
+
+
+class AdminExportItemBase(SQLModel):
+    id: int
+    dataset_id: int
+    eval_type: EvalType
+    status: ItemStatus
+    prompt_text: str
+    expected_answer: str | None
+    category: RetrievalCategory | None
+    evidence_spans: list[EvidenceSpan]
+    evidence_chunks: list[AdminExportEvidenceChunk]
+    evidence_documents: list[AdminExportEvidenceDocument]
+    facts: list[AdminExportFact]
+    review_task_count: int
+    retrieval_reviews: list[AdminExportRetrievalReview]
+
+
+class AdminExportAuthoredItem(AdminExportItemBase):
+    review_mode: Literal["AUTHORED"]
+    fact_decomp_reviews: list[AdminExportFactReview]
+
+
+class AdminExportModelCorrectionItem(SQLModel):
+    review_mode: Literal["MODEL_LABEL_CORRECTION"]
+    id: int
+    dataset_id: int
+    eval_type: Literal[EvalType.FACT_DECOMP]
+    status: ItemStatus
+    external_id: str
+    case_id: str
+    arm_id: str
+    canonical_row_sha256: str
+    user_prompt: str | None
+    assistant_response: str
+    generator: AdminExportGenerator
+    claims: list[AdminExportModelClaim]
+    review_task: AdminExportReviewTask | None
+    review_task_count: int
+    correction_reviews: list[AdminExportCorrectionReview]
+
+
+AdminExportItem = Annotated[
+    AdminExportAuthoredItem | AdminExportModelCorrectionItem,
+    Field(discriminator="review_mode"),
+]
+
+
 class AdminTaskGenerationResult(SQLModel):
     dataset_id: int
     created: int
@@ -534,7 +770,7 @@ class AdminExport(SQLModel):
     limit: int
     total: int
     next_offset: int | None = None
-    items: list[dict] = Field(default_factory=list)
+    items: list[AdminExportItem] = Field(default_factory=list)
 
 
 class AdminAgreementMetric(SQLModel):

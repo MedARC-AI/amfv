@@ -12,17 +12,57 @@ from app.api.routes.review_common import (
     read_active_item,
     read_active_review_task,
 )
-from app.models import EvalFact, EvalType, FactDecompReview
+from app.models import EvalFact, EvalItem, EvalType, FactDecompReview
 from app.schemas import (
+    AuthoredFactDecompReviewPayload,
     ChunkSummary,
     FactDecompReviewPayload,
     FactDecompReviewSubmissionResponse,
     FactDecompReviewSubmit,
+    ModelEvalReviewSubmit,
+    ModelFactDecompReviewPayload,
+    ResponseClaimSpan,
     ReviewFact,
+    ReviewModelClaim,
+)
+from app.services.fact_decomp_review import (
+    CorrectionMetadataError,
+    ModelCorrectionRating,
+    is_model_correction_item,
+    project_model_claims,
 )
 from app.services.rubrics import validate_fact_decomp_ratings
 
 router = APIRouter()
+
+MODEL_REVIEW_MODE = "MODEL_LABEL_CORRECTION"
+AUTHORED_REVIEW_MODE = "AUTHORED_RUBRIC"
+
+
+def _review_mode(item: EvalItem) -> str:
+    """Read the server-owned review mode marker, never a client field."""
+
+    return MODEL_REVIEW_MODE if is_model_correction_item(item) else AUTHORED_REVIEW_MODE
+
+
+def _model_claims(item: EvalItem, facts: list[EvalFact]) -> list[ReviewModelClaim]:
+    try:
+        _metadata, claims = project_model_claims(item, facts)
+    except CorrectionMetadataError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return claims
+
+
+def _existing_model_review(review: FactDecompReview | None) -> dict | None:
+    if review is None or not isinstance(review.ratings, dict):
+        return None
+    try:
+        ratings = ModelCorrectionRating.model_validate(review.ratings)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=500, detail="Stored correction review is invalid"
+        ) from exc
+    return ratings.model_dump(mode="json", include={"final_labels", "missing_claims"})
 
 
 @router.get("/fact-decomp/{task_id}", response_model=FactDecompReviewPayload)
@@ -52,7 +92,23 @@ def read_fact_decomp_review(
         .order_by(col(EvalFact.position))
     ).all()
     assert task.id is not None
-    return FactDecompReviewPayload(
+    review_mode = _review_mode(item)
+    if review_mode == MODEL_REVIEW_MODE:
+        return ModelFactDecompReviewPayload(
+            dataset=dataset_payload(dataset),
+            item=item_payload(item),
+            task_id=task.id,
+            documents=documents,
+            chunks=[ChunkSummary.model_validate(chunk) for chunk in chunks],
+            allowed_actions=["save_model_eval"],
+            item_revision=item.revision,
+            existing_review=_existing_model_review(existing),
+            review_mode=MODEL_REVIEW_MODE,
+            user_prompt=item.lazy_query,
+            assistant_response=item.prompt_text,
+            claims=_model_claims(item, list(facts)),
+        )
+    return AuthoredFactDecompReviewPayload(
         dataset=dataset_payload(dataset),
         item=item_payload(item),
         task_id=task.id,
@@ -63,6 +119,7 @@ def read_fact_decomp_review(
         allowed_actions=["save_review"],
         item_revision=item.revision,
         existing_review=existing.model_dump(mode="json") if existing else None,
+        review_mode=AUTHORED_REVIEW_MODE,
     )
 
 
@@ -81,6 +138,11 @@ def submit_fact_decomp_review(
         raise HTTPException(status_code=404, detail="Review item not found")
     if item.author_user_id == current_user.id:
         raise HTTPException(status_code=403, detail="Cannot review your own item")
+    if _review_mode(item) != AUTHORED_REVIEW_MODE:
+        raise HTTPException(
+            status_code=400,
+            detail="Imported model evaluations require correction review",
+        )
     read_active_dataset(session, task.dataset_id, EvalType.FACT_DECOMP)
     if body.item_revision != item.revision:
         raise HTTPException(status_code=409, detail="Item revision is stale")
@@ -134,3 +196,105 @@ def submit_fact_decomp_review(
         item_id=item.id,
         labels_count=task.labels_count,
     )
+
+
+@router.post(
+    "/fact-decomp/{task_id}/model-eval",
+    response_model=FactDecompReviewSubmissionResponse,
+)
+def submit_model_eval_review(
+    session: SessionDep,
+    task_id: int,
+    body: ModelEvalReviewSubmit,
+    current_user: CurrentUser,
+) -> FactDecompReviewSubmissionResponse:
+    """Persist final labels and response-backed claims for an imported item."""
+
+    task = read_active_review_task(session, task_id)
+    item = read_active_item(session, task.item_a_id, EvalType.FACT_DECOMP)
+    if item.dataset_id != task.dataset_id:
+        raise HTTPException(status_code=404, detail="Review item not found")
+    if item.author_user_id == current_user.id:
+        raise HTTPException(status_code=403, detail="Cannot review your own item")
+    read_active_dataset(session, task.dataset_id, EvalType.FACT_DECOMP)
+    if _review_mode(item) != MODEL_REVIEW_MODE:
+        raise HTTPException(
+            status_code=400,
+            detail="Only imported model evaluations accept correction reviews",
+        )
+    if body.item_revision != item.revision:
+        raise HTTPException(status_code=409, detail="Item revision is stale")
+    if session.exec(
+        select(FactDecompReview).where(
+            col(FactDecompReview.task_id) == task.id,
+            col(FactDecompReview.user_id) == current_user.id,
+        )
+    ).first():
+        raise HTTPException(status_code=409, detail="Review task already submitted")
+    facts = session.exec(
+        select(EvalFact)
+        .where(col(EvalFact.item_id) == item.id)
+        .order_by(col(EvalFact.position))
+    ).all()
+    claims = _model_claims(item, list(facts))
+    if len(body.final_labels) != len(claims):
+        raise HTTPException(
+            status_code=400,
+            detail="final_labels must contain exactly one label per imported claim",
+        )
+    for missing in body.missing_claims:
+        if not missing.claim_text.strip():
+            raise HTTPException(
+                status_code=400, detail="Missing claim text must not be blank"
+            )
+        try:
+            spans = _validate_submitted_spans(item.prompt_text, missing.response_spans)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        missing.response_spans = spans
+    assert task.id is not None
+    try:
+        ratings = ModelCorrectionRating(
+            review_mode=MODEL_REVIEW_MODE,
+            proposed_labels=[claim.proposed_label for claim in claims],
+            final_labels=list(body.final_labels),
+            missing_claims=body.missing_claims,
+        ).model_dump(mode="json")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    review = FactDecompReview(
+        task_id=task.id,
+        user_id=current_user.id,
+        item_revision=item.revision,
+        ratings=ratings,
+        reviewer_kind=current_user.reviewer_kind,
+        source="web_model_eval",
+    )
+    task.labels_count += 1
+    session.add(review)
+    session.add(task)
+    session.commit()
+    session.refresh(review)
+    session.refresh(task)
+    assert item.id is not None
+    assert review.id is not None
+    return FactDecompReviewSubmissionResponse(
+        id=review.id,
+        task_id=task.id,
+        item_id=item.id,
+        labels_count=task.labels_count,
+    )
+
+
+def _validate_submitted_spans(
+    response: str, spans: list[ResponseClaimSpan]
+) -> list[ResponseClaimSpan]:
+    if not spans:
+        raise ValueError("Each missing claim requires at least one response span")
+    for span in spans:
+        if span.end > len(response) or response[span.start : span.end] != span.text:
+            raise ValueError("Response span text does not match the assistant response")
+    for previous, current in zip(spans, spans[1:], strict=False):
+        if current.start < previous.start or current.start < previous.end:
+            raise ValueError("Response spans must be ordered and non-overlapping")
+    return spans

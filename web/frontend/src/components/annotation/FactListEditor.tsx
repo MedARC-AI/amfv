@@ -16,7 +16,36 @@ import { cn } from "@/lib/utils"
 type FactListEditorProps = {
   facts: FactDraft[]
   onChange: (facts: FactDraft[]) => void
+  selectedFactIndex?: number | null
+  onSelectedFactIndexChange?: (index: number | null) => void
   className?: string
+}
+
+/** Keep an index-based selection attached to the same row after reordering. */
+export function selectedIndexAfterMove(
+  selectedIndex: number | null | undefined,
+  index: number,
+  targetIndex: number,
+): number | null | undefined {
+  if (selectedIndex === undefined || selectedIndex === null)
+    return selectedIndex
+  if (selectedIndex === index) return targetIndex
+  if (selectedIndex === targetIndex) return index
+  return selectedIndex
+}
+
+/** Shift selection past a removed row, or select the next remaining row. */
+export function selectedIndexAfterRemove(
+  selectedIndex: number | null | undefined,
+  removedIndex: number,
+  remainingCount: number,
+): number | null | undefined {
+  if (selectedIndex === undefined || selectedIndex === null)
+    return selectedIndex
+  if (remainingCount === 0) return null
+  if (selectedIndex < removedIndex) return selectedIndex
+  if (selectedIndex > removedIndex) return selectedIndex - 1
+  return Math.min(removedIndex, remainingCount - 1)
 }
 
 const polarityLabels: Record<FactPolarity, string> = {
@@ -24,43 +53,32 @@ const polarityLabels: Record<FactPolarity, string> = {
   SHOULD_NOT_LIST: "Should not list",
 }
 
-function newFact(position: number): FactDraft {
+function newFact(): FactDraft {
   return {
-    fact_uuid:
-      globalThis.crypto?.randomUUID?.() ??
-      `fact-${Date.now().toString(36)}-${position}`,
     fact_text: "",
     polarity: "SHOULD_LIST",
-    position,
     provenance_spans: [],
   }
-}
-
-function normalizePositions(facts: FactDraft[]): FactDraft[] {
-  return facts.map((fact, position) => ({ ...fact, position }))
 }
 
 export function FactListEditor({
   facts,
   onChange,
+  onSelectedFactIndexChange,
+  selectedFactIndex,
   className,
 }: FactListEditorProps) {
-  const orderedFacts = [...facts].sort(
-    (left, right) => left.position - right.position,
-  )
+  const orderedFacts = facts
 
-  const updateFact = (factUuid: string, patch: Partial<FactDraft>) => {
+  const updateFact = (index: number, patch: Partial<FactDraft>) => {
     onChange(
-      normalizePositions(
-        orderedFacts.map((fact) =>
-          fact.fact_uuid === factUuid ? { ...fact, ...patch } : fact,
-        ),
+      orderedFacts.map((fact, factIndex) =>
+        factIndex === index ? { ...fact, ...patch } : fact,
       ),
     )
   }
 
-  const moveFact = (factUuid: string, direction: "up" | "down") => {
-    const index = orderedFacts.findIndex((fact) => fact.fact_uuid === factUuid)
+  const moveFact = (index: number, direction: "up" | "down") => {
     const targetIndex = direction === "up" ? index - 1 : index + 1
     if (index < 0 || targetIndex < 0 || targetIndex >= orderedFacts.length) {
       return
@@ -68,15 +86,21 @@ export function FactListEditor({
     const nextFacts = [...orderedFacts]
     const [fact] = nextFacts.splice(index, 1)
     nextFacts.splice(targetIndex, 0, fact)
-    onChange(normalizePositions(nextFacts))
+    onSelectedFactIndexChange?.(
+      selectedIndexAfterMove(selectedFactIndex, index, targetIndex) ?? null,
+    )
+    onChange(nextFacts)
   }
 
-  const removeFact = (factUuid: string) => {
-    onChange(
-      normalizePositions(
-        orderedFacts.filter((fact) => fact.fact_uuid !== factUuid),
-      ),
+  const removeFact = (index: number) => {
+    const nextFacts = orderedFacts.filter(
+      (_fact, factIndex) => factIndex !== index,
     )
+    onSelectedFactIndexChange?.(
+      selectedIndexAfterRemove(selectedFactIndex, index, nextFacts.length) ??
+        null,
+    )
+    onChange(nextFacts)
   }
 
   return (
@@ -84,9 +108,7 @@ export function FactListEditor({
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm font-medium">Facts</div>
         <Button
-          onClick={() =>
-            onChange([...orderedFacts, newFact(orderedFacts.length)])
-          }
+          onClick={() => onChange([...orderedFacts, newFact()])}
           size="sm"
           type="button"
           variant="outline"
@@ -103,16 +125,14 @@ export function FactListEditor({
       ) : (
         <ol className="space-y-3">
           {orderedFacts.map((fact, index) => (
-            <li key={fact.fact_uuid} className="rounded-md border p-3">
+            <li key={index} className="rounded-md border p-3">
               <div className="grid gap-3 md:grid-cols-[1fr_12rem_auto]">
                 <div className="space-y-2">
-                  <Label htmlFor={`${fact.fact_uuid}-text`}>
-                    Fact {index + 1}
-                  </Label>
+                  <Label htmlFor={`fact-${index}-text`}>Fact {index + 1}</Label>
                   <Input
-                    id={`${fact.fact_uuid}-text`}
+                    id={`fact-${index}-text`}
                     onChange={(event) =>
-                      updateFact(fact.fact_uuid, {
+                      updateFact(index, {
                         fact_text: event.target.value,
                       })
                     }
@@ -120,14 +140,14 @@ export function FactListEditor({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor={`${fact.fact_uuid}-polarity`}>Polarity</Label>
+                  <Label htmlFor={`fact-${index}-polarity`}>Polarity</Label>
                   <Select
                     onValueChange={(polarity: FactPolarity) =>
-                      updateFact(fact.fact_uuid, { polarity })
+                      updateFact(index, { polarity })
                     }
                     value={fact.polarity}
                   >
-                    <SelectTrigger id={`${fact.fact_uuid}-polarity`}>
+                    <SelectTrigger id={`fact-${index}-polarity`}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -143,7 +163,7 @@ export function FactListEditor({
                   <Button
                     aria-label="Move fact up"
                     disabled={index === 0}
-                    onClick={() => moveFact(fact.fact_uuid, "up")}
+                    onClick={() => moveFact(index, "up")}
                     size="icon-sm"
                     type="button"
                     variant="ghost"
@@ -153,7 +173,7 @@ export function FactListEditor({
                   <Button
                     aria-label="Move fact down"
                     disabled={index === orderedFacts.length - 1}
-                    onClick={() => moveFact(fact.fact_uuid, "down")}
+                    onClick={() => moveFact(index, "down")}
                     size="icon-sm"
                     type="button"
                     variant="ghost"
@@ -162,7 +182,7 @@ export function FactListEditor({
                   </Button>
                   <Button
                     aria-label="Remove fact"
-                    onClick={() => removeFact(fact.fact_uuid)}
+                    onClick={() => removeFact(index)}
                     size="icon-sm"
                     type="button"
                     variant="ghost"

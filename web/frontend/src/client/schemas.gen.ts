@@ -42,8 +42,21 @@ export const AdminExportSchema = {
         },
         items: {
             items: {
-                additionalProperties: true,
-                type: 'object'
+                discriminator: {
+                    mapping: {
+                        AUTHORED: '#/components/schemas/AdminExportAuthoredItem',
+                        MODEL_LABEL_CORRECTION: '#/components/schemas/AdminExportModelCorrectionItem'
+                    },
+                    propertyName: 'review_mode'
+                },
+                oneOf: [
+                    {
+                        '$ref': '#/components/schemas/AdminExportAuthoredItem'
+                    },
+                    {
+                        '$ref': '#/components/schemas/AdminExportModelCorrectionItem'
+                    }
+                ]
             },
             title: 'Items',
             type: 'array'
@@ -74,6 +87,570 @@ export const AdminExportSchema = {
     },
     required: ['offset', 'limit', 'total'],
     title: 'AdminExport',
+    type: 'object'
+} as const;
+
+export const AdminExportAuthoredItemSchema = {
+    properties: {
+        category: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/RetrievalCategory'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        dataset_id: {
+            title: 'Dataset Id',
+            type: 'integer'
+        },
+        eval_type: {
+            '$ref': '#/components/schemas/EvalType'
+        },
+        evidence_chunks: {
+            items: {
+                '$ref': '#/components/schemas/AdminExportEvidenceChunk'
+            },
+            title: 'Evidence Chunks',
+            type: 'array'
+        },
+        evidence_documents: {
+            items: {
+                '$ref': '#/components/schemas/AdminExportEvidenceDocument'
+            },
+            title: 'Evidence Documents',
+            type: 'array'
+        },
+        evidence_spans: {
+            items: {
+                '$ref': '#/components/schemas/EvidenceSpan'
+            },
+            title: 'Evidence Spans',
+            type: 'array'
+        },
+        expected_answer: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Expected Answer'
+        },
+        fact_decomp_reviews: {
+            items: {
+                '$ref': '#/components/schemas/AdminExportFactReview'
+            },
+            title: 'Fact Decomp Reviews',
+            type: 'array'
+        },
+        facts: {
+            items: {
+                '$ref': '#/components/schemas/AdminExportFact'
+            },
+            title: 'Facts',
+            type: 'array'
+        },
+        id: {
+            title: 'Id',
+            type: 'integer'
+        },
+        prompt_text: {
+            title: 'Prompt Text',
+            type: 'string'
+        },
+        retrieval_reviews: {
+            items: {
+                '$ref': '#/components/schemas/AdminExportRetrievalReview'
+            },
+            title: 'Retrieval Reviews',
+            type: 'array'
+        },
+        review_mode: {
+            const: 'AUTHORED',
+            title: 'Review Mode',
+            type: 'string'
+        },
+        review_task_count: {
+            title: 'Review Task Count',
+            type: 'integer'
+        },
+        status: {
+            '$ref': '#/components/schemas/ItemStatus'
+        }
+    },
+    required: ['id', 'dataset_id', 'eval_type', 'status', 'prompt_text', 'expected_answer', 'category', 'evidence_spans', 'evidence_chunks', 'evidence_documents', 'facts', 'review_task_count', 'retrieval_reviews', 'review_mode', 'fact_decomp_reviews'],
+    title: 'AdminExportAuthoredItem',
+    type: 'object'
+} as const;
+
+export const AdminExportCorrectionReviewSchema = {
+    properties: {
+        final_labels: {
+            items: {
+                enum: ['vital', 'supporting', 'peripheral', 'duplicate'],
+                type: 'string'
+            },
+            title: 'Final Labels',
+            type: 'array'
+        },
+        id: {
+            title: 'Id',
+            type: 'integer'
+        },
+        item_revision: {
+            title: 'Item Revision',
+            type: 'integer'
+        },
+        missing_claims: {
+            items: {
+                '$ref': '#/components/schemas/MissingModelClaim'
+            },
+            title: 'Missing Claims',
+            type: 'array'
+        },
+        proposed_labels: {
+            items: {
+                enum: ['vital', 'supporting', 'peripheral', 'duplicate'],
+                type: 'string'
+            },
+            title: 'Proposed Labels',
+            type: 'array'
+        },
+        reviewer_kind: {
+            title: 'Reviewer Kind',
+            type: 'string'
+        },
+        source: {
+            title: 'Source',
+            type: 'string'
+        },
+        user_id: {
+            title: 'User Id',
+            type: 'string'
+        }
+    },
+    required: ['id', 'user_id', 'item_revision', 'proposed_labels', 'final_labels', 'missing_claims', 'reviewer_kind', 'source'],
+    title: 'AdminExportCorrectionReview',
+    type: 'object'
+} as const;
+
+export const AdminExportEvidenceChunkSchema = {
+    properties: {
+        document_id: {
+            title: 'Document Id',
+            type: 'integer'
+        },
+        external_id: {
+            title: 'External Id',
+            type: 'string'
+        },
+        id: {
+            title: 'Id',
+            type: 'integer'
+        },
+        position: {
+            title: 'Position',
+            type: 'integer'
+        },
+        text: {
+            title: 'Text',
+            type: 'string'
+        }
+    },
+    required: ['id', 'document_id', 'external_id', 'position', 'text'],
+    title: 'AdminExportEvidenceChunk',
+    type: 'object'
+} as const;
+
+export const AdminExportEvidenceDocumentSchema = {
+    properties: {
+        external_id: {
+            title: 'External Id',
+            type: 'string'
+        },
+        id: {
+            title: 'Id',
+            type: 'integer'
+        },
+        title: {
+            title: 'Title',
+            type: 'string'
+        }
+    },
+    required: ['id', 'external_id', 'title'],
+    title: 'AdminExportEvidenceDocument',
+    type: 'object'
+} as const;
+
+export const AdminExportFactSchema = {
+    properties: {
+        fact_text: {
+            title: 'Fact Text',
+            type: 'string'
+        },
+        polarity: {
+            '$ref': '#/components/schemas/FactPolarity'
+        },
+        position: {
+            title: 'Position',
+            type: 'integer'
+        }
+    },
+    required: ['fact_text', 'polarity', 'position'],
+    title: 'AdminExportFact',
+    type: 'object'
+} as const;
+
+export const AdminExportFactReviewSchema = {
+    properties: {
+        comment: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Comment'
+        },
+        flags: {
+            additionalProperties: true,
+            title: 'Flags',
+            type: 'object'
+        },
+        id: {
+            title: 'Id',
+            type: 'integer'
+        },
+        item_revision: {
+            title: 'Item Revision',
+            type: 'integer'
+        },
+        ratings: {
+            additionalProperties: true,
+            title: 'Ratings',
+            type: 'object'
+        },
+        reviewer_kind: {
+            title: 'Reviewer Kind',
+            type: 'string'
+        },
+        source: {
+            title: 'Source',
+            type: 'string'
+        },
+        user_id: {
+            title: 'User Id',
+            type: 'string'
+        }
+    },
+    required: ['id', 'user_id', 'item_revision', 'ratings', 'reviewer_kind', 'comment', 'flags', 'source'],
+    title: 'AdminExportFactReview',
+    type: 'object'
+} as const;
+
+export const AdminExportGeneratorSchema = {
+    properties: {
+        generation: {
+            additionalProperties: {
+                anyOf: [
+                    {
+                        type: 'string'
+                    },
+                    {
+                        type: 'integer'
+                    },
+                    {
+                        type: 'number'
+                    }
+                ]
+            },
+            title: 'Generation',
+            type: 'object'
+        },
+        model_id: {
+            title: 'Model Id',
+            type: 'string'
+        },
+        model_revision: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Model Revision'
+        },
+        prompt_hash: {
+            title: 'Prompt Hash',
+            type: 'string'
+        },
+        prompt_id: {
+            title: 'Prompt Id',
+            type: 'string'
+        },
+        pydantic_ai_version: {
+            title: 'Pydantic Ai Version',
+            type: 'string'
+        }
+    },
+    required: ['model_id', 'model_revision', 'prompt_id', 'prompt_hash', 'pydantic_ai_version', 'generation'],
+    title: 'AdminExportGenerator',
+    type: 'object'
+} as const;
+
+export const AdminExportModelClaimSchema = {
+    properties: {
+        claim: {
+            title: 'Claim',
+            type: 'string'
+        },
+        position: {
+            title: 'Position',
+            type: 'integer'
+        },
+        proposed_label: {
+            enum: ['vital', 'supporting', 'peripheral', 'duplicate'],
+            title: 'Proposed Label',
+            type: 'string'
+        },
+        spans: {
+            items: {
+                '$ref': '#/components/schemas/ResponseClaimSpan'
+            },
+            title: 'Spans',
+            type: 'array'
+        }
+    },
+    required: ['claim', 'position', 'spans', 'proposed_label'],
+    title: 'AdminExportModelClaim',
+    type: 'object'
+} as const;
+
+export const AdminExportModelCorrectionItemSchema = {
+    properties: {
+        arm_id: {
+            title: 'Arm Id',
+            type: 'string'
+        },
+        assistant_response: {
+            title: 'Assistant Response',
+            type: 'string'
+        },
+        canonical_row_sha256: {
+            title: 'Canonical Row Sha256',
+            type: 'string'
+        },
+        case_id: {
+            title: 'Case Id',
+            type: 'string'
+        },
+        claims: {
+            items: {
+                '$ref': '#/components/schemas/AdminExportModelClaim'
+            },
+            title: 'Claims',
+            type: 'array'
+        },
+        correction_reviews: {
+            items: {
+                '$ref': '#/components/schemas/AdminExportCorrectionReview'
+            },
+            title: 'Correction Reviews',
+            type: 'array'
+        },
+        dataset_id: {
+            title: 'Dataset Id',
+            type: 'integer'
+        },
+        eval_type: {
+            const: 'FACT_DECOMP',
+            title: 'Eval Type',
+            type: 'string'
+        },
+        external_id: {
+            title: 'External Id',
+            type: 'string'
+        },
+        generator: {
+            '$ref': '#/components/schemas/AdminExportGenerator'
+        },
+        id: {
+            title: 'Id',
+            type: 'integer'
+        },
+        review_mode: {
+            const: 'MODEL_LABEL_CORRECTION',
+            title: 'Review Mode',
+            type: 'string'
+        },
+        review_task: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/AdminExportReviewTask'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        review_task_count: {
+            title: 'Review Task Count',
+            type: 'integer'
+        },
+        status: {
+            '$ref': '#/components/schemas/ItemStatus'
+        },
+        user_prompt: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'User Prompt'
+        }
+    },
+    required: ['review_mode', 'id', 'dataset_id', 'eval_type', 'status', 'external_id', 'case_id', 'arm_id', 'canonical_row_sha256', 'user_prompt', 'assistant_response', 'generator', 'claims', 'review_task', 'review_task_count', 'correction_reviews'],
+    title: 'AdminExportModelCorrectionItem',
+    type: 'object'
+} as const;
+
+export const AdminExportRetrievalReviewSchema = {
+    properties: {
+        answer_correctness: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Answer Correctness'
+        },
+        answer_faithfulness: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Answer Faithfulness'
+        },
+        assignment_id: {
+            title: 'Assignment Id',
+            type: 'integer'
+        },
+        evidence_quality: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Evidence Quality'
+        },
+        id: {
+            title: 'Id',
+            type: 'integer'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        },
+        question_validity: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Question Validity'
+        },
+        skip_reason: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Skip Reason'
+        },
+        skipped: {
+            title: 'Skipped',
+            type: 'boolean'
+        },
+        user_id: {
+            title: 'User Id',
+            type: 'string'
+        },
+        verdict: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/ItemVerdict'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        }
+    },
+    required: ['id', 'assignment_id', 'user_id', 'question_validity', 'evidence_quality', 'answer_correctness', 'answer_faithfulness', 'notes', 'verdict', 'skipped', 'skip_reason'],
+    title: 'AdminExportRetrievalReview',
+    type: 'object'
+} as const;
+
+export const AdminExportReviewTaskSchema = {
+    properties: {
+        id: {
+            title: 'Id',
+            type: 'integer'
+        },
+        is_active: {
+            title: 'Is Active',
+            type: 'boolean'
+        },
+        is_gold: {
+            title: 'Is Gold',
+            type: 'boolean'
+        },
+        labels_count: {
+            title: 'Labels Count',
+            type: 'integer'
+        },
+        priority_score: {
+            title: 'Priority Score',
+            type: 'number'
+        }
+    },
+    required: ['id', 'is_active', 'is_gold', 'labels_count', 'priority_score'],
+    title: 'AdminExportReviewTask',
     type: 'object'
 } as const;
 
@@ -384,6 +961,87 @@ export const AssignmentTerminalConflictResponseSchema = {
     type: 'object'
 } as const;
 
+export const AuthoredFactDecompReviewPayloadSchema = {
+    properties: {
+        allowed_actions: {
+            items: {
+                const: 'save_review',
+                type: 'string'
+            },
+            title: 'Allowed Actions',
+            type: 'array'
+        },
+        chunks: {
+            items: {
+                '$ref': '#/components/schemas/ChunkSummary'
+            },
+            title: 'Chunks',
+            type: 'array'
+        },
+        dataset: {
+            '$ref': '#/components/schemas/ReviewDataset'
+        },
+        documents: {
+            items: {
+                '$ref': '#/components/schemas/DocumentDetail'
+            },
+            title: 'Documents',
+            type: 'array'
+        },
+        existing_review: {
+            anyOf: [
+                {
+                    additionalProperties: true,
+                    type: 'object'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Existing Review'
+        },
+        facts: {
+            items: {
+                '$ref': '#/components/schemas/ReviewFact'
+            },
+            title: 'Facts',
+            type: 'array'
+        },
+        item: {
+            '$ref': '#/components/schemas/ReviewItem'
+        },
+        item_revision: {
+            title: 'Item Revision',
+            type: 'integer'
+        },
+        kind: {
+            const: 'fact_decomp',
+            default: 'fact_decomp',
+            title: 'Kind',
+            type: 'string'
+        },
+        review_mode: {
+            const: 'AUTHORED_RUBRIC',
+            title: 'Review Mode',
+            type: 'string'
+        },
+        rubric_dimensions: {
+            items: {
+                '$ref': '#/components/schemas/ReviewRubricDimension'
+            },
+            title: 'Rubric Dimensions',
+            type: 'array'
+        },
+        task_id: {
+            title: 'Task Id',
+            type: 'integer'
+        }
+    },
+    required: ['dataset', 'item', 'task_id', 'item_revision', 'review_mode', 'facts', 'rubric_dimensions', 'allowed_actions'],
+    title: 'AuthoredFactDecompReviewPayload',
+    type: 'object'
+} as const;
+
 export const AuthoringConflictSchema = {
     description: 'Structured conflict returned for stale drafts or reused idempotency keys.',
     properties: {
@@ -503,6 +1161,28 @@ export const Body_admin_import_admin_documentsSchema = {
     },
     required: ['dataset_id', 'file'],
     title: 'Body_admin-import_admin_documents',
+    type: 'object'
+} as const;
+
+export const Body_admin_ingest_datasetSchema = {
+    properties: {
+        dataset_id: {
+            title: 'Dataset Id',
+            type: 'integer'
+        },
+        dry_run: {
+            default: false,
+            title: 'Dry Run',
+            type: 'boolean'
+        },
+        file: {
+            contentMediaType: 'application/octet-stream',
+            title: 'File',
+            type: 'string'
+        }
+    },
+    required: ['dataset_id', 'file'],
+    title: 'Body_admin-ingest_dataset',
     type: 'object'
 } as const;
 
@@ -1065,79 +1745,35 @@ export const FactDecompCreateResponseSchema = {
     type: 'object'
 } as const;
 
-export const FactDecompReviewPayloadSchema = {
+export const FactDecompImportSummarySchema = {
+    description: 'Counts and bounded errors produced by a FACT_DECOMP JSONL import.',
     properties: {
-        allowed_actions: {
-            items: {
-                const: 'save_review',
-                type: 'string'
-            },
-            title: 'Allowed Actions',
-            type: 'array'
-        },
-        chunks: {
-            items: {
-                '$ref': '#/components/schemas/ChunkSummary'
-            },
-            title: 'Chunks',
-            type: 'array'
-        },
-        dataset: {
-            '$ref': '#/components/schemas/ReviewDataset'
-        },
-        documents: {
-            items: {
-                '$ref': '#/components/schemas/DocumentDetail'
-            },
-            title: 'Documents',
-            type: 'array'
-        },
-        existing_review: {
-            anyOf: [
-                {
-                    additionalProperties: true,
-                    type: 'object'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Existing Review'
-        },
-        facts: {
-            items: {
-                '$ref': '#/components/schemas/ReviewFact'
-            },
-            title: 'Facts',
-            type: 'array'
-        },
-        item: {
-            '$ref': '#/components/schemas/ReviewItem'
-        },
-        item_revision: {
-            title: 'Item Revision',
+        created: {
+            title: 'Created',
             type: 'integer'
         },
-        kind: {
-            const: 'fact_decomp',
-            default: 'fact_decomp',
-            title: 'Kind',
-            type: 'string'
+        dry_run: {
+            title: 'Dry Run',
+            type: 'boolean'
         },
-        rubric_dimensions: {
+        errors: {
             items: {
-                '$ref': '#/components/schemas/ReviewRubricDimension'
+                '$ref': '#/components/schemas/DocumentImportError'
             },
-            title: 'Rubric Dimensions',
+            title: 'Errors',
             type: 'array'
         },
-        task_id: {
-            title: 'Task Id',
+        rejected: {
+            title: 'Rejected',
+            type: 'integer'
+        },
+        unchanged: {
+            title: 'Unchanged',
             type: 'integer'
         }
     },
-    required: ['dataset', 'item', 'task_id', 'item_revision'],
-    title: 'FactDecompReviewPayload',
+    required: ['created', 'unchanged', 'rejected', 'errors', 'dry_run'],
+    title: 'FactDecompImportSummary',
     type: 'object'
 } as const;
 
@@ -1194,11 +1830,11 @@ export const FactDecompReviewSubmitSchema = {
             ]
         },
         fact_calls: {
-            additionalProperties: {
+            items: {
                 type: 'string'
             },
             title: 'Fact Calls',
-            type: 'object'
+            type: 'array'
         },
         item_revision: {
             title: 'Item Revision',
@@ -1316,22 +1952,15 @@ export const FactDecompSaveReceiptResponseSchema = {
 } as const;
 
 export const FactDraftSchema = {
+    additionalProperties: false,
     properties: {
         fact_text: {
             minLength: 1,
             title: 'Fact Text',
             type: 'string'
         },
-        fact_uuid: {
-            title: 'Fact Uuid',
-            type: 'string'
-        },
         polarity: {
             '$ref': '#/components/schemas/FactPolarity'
-        },
-        position: {
-            title: 'Position',
-            type: 'integer'
         },
         provenance_spans: {
             items: {
@@ -1341,7 +1970,7 @@ export const FactDraftSchema = {
             type: 'array'
         }
     },
-    required: ['fact_uuid', 'fact_text', 'polarity', 'position'],
+    required: ['fact_text', 'polarity'],
     title: 'FactDraft',
     type: 'object'
 } as const;
@@ -1493,6 +2122,159 @@ export const MessageSchema = {
     },
     required: ['message'],
     title: 'Message',
+    type: 'object'
+} as const;
+
+export const MissingModelClaimSchema = {
+    additionalProperties: false,
+    description: 'A reviewer-added claim with exact provenance in the response.',
+    properties: {
+        claim_text: {
+            maxLength: 20000,
+            minLength: 1,
+            title: 'Claim Text',
+            type: 'string'
+        },
+        label: {
+            enum: ['vital', 'supporting', 'peripheral', 'duplicate'],
+            title: 'Label',
+            type: 'string'
+        },
+        response_spans: {
+            items: {
+                '$ref': '#/components/schemas/ResponseClaimSpan'
+            },
+            maxItems: 100,
+            minItems: 1,
+            title: 'Response Spans',
+            type: 'array'
+        }
+    },
+    required: ['claim_text', 'response_spans', 'label'],
+    title: 'MissingModelClaim',
+    type: 'object'
+} as const;
+
+export const ModelEvalReviewSubmitSchema = {
+    additionalProperties: false,
+    description: 'Position-aligned human corrections for an imported model decomposition.',
+    properties: {
+        final_labels: {
+            items: {
+                enum: ['vital', 'supporting', 'peripheral', 'duplicate'],
+                type: 'string'
+            },
+            maxItems: 10000,
+            title: 'Final Labels',
+            type: 'array'
+        },
+        item_revision: {
+            title: 'Item Revision',
+            type: 'integer'
+        },
+        missing_claims: {
+            items: {
+                '$ref': '#/components/schemas/MissingModelClaim'
+            },
+            maxItems: 1000,
+            title: 'Missing Claims',
+            type: 'array'
+        }
+    },
+    required: ['final_labels', 'missing_claims', 'item_revision'],
+    title: 'ModelEvalReviewSubmit',
+    type: 'object'
+} as const;
+
+export const ModelFactDecompReviewPayloadSchema = {
+    properties: {
+        allowed_actions: {
+            items: {
+                const: 'save_model_eval',
+                type: 'string'
+            },
+            title: 'Allowed Actions',
+            type: 'array'
+        },
+        assistant_response: {
+            maxLength: 1000000,
+            title: 'Assistant Response',
+            type: 'string'
+        },
+        chunks: {
+            items: {
+                '$ref': '#/components/schemas/ChunkSummary'
+            },
+            title: 'Chunks',
+            type: 'array'
+        },
+        claims: {
+            items: {
+                '$ref': '#/components/schemas/ReviewModelClaim'
+            },
+            maxItems: 10000,
+            title: 'Claims',
+            type: 'array'
+        },
+        dataset: {
+            '$ref': '#/components/schemas/ReviewDataset'
+        },
+        documents: {
+            items: {
+                '$ref': '#/components/schemas/DocumentDetail'
+            },
+            title: 'Documents',
+            type: 'array'
+        },
+        existing_review: {
+            anyOf: [
+                {
+                    additionalProperties: true,
+                    type: 'object'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Existing Review'
+        },
+        item: {
+            '$ref': '#/components/schemas/ReviewItem'
+        },
+        item_revision: {
+            title: 'Item Revision',
+            type: 'integer'
+        },
+        kind: {
+            const: 'fact_decomp',
+            default: 'fact_decomp',
+            title: 'Kind',
+            type: 'string'
+        },
+        review_mode: {
+            const: 'MODEL_LABEL_CORRECTION',
+            title: 'Review Mode',
+            type: 'string'
+        },
+        task_id: {
+            title: 'Task Id',
+            type: 'integer'
+        },
+        user_prompt: {
+            anyOf: [
+                {
+                    maxLength: 1000000,
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'User Prompt'
+        }
+    },
+    required: ['dataset', 'item', 'task_id', 'item_revision', 'review_mode', 'user_prompt', 'assistant_response', 'claims', 'allowed_actions'],
+    title: 'ModelFactDecompReviewPayload',
     type: 'object'
 } as const;
 
@@ -1796,6 +2578,32 @@ export const RelevanceReviewSubmitSchema = {
     },
     required: ['grade', 'item_revision'],
     title: 'RelevanceReviewSubmit',
+    type: 'object'
+} as const;
+
+export const ResponseClaimSpanSchema = {
+    additionalProperties: false,
+    description: 'A code-point span selected from the assistant response.',
+    properties: {
+        end: {
+            exclusiveMinimum: 0,
+            title: 'End',
+            type: 'integer'
+        },
+        start: {
+            minimum: 0,
+            title: 'Start',
+            type: 'integer'
+        },
+        text: {
+            maxLength: 20000,
+            minLength: 1,
+            title: 'Text',
+            type: 'string'
+        }
+    },
+    required: ['start', 'end', 'text'],
+    title: 'ResponseClaimSpan',
     type: 'object'
 } as const;
 
@@ -2243,14 +3051,6 @@ export const ReviewFactSchema = {
             title: 'Fact Text',
             type: 'string'
         },
-        fact_uuid: {
-            title: 'Fact Uuid',
-            type: 'string'
-        },
-        id: {
-            title: 'Id',
-            type: 'integer'
-        },
         polarity: {
             '$ref': '#/components/schemas/FactPolarity'
         },
@@ -2259,7 +3059,7 @@ export const ReviewFactSchema = {
             type: 'integer'
         }
     },
-    required: ['id', 'fact_uuid', 'fact_text', 'polarity', 'position'],
+    required: ['fact_text', 'polarity', 'position'],
     title: 'ReviewFact',
     type: 'object'
 } as const;
@@ -2323,6 +3123,40 @@ export const ReviewItemSchema = {
     },
     required: ['id', 'dataset_id', 'eval_type', 'prompt_text', 'status', 'revision'],
     title: 'ReviewItem',
+    type: 'object'
+} as const;
+
+export const ReviewModelClaimSchema = {
+    additionalProperties: false,
+    description: 'One imported claim with reviewer-visible response provenance.',
+    properties: {
+        claim_text: {
+            minLength: 1,
+            title: 'Claim Text',
+            type: 'string'
+        },
+        position: {
+            minimum: 0,
+            title: 'Position',
+            type: 'integer'
+        },
+        proposed_label: {
+            enum: ['vital', 'supporting', 'peripheral', 'duplicate'],
+            title: 'Proposed Label',
+            type: 'string'
+        },
+        response_spans: {
+            items: {
+                '$ref': '#/components/schemas/ResponseClaimSpan'
+            },
+            maxItems: 100,
+            minItems: 1,
+            title: 'Response Spans',
+            type: 'array'
+        }
+    },
+    required: ['claim_text', 'position', 'response_spans', 'proposed_label'],
+    title: 'ReviewModelClaim',
     type: 'object'
 } as const;
 

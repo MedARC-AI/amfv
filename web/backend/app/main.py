@@ -5,6 +5,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.api.main import api_router
 from app.core.config import Settings, settings
+from app.middleware.model_eval_body_limit import ModelEvalBodyLimitMiddleware
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
@@ -20,6 +21,9 @@ def create_app(app_settings: Settings) -> FastAPI:
         title=app_settings.PROJECT_NAME,
         openapi_url=f"{app_settings.API_V1_STR}/openapi.json",
         generate_unique_id_function=custom_generate_unique_id,
+    )
+    application.add_middleware(
+        ModelEvalBodyLimitMiddleware, api_prefix=app_settings.API_V1_STR
     )
 
     if app_settings.all_cors_origins:
