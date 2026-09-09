@@ -62,7 +62,7 @@ def _existing_model_review(review: FactDecompReview | None) -> dict | None:
         raise HTTPException(
             status_code=500, detail="Stored correction review is invalid"
         ) from exc
-    return ratings.model_dump(mode="json", include={"final_labels", "missing_claims"})
+    return ratings.model_dump(mode="json", include={"final_claims"})
 
 
 @router.get("/fact-decomp/{task_id}", response_model=FactDecompReviewPayload)
@@ -237,28 +237,27 @@ def submit_model_eval_review(
         .order_by(col(EvalFact.position))
     ).all()
     claims = _model_claims(item, list(facts))
-    if len(body.final_labels) != len(claims):
-        raise HTTPException(
-            status_code=400,
-            detail="final_labels must contain exactly one label per imported claim",
-        )
-    for missing in body.missing_claims:
-        if not missing.claim_text.strip():
+    positions = {claim.position for claim in claims}
+    for claim in body.final_claims:
+        if (
+            claim.original_position is not None
+            and claim.original_position not in positions
+        ):
             raise HTTPException(
-                status_code=400, detail="Missing claim text must not be blank"
+                status_code=400, detail="Unknown original claim position"
             )
         try:
-            spans = _validate_submitted_spans(item.prompt_text, missing.response_spans)
+            claim.response_spans = _validate_submitted_spans(
+                item.prompt_text, claim.response_spans
+            )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        missing.response_spans = spans
     assert task.id is not None
     try:
         ratings = ModelCorrectionRating(
             review_mode=MODEL_REVIEW_MODE,
             proposed_labels=[claim.proposed_label for claim in claims],
-            final_labels=list(body.final_labels),
-            missing_claims=body.missing_claims,
+            final_claims=body.final_claims,
         ).model_dump(mode="json")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -190,12 +190,11 @@ export const AdminExportAuthoredItemSchema = {
 
 export const AdminExportCorrectionReviewSchema = {
     properties: {
-        final_labels: {
+        final_claims: {
             items: {
-                enum: ['vital', 'supporting', 'peripheral', 'duplicate'],
-                type: 'string'
+                '$ref': '#/components/schemas/FinalModelClaim'
             },
-            title: 'Final Labels',
+            title: 'Final Claims',
             type: 'array'
         },
         id: {
@@ -206,16 +205,9 @@ export const AdminExportCorrectionReviewSchema = {
             title: 'Item Revision',
             type: 'integer'
         },
-        missing_claims: {
-            items: {
-                '$ref': '#/components/schemas/MissingModelClaim'
-            },
-            title: 'Missing Claims',
-            type: 'array'
-        },
         proposed_labels: {
             items: {
-                enum: ['vital', 'supporting', 'peripheral', 'duplicate'],
+                enum: ['substantive', 'incidental', 'borderline'],
                 type: 'string'
             },
             title: 'Proposed Labels',
@@ -234,7 +226,7 @@ export const AdminExportCorrectionReviewSchema = {
             type: 'string'
         }
     },
-    required: ['id', 'user_id', 'item_revision', 'proposed_labels', 'final_labels', 'missing_claims', 'reviewer_kind', 'source'],
+    required: ['id', 'user_id', 'item_revision', 'proposed_labels', 'final_claims', 'reviewer_kind', 'source'],
     title: 'AdminExportCorrectionReview',
     type: 'object'
 } as const;
@@ -418,7 +410,7 @@ export const AdminExportModelClaimSchema = {
             type: 'integer'
         },
         proposed_label: {
-            enum: ['vital', 'supporting', 'peripheral', 'duplicate'],
+            enum: ['substantive', 'incidental', 'borderline'],
             title: 'Proposed Label',
             type: 'string'
         },
@@ -1981,6 +1973,48 @@ export const FactPolaritySchema = {
     type: 'string'
 } as const;
 
+export const FinalModelClaimSchema = {
+    additionalProperties: false,
+    description: 'A final human claim linked to an immutable model claim, or newly added.',
+    properties: {
+        claim_text: {
+            maxLength: 20000,
+            minLength: 1,
+            title: 'Claim Text',
+            type: 'string'
+        },
+        label: {
+            enum: ['substantive', 'incidental', 'borderline'],
+            title: 'Label',
+            type: 'string'
+        },
+        original_position: {
+            anyOf: [
+                {
+                    minimum: 0,
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Original Position'
+        },
+        response_spans: {
+            items: {
+                '$ref': '#/components/schemas/ResponseClaimSpan'
+            },
+            maxItems: 100,
+            minItems: 1,
+            title: 'Response Spans',
+            type: 'array'
+        }
+    },
+    required: ['original_position', 'claim_text', 'response_spans', 'label'],
+    title: 'FinalModelClaim',
+    type: 'object'
+} as const;
+
 export const HTTPValidationErrorSchema = {
     properties: {
         detail: {
@@ -2125,33 +2159,19 @@ export const MessageSchema = {
     type: 'object'
 } as const;
 
-export const MissingModelClaimSchema = {
-    additionalProperties: false,
-    description: 'A reviewer-added claim with exact provenance in the response.',
+export const ModelCorrectionReviewSchema = {
     properties: {
-        claim_text: {
-            maxLength: 20000,
-            minLength: 1,
-            title: 'Claim Text',
-            type: 'string'
-        },
-        label: {
-            enum: ['vital', 'supporting', 'peripheral', 'duplicate'],
-            title: 'Label',
-            type: 'string'
-        },
-        response_spans: {
+        final_claims: {
             items: {
-                '$ref': '#/components/schemas/ResponseClaimSpan'
+                '$ref': '#/components/schemas/FinalModelClaim'
             },
-            maxItems: 100,
-            minItems: 1,
-            title: 'Response Spans',
+            maxItems: 10000,
+            title: 'Final Claims',
             type: 'array'
         }
     },
-    required: ['claim_text', 'response_spans', 'label'],
-    title: 'MissingModelClaim',
+    required: ['final_claims'],
+    title: 'ModelCorrectionReview',
     type: 'object'
 } as const;
 
@@ -2159,29 +2179,20 @@ export const ModelEvalReviewSubmitSchema = {
     additionalProperties: false,
     description: 'Position-aligned human corrections for an imported model decomposition.',
     properties: {
-        final_labels: {
+        final_claims: {
             items: {
-                enum: ['vital', 'supporting', 'peripheral', 'duplicate'],
-                type: 'string'
+                '$ref': '#/components/schemas/FinalModelClaim'
             },
             maxItems: 10000,
-            title: 'Final Labels',
+            title: 'Final Claims',
             type: 'array'
         },
         item_revision: {
             title: 'Item Revision',
             type: 'integer'
-        },
-        missing_claims: {
-            items: {
-                '$ref': '#/components/schemas/MissingModelClaim'
-            },
-            maxItems: 1000,
-            title: 'Missing Claims',
-            type: 'array'
         }
     },
-    required: ['final_labels', 'missing_claims', 'item_revision'],
+    required: ['final_claims', 'item_revision'],
     title: 'ModelEvalReviewSubmit',
     type: 'object'
 } as const;
@@ -2229,14 +2240,12 @@ export const ModelFactDecompReviewPayloadSchema = {
         existing_review: {
             anyOf: [
                 {
-                    additionalProperties: true,
-                    type: 'object'
+                    '$ref': '#/components/schemas/ModelCorrectionReview'
                 },
                 {
                     type: 'null'
                 }
-            ],
-            title: 'Existing Review'
+            ]
         },
         item: {
             '$ref': '#/components/schemas/ReviewItem'
@@ -3141,7 +3150,7 @@ export const ReviewModelClaimSchema = {
             type: 'integer'
         },
         proposed_label: {
-            enum: ['vital', 'supporting', 'peripheral', 'duplicate'],
+            enum: ['substantive', 'incidental', 'borderline'],
             title: 'Proposed Label',
             type: 'string'
         },

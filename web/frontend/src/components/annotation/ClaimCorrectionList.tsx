@@ -1,242 +1,308 @@
-import { Trash2 } from "lucide-react"
+import * as React from "react"
+import type { FinalModelClaim, ReviewModelClaim } from "@/client/types.gen"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { cn } from "@/lib/utils"
-import type { ClaimResponseOwner } from "./SelectableClaimResponse"
+import { evalItemColor } from "@/lib/evalItemPalette"
+import type { ClaimResponseSpan } from "./SelectableClaimResponse"
 
-export const CLAIM_LABELS = [
-  "vital",
-  "supporting",
-  "peripheral",
-  "duplicate",
-] as const
+export const CLAIM_LABELS = ["substantive", "incidental", "borderline"] as const
 export type ClaimLabel = (typeof CLAIM_LABELS)[number]
-
-export type CorrectionClaim = Omit<
-  ClaimResponseOwner,
-  "markClass" | "dotClass"
-> & {
-  claim: string
-  proposedLabel: ClaimLabel
-  colorClass: string
-  dotClass: string
+export const labelDescriptions: Record<ClaimLabel, string> = {
+  substantive:
+    "Correctness materially affects information, reasoning, conclusions, or actions",
+  incidental: "Correctness has little bearing on the substantive content",
+  borderline:
+    "Context leaves verification relevance unclear, not factual truth",
 }
-
-export type MissingClaimDraft = Omit<
-  ClaimResponseOwner,
-  "markClass" | "dotClass"
-> & {
-  draftId: string
-  claim: string
-  label: ClaimLabel
-  colorClass: string
-  dotClass: string
+export type ClaimGroup = {
+  id: number
+  original?: ReviewModelClaim
+  finals: FinalModelClaim[]
 }
-
-type ClaimCorrectionListProps = {
-  claims: CorrectionClaim[]
-  missingClaims: MissingClaimDraft[]
-  labels: Record<number, ClaimLabel>
-  onLabelChange: (position: number, label: ClaimLabel) => void
-  onMissingChange: (
-    draftId: string,
-    patch: Partial<Pick<MissingClaimDraft, "claim" | "label">>,
-  ) => void
-  onRemoveMissing: (draftId: string) => void
-  activePosition?: number | null
-  onFocusClaim?: (position: number) => void
+export function originalFinal(claim: ReviewModelClaim): FinalModelClaim {
+  return {
+    original_position: claim.position,
+    claim_text: claim.claim_text,
+    response_spans: claim.response_spans,
+    label: claim.proposed_label,
+  }
 }
-
-const labelDescriptions: Record<ClaimLabel, string> = {
-  vital: "Directly answers a core part of the prompt",
-  supporting: "Useful explanation or context",
-  peripheral: "Endorsed but incidental information",
-  duplicate: "Repeats an earlier claim",
-}
-
-function LabelButtons({
-  label,
-  onChange,
+function Labels({
+  value,
   name,
+  onChange,
 }: {
-  label: ClaimLabel
-  onChange: (label: ClaimLabel) => void
+  value: ClaimLabel
   name: string
+  onChange: (label: ClaimLabel) => void
 }) {
   return (
-    <fieldset className="grid grid-cols-2 gap-1 sm:flex sm:flex-wrap">
+    <fieldset className="flex flex-wrap gap-1">
       <legend className="sr-only">{name} label</legend>
-      {CLAIM_LABELS.map((option) => (
+      {CLAIM_LABELS.map((label) => (
         <button
-          aria-pressed={option === label}
-          className={cn(
-            "rounded-md border px-2.5 py-1.5 text-xs font-medium capitalize transition-colors",
-            option === label
-              ? "border-primary bg-primary text-primary-foreground shadow-sm"
-              : "bg-background hover:bg-muted",
-          )}
-          key={option}
-          onClick={() => onChange(option)}
-          title={labelDescriptions[option]}
+          key={label}
           type="button"
+          aria-pressed={label === value}
+          title={labelDescriptions[label]}
+          className={`rounded border px-2 py-1 text-xs capitalize ${label === value ? "bg-primary text-primary-foreground" : "bg-background"}`}
+          onClick={() => onChange(label)}
         >
-          {option}
+          {label}
         </button>
       ))}
     </fieldset>
   )
 }
-
-function ClaimRow({
-  claim,
-  label,
-  onLabelChange,
-  active,
+function ClaimEditor({
+  group,
+  locked,
+  stagedSpans,
+  onChange,
+  onEditing,
   onFocus,
 }: {
-  claim: CorrectionClaim
-  label: ClaimLabel
-  onLabelChange: (label: ClaimLabel) => void
-  active: boolean
+  group: ClaimGroup
+  locked: boolean
+  stagedSpans: ClaimResponseSpan[]
+  onChange: (claims: FinalModelClaim[]) => void
+  onEditing: (editing: boolean) => void
   onFocus: () => void
 }) {
+  const [draft, setDraft] = React.useState<FinalModelClaim[] | null>(null)
+  const name = group.original
+    ? `Claim ${group.original.position + 1}`
+    : "Missing claim"
+  const begin = (split: boolean) => {
+    const parts = group.finals.map((claim) => ({ ...claim }))
+    if (split && parts.length) parts.push({ ...parts[0], claim_text: "" })
+    setDraft(parts)
+    onEditing(true)
+  }
+  const finish = () => {
+    setDraft(null)
+    onEditing(false)
+  }
+  const patch = (index: number, change: Partial<FinalModelClaim>) =>
+    setDraft(
+      (current) =>
+        current?.map((claim, i) =>
+          i === index ? { ...claim, ...change } : claim,
+        ) ?? null,
+    )
   return (
     <article
-      className={cn(
-        "scroll-mt-4 rounded-xl border border-l-4 bg-card p-4 shadow-sm transition-shadow",
-        claim.colorClass,
-        active && "ring-2 ring-primary/60",
-      )}
-      data-claim-position={claim.position}
-      id={`claim-position-${claim.position}`}
+      id={`claim-position-${group.id}`}
+      data-claim-position={group.id}
+      className={`rounded-xl border border-l-4 bg-card p-4 space-y-3 ${evalItemColor(group.id).card}`}
     >
-      <button
-        className="block w-full text-left"
-        onClick={onFocus}
-        type="button"
-      >
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            <span
-              aria-hidden="true"
-              className={cn("size-2.5 rounded-full", claim.dotClass)}
-            />
-            Claim {claim.position + 1}
-          </span>
-          <span className="rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            model proposal
-          </span>
-        </div>
-        <p className="text-sm leading-6">{claim.claim}</p>
+      <button type="button" onClick={onFocus} className="text-sm font-semibold">
+        {name} · View source
       </button>
-      <div className="mt-4 rounded-lg border border-primary/30 bg-primary/[0.06] p-3">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <span className="text-2xl font-black capitalize tracking-tight text-primary">
-            Proposed: {claim.proposedLabel}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            Change if needed
-          </span>
-        </div>
-        <LabelButtons
-          label={label}
-          name={`Claim ${claim.position + 1}`}
-          onChange={onLabelChange}
-        />
-      </div>
+      {group.original && (
+        <details>
+          <summary className="cursor-pointer text-xs text-muted-foreground">
+            Original model claim · Proposed: {group.original.proposed_label}
+          </summary>
+          <p className="mt-2 text-sm">{group.original.claim_text}</p>
+        </details>
+      )}
+      <fieldset disabled={locked} className="space-y-3 disabled:opacity-70">
+        {draft ? (
+          <>
+            {draft.map((claim, index) => (
+              <div
+                key={`${group.id}-${index}`}
+                className="space-y-2 rounded border p-3"
+              >
+                <textarea
+                  className="w-full rounded border p-2 text-sm"
+                  aria-label={`${name} part ${index + 1} text`}
+                  maxLength={20000}
+                  value={claim.claim_text}
+                  onChange={(event) =>
+                    patch(index, { claim_text: event.target.value })
+                  }
+                />
+                <Labels
+                  name={`${name} part ${index + 1}`}
+                  value={claim.label}
+                  onChange={(label) => patch(index, { label })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Source:{" "}
+                  {claim.response_spans.map((span) => span.text).join(" … ")}
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!stagedSpans.length}
+                  onClick={() =>
+                    patch(index, { response_spans: [...stagedSpans] })
+                  }
+                >
+                  Use selected source for part {index + 1}
+                </Button>
+                {draft.length > 1 && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() =>
+                      setDraft(draft.filter((_, i) => i !== index))
+                    }
+                  >
+                    Remove part {index + 1}
+                  </Button>
+                )}
+              </div>
+            ))}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  setDraft([...draft, { ...draft[0], claim_text: "" }])
+                }
+              >
+                Add split claim
+              </Button>
+              <Button
+                size="sm"
+                disabled={draft.some(
+                  (claim) =>
+                    !claim.claim_text.trim() || !claim.response_spans.length,
+                )}
+                onClick={() => {
+                  onChange(draft)
+                  finish()
+                }}
+              >
+                Apply changes
+              </Button>
+              <Button size="sm" variant="ghost" onClick={finish}>
+                Cancel
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            {group.finals.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Removed from final decomposition.
+              </p>
+            ) : (
+              group.finals.map((claim, index) => (
+                <div key={`${group.id}-${index}`} className="space-y-2">
+                  {group.finals.length > 1 && (
+                    <p className="text-xs font-medium">
+                      Split claim {index + 1}
+                    </p>
+                  )}
+                  <p className="whitespace-pre-wrap text-sm leading-6">
+                    {claim.claim_text}
+                  </p>
+                  <Labels
+                    name={
+                      group.finals.length > 1
+                        ? `${name} part ${index + 1}`
+                        : name
+                    }
+                    value={claim.label}
+                    onChange={(label) =>
+                      onChange(
+                        group.finals.map((part, i) =>
+                          i === index ? { ...part, label } : part,
+                        ),
+                      )
+                    }
+                  />
+                </div>
+              ))
+            )}
+            <div className="flex flex-wrap gap-2">
+              {group.finals.length > 0 && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => begin(false)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => begin(true)}
+                  >
+                    Split
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => onChange([])}
+                  >
+                    Remove
+                  </Button>
+                </>
+              )}
+              {group.original && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onChange([originalFinal(group.original!)])}
+                >
+                  Undo to original
+                </Button>
+              )}
+            </div>
+          </>
+        )}
+      </fieldset>
     </article>
   )
 }
-
 export function ClaimCorrectionList({
-  activePosition = null,
-  claims,
-  labels,
-  missingClaims,
+  groups,
+  locked,
+  stagedSpans,
+  onChange,
+  onEditing,
   onFocusClaim,
-  onLabelChange,
-  onMissingChange,
-  onRemoveMissing,
-}: ClaimCorrectionListProps) {
+}: {
+  groups: ClaimGroup[]
+  locked: boolean
+  stagedSpans: ClaimResponseSpan[]
+  onChange: (id: number, claims: FinalModelClaim[]) => void
+  onEditing: (id: number, editing: boolean) => void
+  onFocusClaim: (position: number) => void
+}) {
   return (
     <section
-      aria-label="Claims and labels"
       className="space-y-3"
+      aria-label="Claims and labels"
       data-testid="claim-correction-list"
     >
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            Decomposition
-          </p>
-          <h2 className="text-xl font-semibold tracking-tight">
-            Review each claim
-          </h2>
-        </div>
-        <span className="text-xs text-muted-foreground">
-          {claims.length} model claim{claims.length === 1 ? "" : "s"}
-        </span>
-      </div>
-      {claims.map((claim) => (
-        <ClaimRow
-          active={activePosition === claim.position}
-          claim={claim}
-          key={claim.position}
-          label={labels[claim.position] ?? claim.proposedLabel}
-          onFocus={() => onFocusClaim?.(claim.position)}
-          onLabelChange={(label) => onLabelChange(claim.position, label)}
+      <h2 className="text-xl font-semibold">Review each claim</h2>
+      <dl className="rounded-xl border p-3 space-y-2 text-xs">
+        {CLAIM_LABELS.map((label) => (
+          <div key={label}>
+            <dt className="font-semibold capitalize">{label}</dt>
+            <dd className="text-muted-foreground">
+              {labelDescriptions[label]}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {groups.map((group) => (
+        <ClaimEditor
+          key={group.id}
+          group={group}
+          locked={locked}
+          stagedSpans={stagedSpans}
+          onChange={(claims) => onChange(group.id, claims)}
+          onEditing={(editing) => onEditing(group.id, editing)}
+          onFocus={() => onFocusClaim(group.id)}
         />
       ))}
-      {missingClaims.map((claim) => (
-        <article
-          className={cn(
-            "rounded-xl border border-l-4 border-dashed bg-card p-4",
-            claim.colorClass,
-          )}
-          data-testid={`missing-claim-${claim.draftId}`}
-          id={`claim-position-${claim.position}`}
-          key={claim.draftId}
-        >
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              <span
-                aria-hidden="true"
-                className={cn("size-2.5 rounded-full", claim.dotClass)}
-              />
-              Missing claim
-            </span>
-            <Button
-              aria-label="Remove missing claim"
-              onClick={() => onRemoveMissing(claim.draftId)}
-              size="icon-sm"
-              type="button"
-              variant="ghost"
-            >
-              <Trash2 />
-            </Button>
-          </div>
-          <Input
-            aria-label="Missing claim text"
-            onChange={(event) =>
-              onMissingChange(claim.draftId, { claim: event.target.value })
-            }
-            value={claim.claim}
-          />
-          <div className="mt-3">
-            <LabelButtons
-              label={claim.label}
-              name="Missing claim"
-              onChange={(label) => onMissingChange(claim.draftId, { label })}
-            />
-          </div>
-        </article>
-      ))}
-      {claims.length === 0 && missingClaims.length === 0 ? (
-        <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
-          No claims proposed. Select response text to add one, or submit this
-          empty decomposition.
-        </p>
-      ) : null}
     </section>
   )
 }

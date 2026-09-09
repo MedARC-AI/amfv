@@ -66,12 +66,12 @@ def test_admin_export_joins_model_corrections_without_private_metadata(
             "ordered_claim_annotations": [
                 {
                     "claim": "Alpha is true.",
-                    "label": "vital",
+                    "label": "substantive",
                     "spans": [{"start": 0, "end": 14, "text": "Alpha is true."}],
                 },
                 {
                     "claim": "Beta is false.",
-                    "label": "supporting",
+                    "label": "substantive",
                     "spans": [{"start": 15, "end": 29, "text": "Beta is false."}],
                 },
             ],
@@ -128,13 +128,13 @@ def test_admin_export_joins_model_corrections_without_private_metadata(
                 source="web_model_eval",
                 ratings={
                     "review_mode": "MODEL_LABEL_CORRECTION",
-                    "proposed_labels": ["vital", "supporting"],
-                    "final_labels": ["duplicate", "peripheral"],
-                    "missing_claims": [
+                    "proposed_labels": ["substantive", "substantive"],
+                    "final_claims": [
                         {
+                            "original_position": None,
                             "claim_text": "The response mentions alpha.",
                             "response_spans": [{"start": 0, "end": 5, "text": "Alpha"}],
-                            "label": "supporting",
+                            "label": "substantive",
                         }
                     ],
                 },
@@ -199,20 +199,16 @@ def test_admin_export_joins_model_corrections_without_private_metadata(
             "claim": "Alpha is true.",
             "position": 0,
             "spans": [{"start": 0, "end": 14, "text": "Alpha is true."}],
-            "proposed_label": "vital",
+            "proposed_label": "substantive",
         },
         {
             "claim": "Beta is false.",
             "position": 1,
             "spans": [{"start": 15, "end": 29, "text": "Beta is false."}],
-            "proposed_label": "supporting",
+            "proposed_label": "substantive",
         },
     ]
-    assert exported["correction_reviews"][0]["final_labels"] == [
-        "duplicate",
-        "peripheral",
-    ]
-    assert exported["correction_reviews"][0]["missing_claims"]
+    assert exported["correction_reviews"][0]["final_claims"]
     assert exported["review_task"]["labels_count"] == 1
     assert "reviews" not in exported["review_task"]
     assert "prompt_text" not in exported

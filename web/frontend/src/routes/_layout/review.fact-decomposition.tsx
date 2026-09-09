@@ -223,6 +223,7 @@ function FactDecompositionReview() {
           "save_model_eval",
         )}
         claims={correctionClaims(payload)}
+        existingReview={payload.existing_review}
         completionMessage={completionMessage}
         errorMessage={errorMessage}
         onSubmit={(submission) => {

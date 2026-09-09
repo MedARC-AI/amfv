@@ -41,9 +41,8 @@ def test_correction_rating_rejects_unbounded_claim_lists() -> None:
         ModelCorrectionRating.model_validate(
             {
                 "review_mode": "MODEL_LABEL_CORRECTION",
-                "proposed_labels": ["vital"] * 10_001,
-                "final_labels": [],
-                "missing_claims": [],
+                "proposed_labels": ["substantive"] * 10_001,
+                "final_claims": [],
             }
         )
 
@@ -52,14 +51,14 @@ def test_correction_rating_rejects_unbounded_claim_lists() -> None:
             {
                 "review_mode": "MODEL_LABEL_CORRECTION",
                 "proposed_labels": [],
-                "final_labels": [],
-                "missing_claims": [
+                "final_claims": [
                     {
+                        "original_position": None,
                         "claim_text": "claim",
                         "response_spans": [{"start": 0, "end": 1, "text": "c"}],
-                        "label": "vital",
+                        "label": "substantive",
                     }
                 ]
-                * 1_001,
+                * 10_001,
             }
         )

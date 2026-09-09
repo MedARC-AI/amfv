@@ -84,7 +84,9 @@ class OwnedModelRuntime:
         await self.aclose()
 
 
-def _profile_for(config: RuntimeConfig) -> ModelProfile:
+def _profile_for(config: RuntimeConfig, provider_profile: ModelProfile | None) -> ModelProfile:
+    if config.family is ModelFamily.GENERIC:
+        return provider_profile or ModelProfile()
     if config.family is ModelFamily.GPT_OSS:
         base = harmony_model_profile("gpt-oss") or ModelProfile()
     elif config.family is ModelFamily.QWEN:
@@ -125,6 +127,6 @@ def build_model_runtime(config: RuntimeConfig) -> OwnedModelRuntime:
     model = OpenAIResponsesModel(
         config.model_id,
         provider=OpenAIProvider(openai_client=client),
-        profile=lambda _provider_profile: _profile_for(config),
+        profile=lambda provider_profile: _profile_for(config, provider_profile),
     )
     return OwnedModelRuntime(model=model, settings=_settings_for(config), client=client)

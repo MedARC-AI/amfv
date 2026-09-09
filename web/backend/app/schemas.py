@@ -201,9 +201,8 @@ class ReviewFact(SQLModel):
     position: int
 
 
-ModelClaimLabel = Literal["vital", "supporting", "peripheral", "duplicate"]
+ModelClaimLabel = Literal["substantive", "incidental", "borderline"]
 MAX_CLAIMS = 10_000
-MAX_MISSING_CLAIMS = 1_000
 MAX_CLAIM_TEXT_LENGTH = 20_000
 MAX_SPANS_PER_CLAIM = 100
 
@@ -253,16 +252,24 @@ class ReviewModelClaim(SQLModel):
         return value
 
 
-class MissingModelClaim(SQLModel):
-    """A reviewer-added claim with exact provenance in the response."""
+class FinalModelClaim(SQLModel):
+    """A final human claim linked to an immutable model claim, or newly added."""
 
     model_config = SQLModelConfig(extra="forbid")
 
+    original_position: int | None = Field(ge=0)
     claim_text: str = Field(min_length=1, max_length=MAX_CLAIM_TEXT_LENGTH)
     response_spans: list[ResponseClaimSpan] = Field(
         min_length=1, max_length=MAX_SPANS_PER_CLAIM
     )
     label: ModelClaimLabel
+
+    @field_validator("original_position", mode="before")
+    @classmethod
+    def _strict_position(cls, value: object) -> object:
+        if value is not None and type(value) is not int:
+            raise ValueError("Original position must be an integer or null")
+        return value
 
     @field_validator("claim_text")
     @classmethod
@@ -270,6 +277,10 @@ class MissingModelClaim(SQLModel):
         if not value.strip():
             raise ValueError("Claim text must not be blank")
         return value
+
+
+class ModelCorrectionReview(SQLModel):
+    final_claims: list[FinalModelClaim] = Field(max_length=MAX_CLAIMS)
 
 
 class ReviewRubricDimension(SQLModel):
@@ -371,7 +382,7 @@ class ModelFactDecompReviewPayload(FactDecompReviewPayloadBase):
     assistant_response: str = Field(max_length=1_000_000)
     claims: list[ReviewModelClaim] = Field(max_length=MAX_CLAIMS)
     allowed_actions: list[Literal["save_model_eval"]]
-    existing_review: dict | None = None
+    existing_review: ModelCorrectionReview | None = None
 
 
 FactDecompReviewPayload = Annotated[
@@ -482,8 +493,7 @@ class ModelEvalReviewSubmit(SQLModel):
 
     model_config = SQLModelConfig(extra="forbid")
 
-    final_labels: list[ModelClaimLabel] = Field(max_length=MAX_CLAIMS)
-    missing_claims: list[MissingModelClaim] = Field(max_length=MAX_MISSING_CLAIMS)
+    final_claims: list[FinalModelClaim] = Field(max_length=MAX_CLAIMS)
     item_revision: int
 
 
@@ -706,8 +716,7 @@ class AdminExportCorrectionReview(SQLModel):
     user_id: str
     item_revision: int
     proposed_labels: list[ModelClaimLabel]
-    final_labels: list[ModelClaimLabel]
-    missing_claims: list[MissingModelClaim]
+    final_claims: list[FinalModelClaim]
     reviewer_kind: str
     source: str
 

@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from app.models import EvalFact, EvalItem, ItemSource
 from app.schemas import (
-    MissingModelClaim,
+    FinalModelClaim,
     ModelClaimLabel,
     ResponseClaimSpan,
     ReviewModelClaim,
@@ -26,7 +26,6 @@ __all__ = [
 MAX_CASE_ID_LENGTH = 128
 MAX_ARM_ID_LENGTH = 128
 MAX_CLAIMS = 10_000
-MAX_MISSING_CLAIMS = 1_000
 MAX_CLAIM_TEXT_LENGTH = 20_000
 MAX_SPANS_PER_CLAIM = 100
 MAX_RESPONSE_LENGTH = 1_000_000
@@ -113,8 +112,7 @@ class ModelCorrectionRating(_StrictModel):
 
     review_mode: Literal["MODEL_LABEL_CORRECTION"]
     proposed_labels: list[ModelClaimLabel] = Field(max_length=MAX_CLAIMS)
-    final_labels: list[ModelClaimLabel] = Field(max_length=MAX_CLAIMS)
-    missing_claims: list[MissingModelClaim] = Field(max_length=MAX_MISSING_CLAIMS)
+    final_claims: list[FinalModelClaim] = Field(max_length=MAX_CLAIMS)
 
 
 class CorrectionMetadataError(ValueError):

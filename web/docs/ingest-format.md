@@ -107,14 +107,57 @@ can be a nonblank string, `null`, or omitted for response-only review.
     {
       "claim": "Text to decompose and review.",
       "spans": [{"start": 0, "end": 29, "text": "Text to decompose and review."}],
-      "label": "vital"
+      "label": "substantive"
     }
   ]
 }
 ```
 
-Claim labels are `vital`, `supporting`, `peripheral`, or `duplicate`. Span
-offsets are half-open Python code-point offsets into `assistant_response`, and
+Claim labels are `substantive`, `incidental`, or `borderline`:
+
+- `substantive`: Correctness materially affects information, reasoning, conclusions, or actions.
+- `incidental`: Correctness has little bearing on that substantive content.
+- `borderline`: Context leaves verification relevance unclear. It does not describe uncertainty about factual truth.
+
+Verification includes substantive and borderline claims. All claims, including
+incidental claims, remain available for human review and export. Repetition does
+not change a claim's relevance label. Downstream processing handles duplication.
+The same definitions apply to Q/A inputs and documents.
+
+The previous labels are no longer accepted. No conversion or migration is
+provided. Export preserves the immutable model `claims` and `proposed_labels`,
+plus each review's complete `final_claims` list.
+
+Submit corrections to `/api/v1/review/fact-decomp/{task_id}/model-eval`:
+
+```json
+{
+  "item_revision": 1,
+  "final_claims": [
+    {
+      "original_position": 0,
+      "claim_text": "The corrected assertion.",
+      "response_spans": [{"start": 0, "end": 5, "text": "Alpha"}],
+      "label": "substantive"
+    }
+  ]
+}
+```
+
+`original_position` references a position in the immutable model claims. Several
+final claims can reference one original when a reviewer splits it. An original
+with no final claim is removed. A human-added claim has `original_position: null`.
+An empty final list removes all originals. Incidental and repeated claims should
+remain; removal corrects extraction errors, not verification relevance.
+
+Each final claim has its own text, label, and exact source spans. The server
+validates every reference and span before saving the review atomically. The
+complete list is limited to 10,000 claims, with at most 20,000 characters and
+100 spans per claim. Original positions must be integers or null. Existing
+reviews return the saved `final_claims` list. Export uses the same shape.
+The former `final_labels` and `missing_claims` fields are not accepted.
+
+Span offsets are half-open Python code-point offsets into `assistant_response`, and
 the included span text must match exactly. Claims and their local spans are
 source ordered; spans for different claims can overlap. An empty claim list is
 valid and remains reviewable so a human can record omitted claims.

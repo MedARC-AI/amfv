@@ -100,7 +100,7 @@ test("submits a fact-decomposition review with fact calls and rubric", async ({
             text: firstText,
           },
         ],
-        label: "vital",
+        label: "substantive",
       },
       {
         claim: "Efferent vasoconstriction preserves filtration pressure.",
@@ -111,7 +111,7 @@ test("submits a fact-decomposition review with fact calls and rubric", async ({
             text: secondText,
           },
         ],
-        label: "supporting",
+        label: "substantive",
       },
     ],
   }
@@ -141,10 +141,14 @@ test("submits a fact-decomposition review with fact calls and rubric", async ({
 
   await page.goto("/review/fact-decomposition")
   await expect(
-    page.getByRole("heading", { name: "Correct the model labels" }),
+    page.getByRole("heading", { name: "Review verification relevance" }),
   ).toBeVisible()
-  await expect(page.getByText("Proposed: vital")).toBeVisible()
-  await expect(page.getByText("Proposed: supporting")).toBeVisible()
+  await expect(page.getByText("Proposed: substantive")).toHaveCount(2)
+  await expect(
+    page.getByText(
+      /Substantive and borderline claims are included in verification/,
+    ),
+  ).toBeVisible()
   await expect(page.getByText("User prompt", { exact: true })).toHaveCount(0)
 
   const source = page.getByTestId("claim-response")
@@ -156,8 +160,39 @@ test("submits a fact-decomposition review with fact calls and rubric", async ({
   expect(desktopClaimBox?.x).toBeGreaterThan(desktopSourceBox?.x ?? 0)
 
   const firstLabels = page.getByRole("group", { name: "Claim 1 label" })
-  await expect(firstLabels.getByRole("button")).toHaveCount(4)
-  await firstLabels.getByRole("button", { name: "peripheral" }).click()
+  await expect(firstLabels.getByRole("button")).toHaveCount(3)
+  await firstLabels.getByRole("button", { name: "incidental" }).click()
+
+  const firstClaim = page.locator('[data-claim-position="0"]')
+  const secondClaim = page.locator('[data-claim-position="1"]')
+  await firstClaim.getByRole("button", { name: "Remove", exact: true }).click()
+  await expect(
+    firstClaim.getByText("Removed from final decomposition."),
+  ).toBeVisible()
+  await firstClaim.getByRole("button", { name: "Undo to original" }).click()
+  await expect(
+    firstLabels.getByRole("button", { name: "substantive" }),
+  ).toHaveAttribute("aria-pressed", "true")
+  await firstClaim.getByRole("button", { name: "Edit", exact: true }).click()
+  await firstClaim.getByLabel("Claim 1 part 1 text").fill("Discard this edit")
+  await firstClaim.getByRole("button", { name: "Cancel", exact: true }).click()
+  await expect(firstClaim.getByText("Discard this edit")).toHaveCount(0)
+  await firstClaim.getByRole("button", { name: "Split", exact: true }).click()
+  await expect(
+    page.getByRole("button", { name: "Submit correction" }),
+  ).toBeDisabled()
+  await firstClaim
+    .getByLabel("Claim 1 part 1 text")
+    .fill("First corrected assertion")
+  await firstClaim
+    .getByLabel("Claim 1 part 2 text")
+    .fill("Second corrected assertion")
+  await firstClaim
+    .getByRole("group", { name: "Claim 1 part 2 label" })
+    .getByRole("button", { name: "borderline" })
+    .click()
+  await firstClaim.getByRole("button", { name: "Apply changes" }).click()
+  await secondClaim.getByRole("button", { name: "Remove", exact: true }).click()
 
   await source.evaluate((element) => {
     const target = "RAAS and efferent vasoconstriction"
@@ -205,14 +240,19 @@ test("submits a fact-decomposition review with fact calls and rubric", async ({
     selection?.addRange(range)
     element.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }))
   })
+  await firstClaim.getByRole("button", { name: "Edit", exact: true }).click()
+  await firstClaim
+    .getByRole("button", { name: "Use selected source for part 2" })
+    .click()
+  await firstClaim.getByRole("button", { name: "Apply changes" }).click()
   await page.getByRole("button", { name: "Add missing claim" }).click()
-  const missing = page.getByTestId("missing-claim-missing-0")
-  await expect(missing.getByLabel("Missing claim text")).toHaveValue(
-    "RAAS and efferent vasoconstriction",
-  )
+  const missing = page.locator('[data-claim-position="2"]')
+  await expect(
+    missing.getByText("RAAS and efferent vasoconstriction", { exact: true }),
+  ).toBeVisible()
   await missing
     .getByRole("group", { name: "Missing claim label" })
-    .getByRole("button", { name: "duplicate" })
+    .getByRole("button", { name: "borderline" })
     .click()
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -222,7 +262,29 @@ test("submits a fact-decomposition review with fact calls and rubric", async ({
   expect(mobileClaimBox).not.toBeNull()
   expect(mobileClaimBox?.y).toBeGreaterThan(mobileSourceBox?.y ?? 0)
 
+  // Hold the real request to inspect the pending state, then let it reach the backend.
+  let releaseSubmission = () => {}
+  const submissionGate = new Promise<void>((resolve) => {
+    releaseSubmission = resolve
+  })
+  await page.route("**/review/fact-decomp/*/model-eval", async (route) => {
+    await submissionGate
+    await route.continue()
+  })
   await page.getByRole("button", { name: "Submit correction" }).click()
+  await expect(
+    page.getByRole("button", { name: "Submitting correction" }),
+  ).toBeDisabled()
+  await expect(
+    firstClaim.getByRole("button", { name: "Edit", exact: true }),
+  ).toBeDisabled()
+  await expect(
+    missing.getByRole("button", { name: "incidental" }),
+  ).toBeDisabled()
+  await expect(
+    page.getByRole("button", { name: "Add missing claim" }),
+  ).toBeDisabled()
+  releaseSubmission()
   await expect(page.getByText("Correction submitted.")).toBeVisible()
   await expect(
     page.getByRole("button", { name: "Submit correction" }),
@@ -239,35 +301,53 @@ test("submits a fact-decomposition review with fact calls and rubric", async ({
       case_id?: string
       claims?: Array<{ proposed_label: string }>
       correction_reviews?: Array<{
-        final_labels?: string[]
-        missing_claims?: Array<{ claim_text: string; label: string }>
+        final_claims?: Array<{
+          original_position: number | null
+          claim_text: string
+          label: string
+          response_spans: Array<{ start: number; end: number; text: string }>
+        }>
       }>
     }>
   }
   const exportedItem = exported.items.find((item) => item.case_id === caseId)
   expect(exportedItem?.claims?.map((claim) => claim.proposed_label)).toEqual([
-    "vital",
-    "supporting",
+    "substantive",
+    "substantive",
   ])
-  expect(exportedItem?.correction_reviews?.[0].final_labels).toEqual([
-    "peripheral",
-    "supporting",
+  const finalClaims = exportedItem?.correction_reviews?.[0].final_claims
+  expect(
+    finalClaims?.map((claim) => [
+      claim.original_position,
+      claim.claim_text,
+      claim.label,
+    ]),
+  ).toEqual([
+    [0, "First corrected assertion", "substantive"],
+    [0, "Second corrected assertion", "borderline"],
+    [null, "RAAS and efferent vasoconstriction", "borderline"],
   ])
-  expect(exportedItem?.correction_reviews?.[0].missing_claims).toEqual([
+  expect(finalClaims?.[1].response_spans).toEqual([
     {
-      claim_text: "RAAS and efferent vasoconstriction",
-      response_spans: [
-        {
-          start: secondStart,
-          end:
-            secondStart +
-            Array.from("RAAS and efferent vasoconstriction").length,
-          text: "RAAS and efferent vasoconstriction",
-        },
-      ],
-      label: "duplicate",
+      start: secondStart,
+      end:
+        secondStart + Array.from("RAAS and efferent vasoconstriction").length,
+      text: "RAAS and efferent vasoconstriction",
     },
   ])
+  await expect(
+    firstClaim.getByRole("button", { name: "Edit", exact: true }),
+  ).toBeDisabled()
+  await expect(
+    missing.getByRole("button", { name: "incidental" }),
+  ).toBeDisabled()
+  await expect(
+    page.getByRole("button", { name: "Add missing claim" }),
+  ).toBeDisabled()
+  await page.screenshot({
+    path: "/tmp/amfv-claim-correction-submitted.png",
+    fullPage: true,
+  })
   expect(exportText).not.toContain("api_key")
   expect(exportText).not.toContain("raw_messages")
 })

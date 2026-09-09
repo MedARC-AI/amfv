@@ -34,11 +34,10 @@ export type AdminExportAuthoredItem = {
 };
 
 export type AdminExportCorrectionReview = {
-    final_labels: Array<('vital' | 'supporting' | 'peripheral' | 'duplicate')>;
+    final_claims: Array<FinalModelClaim>;
     id: number;
     item_revision: number;
-    missing_claims: Array<MissingModelClaim>;
-    proposed_labels: Array<('vital' | 'supporting' | 'peripheral' | 'duplicate')>;
+    proposed_labels: Array<('substantive' | 'incidental' | 'borderline')>;
     reviewer_kind: string;
     source: string;
     user_id: string;
@@ -93,11 +92,11 @@ export type AdminExportGenerator = {
 export type AdminExportModelClaim = {
     claim: string;
     position: number;
-    proposed_label: 'vital' | 'supporting' | 'peripheral' | 'duplicate';
+    proposed_label: 'substantive' | 'incidental' | 'borderline';
     spans: Array<ResponseClaimSpan>;
 };
 
-export type proposed_label = 'vital' | 'supporting' | 'peripheral' | 'duplicate';
+export type proposed_label = 'substantive' | 'incidental' | 'borderline';
 
 export type AdminExportModelCorrectionItem = {
     arm_id: string;
@@ -478,6 +477,18 @@ export type FactDraft = {
 
 export type FactPolarity = 'SHOULD_LIST' | 'SHOULD_NOT_LIST';
 
+/**
+ * A final human claim linked to an immutable model claim, or newly added.
+ */
+export type FinalModelClaim = {
+    claim_text: string;
+    label: 'substantive' | 'incidental' | 'borderline';
+    original_position: (number | null);
+    response_spans: Array<ResponseClaimSpan>;
+};
+
+export type label = 'substantive' | 'incidental' | 'borderline';
+
 export type HomeSummary = {
     authored_total?: number;
     outstanding_counts?: {
@@ -514,24 +525,16 @@ export type Message = {
     message: string;
 };
 
-/**
- * A reviewer-added claim with exact provenance in the response.
- */
-export type MissingModelClaim = {
-    claim_text: string;
-    label: 'vital' | 'supporting' | 'peripheral' | 'duplicate';
-    response_spans: Array<ResponseClaimSpan>;
+export type ModelCorrectionReview = {
+    final_claims: Array<FinalModelClaim>;
 };
-
-export type label = 'vital' | 'supporting' | 'peripheral' | 'duplicate';
 
 /**
  * Position-aligned human corrections for an imported model decomposition.
  */
 export type ModelEvalReviewSubmit = {
-    final_labels: Array<('vital' | 'supporting' | 'peripheral' | 'duplicate')>;
+    final_claims: Array<FinalModelClaim>;
     item_revision: number;
-    missing_claims: Array<MissingModelClaim>;
 };
 
 export type ModelFactDecompReviewPayload = {
@@ -541,9 +544,7 @@ export type ModelFactDecompReviewPayload = {
     claims: Array<ReviewModelClaim>;
     dataset: ReviewDataset;
     documents?: Array<DocumentDetail>;
-    existing_review?: ({
-    [key: string]: unknown;
-} | null);
+    existing_review?: (ModelCorrectionReview | null);
     item: ReviewItem;
     item_revision: number;
     kind?: "fact_decomp";
@@ -740,7 +741,7 @@ export type ReviewItem = {
 export type ReviewModelClaim = {
     claim_text: string;
     position: number;
-    proposed_label: 'vital' | 'supporting' | 'peripheral' | 'duplicate';
+    proposed_label: 'substantive' | 'incidental' | 'borderline';
     response_spans: Array<ResponseClaimSpan>;
 };
 

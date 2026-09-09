@@ -4,13 +4,8 @@ import { CLAIM_LABELS } from "./ClaimCorrectionList"
 import { responseSelectionText } from "./SelectableClaimResponse"
 
 describe("fact decomposition correction contract", () => {
-  test("exposes exactly the four shared labels", () => {
-    expect(CLAIM_LABELS).toEqual([
-      "vital",
-      "supporting",
-      "peripheral",
-      "duplicate",
-    ])
+  test("exposes exactly the three shared labels", () => {
+    expect(CLAIM_LABELS).toEqual(["substantive", "incidental", "borderline"])
   })
 
   test("joins additive source selections in source order", () => {

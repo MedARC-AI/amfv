@@ -74,3 +74,17 @@ The script writes `frontend/openapi.json`, regenerates `frontend/src/client/*`, 
 Review commands are authorized by each payload's literal `allowed_actions`;
 the UI refuses unavailable actions. Server and transport errors are rendered
 through bounded product messages rather than raw response bodies.
+
+## Model decomposition corrections
+
+The correction view keeps each original model claim and label immutable.
+Reviewers can relabel, edit text and source spans, split a claim, remove an
+extraction error, or restore the original. New claims start from selected source
+text. Splits inherit source spans and labels; each part can then be edited.
+Incidental and repeated claims remain available for review.
+
+Editors stage changes until Apply changes. Cancel discards the staged edit.
+Submission is disabled while an editor is open. All mutation controls are locked
+while submitting and after success. A saved review opens with its final claims
+and read-only controls. The API stores the complete final list with references
+to original positions; the UI never overwrites imported model claims.

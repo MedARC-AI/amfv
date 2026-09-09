@@ -6,6 +6,7 @@ import hashlib
 import json
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 from httpx import Response
 from sqlmodel import Session, col, func, select
@@ -56,12 +57,12 @@ def _row(*, case_id: str = "case-a", arm_id: str = "arm-a") -> dict:
             {
                 "claim": "Alpha is true.",
                 "spans": [{"start": 0, "end": 14, "text": "Alpha is true."}],
-                "label": "vital",
+                "label": "substantive",
             },
             {
                 "claim": "Beta is useful.",
                 "spans": [{"start": 15, "end": 30, "text": "Beta is useful."}],
-                "label": "supporting",
+                "label": "substantive",
             },
         ],
     }
@@ -182,3 +183,92 @@ def test_import_rejects_malformed_json_line_without_rolling_back_valid_rows(
     assert response.json()["rejected"] == 1
     assert "invalid JSON" in response.json()["errors"][0]["message"]
     assert len(db.exec(select(EvalItem)).all()) == 1
+
+
+@pytest.mark.parametrize("query", ["What is asserted?", None], ids=["qa", "document"])
+def test_generated_relevance_labels_survive_import_review_and_export(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    db: Session,
+    query: str | None,
+) -> None:
+    from amfv_datasets.decomposition_eval import (
+        DecompositionCase,
+        DecompositionPrediction,
+        GeneratorProvenance,
+        project_prediction,
+    )
+
+    dataset = _dataset(db)
+    case = DecompositionCase(
+        schema_version=1,
+        case_id="relevance-contract",
+        user_prompt=query,
+        assistant_response="First Alpha. Context. Unclear. Then Alpha.",
+    )
+    labels = ["substantive", "incidental", "borderline", "substantive"]
+    prediction = DecompositionPrediction.model_validate(
+        {
+            "claims": [
+                {"claim": claim, "source_texts": [quote], "label": label}
+                for claim, quote, label in zip(
+                    ["Alpha.", "Context.", "Unclear.", "Alpha."],
+                    ["First Alpha.", "Context.", "Unclear.", "Then Alpha."],
+                    labels,
+                    strict=True,
+                )
+            ]
+        }
+    )
+    row = project_prediction(
+        case,
+        prediction,
+        arm_id="relevance-arm",
+        generator=GeneratorProvenance(
+            model_id="test",
+            prompt_id="relevance",
+            prompt_hash="a" * 64,
+            pydantic_ai_version="test",
+        ),
+    )
+    imported = _post(
+        client, superuser_token_headers, dataset, _jsonl(row.model_dump(mode="json"))
+    )
+    assert imported.json()["created"] == 1
+    task = db.exec(select(ReviewTask)).one()
+    review_url = f"{settings.API_V1_STR}/review/fact-decomp/{task.id}"
+    review = client.get(review_url, headers=superuser_token_headers)
+    assert review.status_code == 200
+    assert review.json()["user_prompt"] == query
+    assert [claim["proposed_label"] for claim in review.json()["claims"]] == labels
+    final_labels = ["borderline", "substantive", "incidental", "substantive"]
+    saved = client.post(
+        f"{review_url}/model-eval",
+        headers=superuser_token_headers,
+        json={
+            "item_revision": review.json()["item_revision"],
+            "final_claims": [
+                {
+                    "original_position": claim["position"],
+                    "claim_text": claim["claim_text"],
+                    "response_spans": claim["response_spans"],
+                    "label": label,
+                }
+                for claim, label in zip(
+                    review.json()["claims"], final_labels, strict=True
+                )
+            ],
+        },
+    )
+    assert saved.status_code == 200
+    exported = client.get(
+        f"{settings.API_V1_STR}/admin/export?dataset_id={dataset.id}",
+        headers=superuser_token_headers,
+    )
+    assert exported.status_code == 200
+    item = exported.json()["items"][0]
+    assert [claim["proposed_label"] for claim in item["claims"]] == labels
+    assert item["correction_reviews"][0]["proposed_labels"] == labels
+    assert [
+        claim["label"] for claim in item["correction_reviews"][0]["final_claims"]
+    ] == final_labels

@@ -1,13 +1,14 @@
 import { Plus, Send } from "lucide-react"
 import * as React from "react"
 
+import type { FinalModelClaim } from "@/client/types.gen"
 import { Button } from "@/components/ui/button"
 import { evalItemColor } from "@/lib/evalItemPalette"
 import {
   ClaimCorrectionList,
+  type ClaimGroup,
   type ClaimLabel,
-  type CorrectionClaim,
-  type MissingClaimDraft,
+  originalFinal,
 } from "./ClaimCorrectionList"
 import {
   type ClaimResponseSpan,
@@ -23,19 +24,13 @@ export type CorrectionInputClaim = {
   proposed_label: ClaimLabel
 }
 
-export type CorrectionSubmission = {
-  final_labels: ClaimLabel[]
-  missing_claims: Array<{
-    claim_text: string
-    response_spans: ClaimResponseSpan[]
-    label: ClaimLabel
-  }>
-}
+export type CorrectionSubmission = { final_claims: FinalModelClaim[] }
 
 type FactDecompositionCorrectionProps = {
   query?: string | null
   response: string
   claims: CorrectionInputClaim[]
+  existingReview?: CorrectionSubmission | null
   canSubmit: boolean
   submitting?: boolean
   errorMessage?: string | null
@@ -45,6 +40,7 @@ type FactDecompositionCorrectionProps = {
 
 export function FactDecompositionCorrection({
   canSubmit,
+  existingReview,
   claims,
   completionMessage = null,
   errorMessage = null,
@@ -53,41 +49,42 @@ export function FactDecompositionCorrection({
   response,
   submitting = false,
 }: FactDecompositionCorrectionProps) {
-  const [labels, setLabels] = React.useState<Record<number, ClaimLabel>>(() =>
-    Object.fromEntries(
-      claims.map((claim) => [claim.position, claim.proposed_label]),
-    ),
-  )
-  const [missingClaims, setMissingClaims] = React.useState<MissingClaimDraft[]>(
-    [],
-  )
+  const [groups, setGroups] = React.useState<ClaimGroup[]>(() => [
+    ...claims.map((claim) => ({
+      id: claim.position,
+      original: claim,
+      finals: existingReview
+        ? existingReview.final_claims.filter(
+            (final) => final.original_position === claim.position,
+          )
+        : [originalFinal(claim)],
+    })),
+    ...(existingReview?.final_claims
+      .filter((claim) => claim.original_position === null)
+      .map((claim, i) => ({
+        id: Math.max(-1, ...claims.map((c) => c.position)) + 1 + i,
+        finals: [claim],
+      })) ?? []),
+  ])
+  const [editing, setEditing] = React.useState<Set<number>>(new Set())
   const [stagedSpans, setStagedSpans] = React.useState<ClaimResponseSpan[]>([])
   const [activePosition, setActivePosition] = React.useState<number | null>(
     null,
   )
-  const nextDraftId = React.useRef(0)
-  const correctionClaims: CorrectionClaim[] = claims.map((claim) => ({
-    claim: claim.claim_text,
-    colorClass: evalItemColor(claim.position).card,
-    dotClass: evalItemColor(claim.position).dot,
-    position: claim.position,
-    proposedLabel: claim.proposed_label,
-    spans: claim.response_spans,
+  const nextDraftId = React.useRef(
+    Math.max(-1, ...groups.map((group) => group.id)) + 1,
+  )
+  const locked =
+    !canSubmit || submitting || !!completionMessage || !!existingReview
+  const owners = groups.map((group) => ({
+    position: group.id,
+    spans: group.finals.length
+      ? group.finals.flatMap((claim) => claim.response_spans)
+      : (group.original?.response_spans ?? []),
+    dotClass: evalItemColor(group.id).dot,
+    markClass: evalItemColor(group.id).mark,
   }))
-  const owners = [
-    ...correctionClaims.map((claim) => ({
-      dotClass: evalItemColor(claim.position).dot,
-      markClass: evalItemColor(claim.position).mark,
-      position: claim.position,
-      spans: claim.spans,
-    })),
-    ...missingClaims.map((claim) => ({
-      dotClass: evalItemColor(claim.position).dot,
-      markClass: evalItemColor(claim.position).mark,
-      position: claim.position,
-      spans: claim.spans,
-    })),
-  ]
+  const finalClaims = groups.flatMap((group) => group.finals)
 
   const focusClaimRow = (position: number) => {
     setActivePosition(position)
@@ -110,21 +107,19 @@ export function FactDecompositionCorrection({
     if (stagedSpans.length === 0) return
     const claimText = responseSelectionText(response, stagedSpans)
     if (!claimText.trim()) return
-    // The draft counter is monotonic: removing a draft never changes the
-    // palette slot or position of another staged claim.
-    const position = claims.length + nextDraftId.current
-    const draftId = `missing-${nextDraftId.current++}`
-    const color = evalItemColor(position)
-    setMissingClaims((current) => [
+    const id = nextDraftId.current++
+    setGroups((current) => [
       ...current,
       {
-        claim: claimText,
-        colorClass: color.card,
-        draftId,
-        dotClass: color.dot,
-        label: "vital",
-        position,
-        spans: stagedSpans,
+        id,
+        finals: [
+          {
+            original_position: null,
+            claim_text: claimText,
+            label: "substantive",
+            response_spans: stagedSpans,
+          },
+        ],
       },
     ])
     setStagedSpans([])
@@ -141,11 +136,13 @@ export function FactDecompositionCorrection({
             Fact decomposition
           </p>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Correct the model labels
+            Review verification relevance
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            The large proposal badges show the model’s starting labels. Select a
-            different label when your judgment differs.
+            Review every claim, including incidental claims. Substantive and
+            borderline claims are included in verification. Labels describe
+            relevance, not truth. Remove extraction errors; retain incidental
+            and repeated claims.
           </p>
         </div>
         <span className="rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -167,11 +164,11 @@ export function FactDecompositionCorrection({
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                  Assistant response
+                  Response or document
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Click a color to focus its claim. Select exact text to add an
-                  omitted claim.
+                  Click a color to focus its claim. Select exact text to add a
+                  missing claim or replace a source in the editor.
                 </p>
               </div>
               <span className="text-xs text-muted-foreground">
@@ -183,13 +180,16 @@ export function FactDecompositionCorrection({
             <SelectableClaimResponse
               activePosition={activePosition}
               onHighlightClick={focusClaimRow}
-              onSelectionChange={(spans, additive) =>
-                setStagedSpans((current) =>
-                  normalizeResponseSpans(
-                    response,
-                    additive ? [...current, ...spans] : spans,
-                  ),
-                )
+              onSelectionChange={
+                locked
+                  ? undefined
+                  : (spans, additive) =>
+                      setStagedSpans((current) =>
+                        normalizeResponseSpans(
+                          response,
+                          additive ? [...current, ...spans] : spans,
+                        ),
+                      )
               }
               owners={owners}
               response={response}
@@ -200,7 +200,7 @@ export function FactDecompositionCorrection({
                 Hold Cmd/Ctrl while selecting to add another discontiguous span.
               </span>
               <Button
-                disabled={stagedSpans.length === 0}
+                disabled={locked || stagedSpans.length === 0}
                 onClick={addMissingClaim}
                 size="sm"
                 type="button"
@@ -214,27 +214,48 @@ export function FactDecompositionCorrection({
 
         <div className="space-y-4">
           <ClaimCorrectionList
-            activePosition={activePosition}
-            claims={correctionClaims}
-            labels={labels}
-            missingClaims={missingClaims}
+            groups={groups}
+            locked={locked}
+            stagedSpans={stagedSpans}
             onFocusClaim={focusSourceSpan}
-            onLabelChange={(position, label) =>
-              setLabels((current) => ({ ...current, [position]: label }))
-            }
-            onMissingChange={(draftId, patch) =>
-              setMissingClaims((current) =>
-                current.map((claim) =>
-                  claim.draftId === draftId ? { ...claim, ...patch } : claim,
+            onChange={(id, finals) =>
+              setGroups((current) =>
+                current.map((group) =>
+                  group.id === id ? { ...group, finals } : group,
                 ),
               )
             }
-            onRemoveMissing={(draftId) =>
-              setMissingClaims((current) =>
-                current.filter((claim) => claim.draftId !== draftId),
-              )
+            onEditing={(id, active) =>
+              setEditing((current) => {
+                const next = new Set(current)
+                if (active) next.add(id)
+                else next.delete(id)
+                return next
+              })
             }
           />
+          <p className="text-sm text-muted-foreground">
+            {finalClaims.length} final claims ·{" "}
+            {
+              groups.filter(
+                (group) => group.original && group.finals.length > 1,
+              ).length
+            }{" "}
+            split ·{" "}
+            {
+              groups.filter((group) => group.original && !group.finals.length)
+                .length
+            }{" "}
+            removed
+          </p>
+          {editing.size > 0 && (
+            <p className="text-sm">Apply or cancel edits before submitting.</p>
+          )}
+          {existingReview && (
+            <p className="text-sm">
+              Previously submitted correction. Read only.
+            </p>
+          )}
           {errorMessage ? (
             <div
               className="rounded-lg border border-destructive/40 p-3 text-sm"
@@ -250,21 +271,8 @@ export function FactDecompositionCorrection({
           ) : null}
           <Button
             className="w-full"
-            disabled={!canSubmit || submitting || completionMessage !== null}
-            onClick={() =>
-              onSubmit({
-                final_labels: claims.map(
-                  (claim) => labels[claim.position] ?? claim.proposed_label,
-                ),
-                missing_claims: missingClaims.map(
-                  ({ claim, label, spans }) => ({
-                    claim_text: claim,
-                    label,
-                    response_spans: spans,
-                  }),
-                ),
-              })
-            }
+            disabled={locked || editing.size > 0 || finalClaims.length > 10000}
+            onClick={() => onSubmit({ final_claims: finalClaims })}
             type="button"
           >
             <Send />{" "}

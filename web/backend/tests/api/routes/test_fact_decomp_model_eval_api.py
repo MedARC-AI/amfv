@@ -57,12 +57,12 @@ def _imported_task(
             "ordered_claim_annotations": [
                 {
                     "claim": "Alpha is true.",
-                    "label": "vital",
+                    "label": "substantive",
                     "spans": [{"start": 0, "end": 14, "text": "Alpha is true."}],
                 },
                 {
                     "claim": "Beta is false.",
-                    "label": "supporting",
+                    "label": "substantive",
                     "spans": [{"start": 15, "end": 29, "text": "Beta is false."}],
                 },
             ],
@@ -110,8 +110,8 @@ def test_model_eval_payload_redacts_generator_and_exposes_claim_provenance(
     assert payload["user_prompt"] == "What is true?"
     assert payload["assistant_response"] == item.prompt_text
     assert [claim["proposed_label"] for claim in payload["claims"]] == [
-        "vital",
-        "supporting",
+        "substantive",
+        "substantive",
     ]
     assert "secret-model" not in response.text
     assert "case-1" not in response.text
@@ -128,11 +128,11 @@ def test_model_eval_accepts_relabel_and_missing_claim_with_unicode_span(
         headers=normal_user_token_headers,
         json={
             "item_revision": 1,
-            "final_labels": ["duplicate", "peripheral"],
-            "missing_claims": [
+            "final_claims": [
                 {
+                    "original_position": None,
                     "claim_text": "The response mentions alpha.",
-                    "label": "supporting",
+                    "label": "substantive",
                     "response_spans": [{"start": 0, "end": 5, "text": "Alpha"}],
                 }
             ],
@@ -145,13 +145,13 @@ def test_model_eval_accepts_relabel_and_missing_claim_with_unicode_span(
     ).one()
     assert review.ratings == {
         "review_mode": "MODEL_LABEL_CORRECTION",
-        "proposed_labels": ["vital", "supporting"],
-        "final_labels": ["duplicate", "peripheral"],
-        "missing_claims": [
+        "proposed_labels": ["substantive", "substantive"],
+        "final_claims": [
             {
+                "original_position": None,
                 "claim_text": "The response mentions alpha.",
                 "response_spans": [{"start": 0, "end": 5, "text": "Alpha"}],
-                "label": "supporting",
+                "label": "substantive",
             }
         ],
     }
@@ -163,15 +163,15 @@ def test_model_eval_rejects_bad_spans_lengths_stale_and_duplicate(
     _item, task = _imported_task(db)
     base = {
         "item_revision": 1,
-        "final_labels": ["vital", "supporting"],
-        "missing_claims": [],
+        "final_claims": [],
     }
     bad_span = {
         **base,
-        "missing_claims": [
+        "final_claims": [
             {
+                "original_position": None,
                 "claim_text": "bad",
-                "label": "vital",
+                "label": "substantive",
                 "response_spans": [{"start": 0, "end": 5, "text": "Wrong"}],
             }
         ],
@@ -186,10 +186,11 @@ def test_model_eval_rejects_bad_spans_lengths_stale_and_duplicate(
     )
     bool_offset = {
         **base,
-        "missing_claims": [
+        "final_claims": [
             {
+                "original_position": None,
                 "claim_text": "bad",
-                "label": "vital",
+                "label": "substantive",
                 "response_spans": [{"start": False, "end": 5, "text": "Alpha"}],
             }
         ],
@@ -206,7 +207,17 @@ def test_model_eval_rejects_bad_spans_lengths_stale_and_duplicate(
         client.post(
             f"{settings.API_V1_STR}/review/fact-decomp/{task.id}/model-eval",
             headers=normal_user_token_headers,
-            json={**base, "final_labels": ["vital"]},
+            json={
+                **base,
+                "final_claims": [
+                    {
+                        "original_position": 99,
+                        "claim_text": "Alpha",
+                        "label": "substantive",
+                        "response_spans": [{"start": 0, "end": 5, "text": "Alpha"}],
+                    }
+                ],
+            },
         ).status_code
         == 400
     )
@@ -254,30 +265,25 @@ def test_model_eval_rejects_bounded_collection_and_text_overflows_without_writin
     _item, task = _imported_task(db)
     url = f"{settings.API_V1_STR}/review/fact-decomp/{task.id}/model-eval"
     valid_missing = {
+        "original_position": None,
         "claim_text": "Alpha",
-        "label": "vital",
+        "label": "substantive",
         "response_spans": [{"start": 0, "end": 5, "text": "Alpha"}],
     }
     requests = [
         {
             "item_revision": 1,
-            "final_labels": ["vital"] * 10_001,
-            "missing_claims": [],
+            "final_claims": [valid_missing] * 10_001,
         },
         {
             "item_revision": 1,
-            "final_labels": ["vital", "supporting"],
-            "missing_claims": [valid_missing] * 1_001,
+            "final_claims": [
+                {**valid_missing, "original_position": None, "claim_text": "x" * 20_001}
+            ],
         },
         {
             "item_revision": 1,
-            "final_labels": ["vital", "supporting"],
-            "missing_claims": [{**valid_missing, "claim_text": "x" * 20_001}],
-        },
-        {
-            "item_revision": 1,
-            "final_labels": ["vital", "supporting"],
-            "missing_claims": [
+            "final_claims": [
                 {
                     **valid_missing,
                     "response_spans": valid_missing["response_spans"] * 101,
@@ -320,3 +326,51 @@ def test_model_eval_rejects_oversized_body_before_validation(
         ).first()
         is None
     )
+
+
+def test_split_edit_remove_and_add_preserve_originals_and_readback(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    item, task = _imported_task(db)
+    original_metadata = item.item_metadata.copy()
+    original_facts = [
+        (fact.position, fact.fact_text)
+        for fact in db.exec(select(EvalFact).where(EvalFact.item_id == item.id)).all()
+    ]
+    url = f"{settings.API_V1_STR}/review/fact-decomp/{task.id}"
+    # Two final claims replace original 0; original 1 is removed; one is human-added.
+    finals = [
+        {
+            "original_position": 0,
+            "claim_text": "Alpha is asserted.",
+            "label": "borderline",
+            "response_spans": [{"start": 0, "end": 5, "text": "Alpha"}],
+        },
+        {
+            "original_position": 0,
+            "claim_text": "Alpha is described as true.",
+            "label": "substantive",
+            "response_spans": [{"start": 0, "end": 14, "text": "Alpha is true."}],
+        },
+        {
+            "original_position": None,
+            "claim_text": "The response mentions Beta.",
+            "label": "incidental",
+            "response_spans": [{"start": 15, "end": 19, "text": "Beta"}],
+        },
+    ]
+    result = client.post(
+        f"{url}/model-eval",
+        headers=normal_user_token_headers,
+        json={"item_revision": 1, "final_claims": finals},
+    )
+    assert result.status_code == 200
+    readback = client.get(url, headers=normal_user_token_headers)
+    assert readback.status_code == 200
+    assert readback.json()["existing_review"] == {"final_claims": finals}
+    db.refresh(item)
+    assert item.item_metadata == original_metadata
+    assert [
+        (fact.position, fact.fact_text)
+        for fact in db.exec(select(EvalFact).where(EvalFact.item_id == item.id)).all()
+    ] == original_facts

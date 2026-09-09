@@ -71,12 +71,17 @@ class _StrictModel(BaseModel):
 
 
 class ClaimLabel(StrEnum):
-    """Allowed importance label for one model or human claim."""
+    """Label verification relevance without judging factual truth.
 
-    VITAL = "vital"
-    SUPPORTING = "supporting"
-    PERIPHERAL = "peripheral"
-    DUPLICATE = "duplicate"
+    Substantive claims materially affect information, reasoning, conclusions, or actions.
+    Incidental claims have little bearing on that content and remain available for review.
+    Borderline means context leaves verification relevance unclear, not factual truth.
+    Verification includes substantive and borderline claims. Repetition does not change the label.
+    """
+
+    SUBSTANTIVE = "substantive"
+    INCIDENTAL = "incidental"
+    BORDERLINE = "borderline"
 
 
 class SourceSpan(_StrictModel):

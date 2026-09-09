@@ -88,7 +88,7 @@ def test_batch_is_bounded_ordered_and_closes_client(tmp_path: Path) -> None:
         text = next(value for value in ["Alpha.", "Beta.", "Gamma.", "Delta.", "Epsilon."] if value in rendered)
         await asyncio.sleep((6 - len(text)) * 0.005 + 0.01)
         active -= 1
-        label = "vital" if text == "Alpha." else "duplicate"
+        label = "substantive" if text == "Alpha." else "borderline"
         payload = {"claims": [{"claim": text, "source_texts": [text], "label": label}]}
         return ModelResponse(parts=[TextPart(content=json.dumps(payload))])
 
@@ -111,7 +111,7 @@ def test_batch_is_bounded_ordered_and_closes_client(tmp_path: Path) -> None:
     assert parsed == rows
     assert maximum_active == 2
     assert tracker.closed
-    assert [row.claims[0].label.value for row in rows[:2]] == ["vital", "duplicate"]
+    assert [row.claims[0].label.value for row in rows[:2]] == ["substantive", "borderline"]
 
 
 @pytest.mark.parametrize(

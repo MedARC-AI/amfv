@@ -23,8 +23,18 @@ an optional `user_prompt`. Omitting the prompt supports response-only material
 such as documents and reasoning traces. Version 1 output is a strict
 `FACT_DECOMP` import row.
 Each ordered claim has nonblank text, one or more exact Python code-point spans
-in the assistant response, and one label: `vital`, `supporting`, `peripheral`,
-or `duplicate`. Zero claims is valid. Unknown fields are rejected.
+in the assistant response, and one label: `substantive`, `incidental`, or
+`borderline`. Zero claims is valid. Unknown fields are rejected.
+
+- `substantive`: Correctness materially affects information, reasoning, conclusions, or actions.
+- `incidental`: Correctness has little bearing on that substantive content.
+- `borderline`: Context leaves verification relevance unclear. This is not uncertainty about factual truth.
+
+Verification includes substantive and borderline claims. Incidental claims remain
+in the artifact for human review. Repeated assertions retain their relevance
+labels; downstream processing handles duplication. The same labels apply to
+Q/A inputs and documents. The website preserves original model labels and final
+human labels. The previous four-label contract is replaced without conversion.
 
 `external_id` is the SHA-256 digest of `case_id`, a null byte, and `arm_id`.
 The prompt hash covers the exact prompt-file bytes. Canonical output contains no

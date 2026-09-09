@@ -80,3 +80,24 @@ def test_named_api_key_must_exist(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with pytest.raises(ValueError, match="MISSING_API_KEY"):
         build_model_runtime(config)
+
+
+def test_generic_openai_runtime_supports_native_output_without_local_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Preserve provider schema support for hosted OpenAI models."""
+    from amfv_datasets.decomposition_eval.agent import create_agent
+
+    monkeypatch.setenv("SMOKE_API_KEY", "test-only-key")
+    runtime = build_model_runtime(
+        RuntimeConfig(
+            model_id="gpt-5.6-terra",
+            base_url="https://api.openai.com/v1",
+            family="generic",
+            api_key_env="SMOKE_API_KEY",
+        )
+    )
+    try:
+        create_agent(runtime.model, instructions="Extract claims.", model_settings=runtime.settings, output_retries=0)
+        assert runtime.model.profile.get("supports_json_schema_output") is True
+        assert runtime.model.profile.get("openai_supports_strict_tool_definition", True) is True
+    finally:
+        asyncio.run(runtime.aclose())
