@@ -229,7 +229,7 @@ def test_cli_run_rejects_an_unregistered_source() -> None:
 
     assert result.exit_code != 0
     assert "'nhs'" in result.stderr
-    assert "all, nice" in result.stderr
+    assert "all, nice, uspstf" in result.stderr
 
 
 def test_expand_source_runs_every_registered_scraper() -> None:
