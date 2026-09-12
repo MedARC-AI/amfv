@@ -129,9 +129,9 @@ def test_admin_export_joins_model_corrections_without_private_metadata(
                 ratings={
                     "review_mode": "MODEL_LABEL_CORRECTION",
                     "proposed_labels": ["substantive", "substantive"],
-                    "final_claims": [
+                    "model_labels": ["incidental", "substantive"],
+                    "human_claims": [
                         {
-                            "original_position": None,
                             "claim_text": "The response mentions alpha.",
                             "response_spans": [{"start": 0, "end": 5, "text": "Alpha"}],
                             "label": "substantive",
@@ -208,7 +208,7 @@ def test_admin_export_joins_model_corrections_without_private_metadata(
             "proposed_label": "substantive",
         },
     ]
-    assert exported["correction_reviews"][0]["final_claims"]
+    assert exported["correction_reviews"][0]["human_claims"]
     assert exported["review_task"]["labels_count"] == 1
     assert "reviews" not in exported["review_task"]
     assert "prompt_text" not in exported

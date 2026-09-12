@@ -183,7 +183,7 @@ export function SelectableClaimResponse({
 
   return (
     <section
-      aria-label="Assistant response; select text to add a missing claim"
+      aria-label="Assistant response; select text to create a human claim"
       className={cn(
         "relative select-text whitespace-pre-wrap break-words rounded-lg border bg-background p-4 font-mono text-sm leading-7",
         className,

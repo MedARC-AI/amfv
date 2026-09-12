@@ -42,7 +42,8 @@ def test_correction_rating_rejects_unbounded_claim_lists() -> None:
             {
                 "review_mode": "MODEL_LABEL_CORRECTION",
                 "proposed_labels": ["substantive"] * 10_001,
-                "final_claims": [],
+                "model_labels": ["incidental", "substantive"],
+                "human_claims": [],
             }
         )
 
@@ -51,9 +52,9 @@ def test_correction_rating_rejects_unbounded_claim_lists() -> None:
             {
                 "review_mode": "MODEL_LABEL_CORRECTION",
                 "proposed_labels": [],
-                "final_claims": [
+                "model_labels": ["incidental", "substantive"],
+                "human_claims": [
                     {
-                        "original_position": None,
                         "claim_text": "claim",
                         "response_spans": [{"start": 0, "end": 1, "text": "c"}],
                         "label": "substantive",

@@ -75,16 +75,26 @@ Review commands are authorized by each payload's literal `allowed_actions`;
 the UI refuses unavailable actions. Server and transport errors are rendered
 through bounded product messages rather than raw response bodies.
 
-## Model decomposition corrections
+## Model decomposition review
 
-The correction view keeps each original model claim and label immutable.
-Reviewers can relabel, edit text and source spans, split a claim, remove an
-extraction error, or restore the original. New claims start from selected source
-text. Splits inherit source spans and labels; each part can then be edited.
-Incidental and repeated claims remain available for review.
+The review view keeps original model text, source spans, and proposed labels
+immutable. Reviewers grade each model claim's verification relevance. They can
+also select source text and create independent human claims with their own labels.
+Human claims supplement the review; they do not replace model claims.
 
-Editors stage changes until Apply changes. Cancel discards the staged edit.
-Submission is disabled while an editor is open. All mutation controls are locked
-while submitting and after success. A saved review opens with its final claims
-and read-only controls. The API stores the complete final list with references
-to original positions; the UI never overwrites imported model claims.
+Hide model results hides model cards and their source highlights. It preserves
+model grades and leaves human claims and their highlights visible. Each model or
+human card collapses independently. Its number and current relevance label remain
+visible. Clicking a source highlight opens and focuses the corresponding card.
+
+New human claims start as drafts. Add human claim saves the draft to the local
+review; Cancel discards it. The source selection remains available for another
+claim from the same passage. Existing human text, labels, and source spans can be
+edited, and human claims can be removed. A draft blocks submission until added or
+cancelled. Blank human claims also block submission.
+
+Both groups are saved atomically as `model_labels` and `human_claims`. Mutation
+controls lock during submission and after success. Saved reviews open read-only.
+Visibility and collapse controls remain available to inspect a saved review.
+On desktop, the source pane stays in place as claims scroll. Long source content
+scrolls within that pane; narrow screens retain a stacked layout.

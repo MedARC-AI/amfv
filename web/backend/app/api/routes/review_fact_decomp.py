@@ -62,7 +62,7 @@ def _existing_model_review(review: FactDecompReview | None) -> dict | None:
         raise HTTPException(
             status_code=500, detail="Stored correction review is invalid"
         ) from exc
-    return ratings.model_dump(mode="json", include={"final_claims"})
+    return ratings.model_dump(mode="json", include={"model_labels", "human_claims"})
 
 
 @router.get("/fact-decomp/{task_id}", response_model=FactDecompReviewPayload)
@@ -237,15 +237,12 @@ def submit_model_eval_review(
         .order_by(col(EvalFact.position))
     ).all()
     claims = _model_claims(item, list(facts))
-    positions = {claim.position for claim in claims}
-    for claim in body.final_claims:
-        if (
-            claim.original_position is not None
-            and claim.original_position not in positions
-        ):
-            raise HTTPException(
-                status_code=400, detail="Unknown original claim position"
-            )
+    if len(body.model_labels) != len(claims):
+        raise HTTPException(
+            status_code=400,
+            detail="model_labels must contain one label per model claim",
+        )
+    for claim in body.human_claims:
         try:
             claim.response_spans = _validate_submitted_spans(
                 item.prompt_text, claim.response_spans
@@ -257,7 +254,8 @@ def submit_model_eval_review(
         ratings = ModelCorrectionRating(
             review_mode=MODEL_REVIEW_MODE,
             proposed_labels=[claim.proposed_label for claim in claims],
-            final_claims=body.final_claims,
+            model_labels=body.model_labels,
+            human_claims=body.human_claims,
         ).model_dump(mode="json")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -289,7 +287,7 @@ def _validate_submitted_spans(
     response: str, spans: list[ResponseClaimSpan]
 ) -> list[ResponseClaimSpan]:
     if not spans:
-        raise ValueError("Each missing claim requires at least one response span")
+        raise ValueError("Each human claim requires at least one response span")
     for span in spans:
         if span.end > len(response) or response[span.start : span.end] != span.text:
             raise ValueError("Response span text does not match the assistant response")

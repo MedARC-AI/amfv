@@ -238,7 +238,7 @@ function FactDecompositionReview() {
             requestBody,
           })
             .then(() => {
-              setCompletionMessage("Correction submitted.")
+              setCompletionMessage("Review saved.")
             })
             .catch((error: unknown) => setErrorMessage(apiErrorMessage(error)))
             .finally(() => setModelSubmitting(false))

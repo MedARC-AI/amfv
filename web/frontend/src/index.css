@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* The repository ignores lib/ directories; include the shared palette explicitly. */
+@source "./lib/evalItemPalette.ts";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

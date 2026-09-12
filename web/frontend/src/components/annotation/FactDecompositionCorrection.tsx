@@ -1,14 +1,15 @@
 import { Plus, Send } from "lucide-react"
 import * as React from "react"
 
-import type { FinalModelClaim } from "@/client/types.gen"
+import type { HumanClaim } from "@/client/types.gen"
 import { Button } from "@/components/ui/button"
 import { evalItemColor } from "@/lib/evalItemPalette"
 import {
   ClaimCorrectionList,
   type ClaimGroup,
   type ClaimLabel,
-  originalFinal,
+  initialModelClaim,
+  Labels,
 } from "./ClaimCorrectionList"
 import {
   type ClaimResponseSpan,
@@ -24,7 +25,10 @@ export type CorrectionInputClaim = {
   proposed_label: ClaimLabel
 }
 
-export type CorrectionSubmission = { final_claims: FinalModelClaim[] }
+export type CorrectionSubmission = {
+  model_labels: ClaimLabel[]
+  human_claims: HumanClaim[]
+}
 
 type FactDecompositionCorrectionProps = {
   query?: string | null
@@ -50,23 +54,21 @@ export function FactDecompositionCorrection({
   submitting = false,
 }: FactDecompositionCorrectionProps) {
   const [groups, setGroups] = React.useState<ClaimGroup[]>(() => [
-    ...claims.map((claim) => ({
+    ...claims.map((claim, index) => ({
       id: claim.position,
       original: claim,
-      finals: existingReview
-        ? existingReview.final_claims.filter(
-            (final) => final.original_position === claim.position,
-          )
-        : [originalFinal(claim)],
+      claim: {
+        ...initialModelClaim(claim),
+        label: existingReview?.model_labels[index] ?? claim.proposed_label,
+      },
     })),
-    ...(existingReview?.final_claims
-      .filter((claim) => claim.original_position === null)
-      .map((claim, i) => ({
-        id: Math.max(-1, ...claims.map((c) => c.position)) + 1 + i,
-        finals: [claim],
-      })) ?? []),
+    ...(existingReview?.human_claims.map((claim, i) => ({
+      id: Math.max(-1, ...claims.map((c) => c.position)) + 1 + i,
+      claim,
+    })) ?? []),
   ])
-  const [editing, setEditing] = React.useState<Set<number>>(new Set())
+  const [hiddenModels, setHiddenModels] = React.useState(false)
+  const [draft, setDraft] = React.useState<HumanClaim | null>(null)
   const [stagedSpans, setStagedSpans] = React.useState<ClaimResponseSpan[]>([])
   const [activePosition, setActivePosition] = React.useState<number | null>(
     null,
@@ -76,21 +78,23 @@ export function FactDecompositionCorrection({
   )
   const locked =
     !canSubmit || submitting || !!completionMessage || !!existingReview
-  const owners = groups.map((group) => ({
-    position: group.id,
-    spans: group.finals.length
-      ? group.finals.flatMap((claim) => claim.response_spans)
-      : (group.original?.response_spans ?? []),
-    dotClass: evalItemColor(group.id).dot,
-    markClass: evalItemColor(group.id).mark,
-  }))
-  const finalClaims = groups.flatMap((group) => group.finals)
+  const owners = groups
+    .filter((group) => !hiddenModels || !group.original)
+    .map((group) => ({
+      position: group.id,
+      spans: group.claim.response_spans,
+      dotClass: evalItemColor(group.id).dot,
+      markClass: evalItemColor(group.id).mark,
+    }))
+  const humanClaims = groups
+    .filter((group) => !group.original)
+    .map((group) => group.claim)
 
   const focusClaimRow = (position: number) => {
     setActivePosition(position)
-    document
-      .getElementById(`claim-position-${position}`)
-      ?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+    const row = document.getElementById(`claim-position-${position}`)
+    if (row instanceof HTMLDetailsElement) row.open = true
+    row?.scrollIntoView({ behavior: "smooth", block: "nearest" })
   }
 
   const focusSourceSpan = (position: number) => {
@@ -103,26 +107,19 @@ export function FactDecompositionCorrection({
     sourceHighlight?.scrollIntoView({ behavior: "smooth", block: "nearest" })
   }
 
-  const addMissingClaim = () => {
-    if (stagedSpans.length === 0) return
-    const claimText = responseSelectionText(response, stagedSpans)
-    if (!claimText.trim()) return
+  const createHumanClaim = () => {
+    if (!stagedSpans.length || locked || draft) return
+    setDraft({
+      claim_text: responseSelectionText(response, stagedSpans),
+      label: "substantive",
+      response_spans: [...stagedSpans],
+    })
+  }
+  const saveHumanClaim = () => {
+    if (!draft?.claim_text.trim() || locked) return
     const id = nextDraftId.current++
-    setGroups((current) => [
-      ...current,
-      {
-        id,
-        finals: [
-          {
-            original_position: null,
-            claim_text: claimText,
-            label: "substantive",
-            response_spans: stagedSpans,
-          },
-        ],
-      },
-    ])
-    setStagedSpans([])
+    setGroups((current) => [...current, { id, claim: draft }])
+    setDraft(null)
   }
 
   return (
@@ -141,17 +138,25 @@ export function FactDecompositionCorrection({
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
             Review every claim, including incidental claims. Substantive and
             borderline claims are included in verification. Labels describe
-            relevance, not truth. Remove extraction errors; retain incidental
-            and repeated claims.
+            relevance, not truth. Grade model claims and add your own claims
+            where needed.
           </p>
         </div>
-        <span className="rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground">
-          Response review
-        </span>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={hiddenModels}
+            onChange={(event) => setHiddenModels(event.target.checked)}
+          />
+          Hide model results
+        </label>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.8fr)] lg:items-start">
-        <section className="space-y-4">
+        <section
+          aria-label="Source and human claim editor"
+          className="space-y-4 lg:sticky lg:top-0 lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto lg:overscroll-contain"
+        >
           {query?.trim() ? (
             <div className="rounded-xl border bg-card p-4 shadow-sm">
               <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
@@ -168,7 +173,7 @@ export function FactDecompositionCorrection({
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Click a color to focus its claim. Select exact text to add a
-                  missing claim or replace a source in the editor.
+                  human claim.
                 </p>
               </div>
               <span className="text-xs text-muted-foreground">
@@ -200,61 +205,88 @@ export function FactDecompositionCorrection({
                 Hold Cmd/Ctrl while selecting to add another discontiguous span.
               </span>
               <Button
-                disabled={locked || stagedSpans.length === 0}
-                onClick={addMissingClaim}
+                disabled={locked || stagedSpans.length === 0 || draft !== null}
+                onClick={createHumanClaim}
                 size="sm"
                 type="button"
                 variant="outline"
               >
-                <Plus /> Add missing claim
+                <Plus /> Create human claim
               </Button>
             </div>
           </div>
+          {draft && (
+            <section
+              className="rounded-xl border bg-card p-4 space-y-3"
+              aria-label="New human claim"
+            >
+              <h2 className="text-xl font-semibold">New human claim</h2>
+              <p className="border-l-2 border-primary pl-3 text-sm">
+                {draft.response_spans.map((span) => span.text).join(" … ")}
+              </p>
+              <fieldset disabled={locked} className="space-y-3">
+                <textarea
+                  aria-label="New human claim text"
+                  className="w-full rounded border bg-background p-2 text-sm"
+                  maxLength={20000}
+                  value={draft.claim_text}
+                  onChange={(event) =>
+                    setDraft({ ...draft, claim_text: event.target.value })
+                  }
+                />
+                <Labels
+                  name="New human claim"
+                  value={draft.label}
+                  onChange={(label) => setDraft({ ...draft, label })}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    disabled={!draft.claim_text.trim()}
+                    onClick={saveHumanClaim}
+                  >
+                    Add human claim
+                  </Button>
+                  <Button variant="ghost" onClick={() => setDraft(null)}>
+                    Cancel
+                  </Button>
+                </div>
+              </fieldset>
+            </section>
+          )}
         </section>
 
         <div className="space-y-4">
           <ClaimCorrectionList
+            activePosition={activePosition}
             groups={groups}
             locked={locked}
             stagedSpans={stagedSpans}
             onFocusClaim={focusSourceSpan}
-            onChange={(id, finals) =>
+            hiddenModels={hiddenModels}
+            onChange={(id, claim) =>
               setGroups((current) =>
                 current.map((group) =>
-                  group.id === id ? { ...group, finals } : group,
+                  group.id === id ? { ...group, claim } : group,
                 ),
               )
             }
-            onEditing={(id, active) =>
-              setEditing((current) => {
-                const next = new Set(current)
-                if (active) next.add(id)
-                else next.delete(id)
-                return next
-              })
+            onRemove={(id) =>
+              setGroups((current) =>
+                current.filter((group) => group.original || group.id !== id),
+              )
             }
           />
           <p className="text-sm text-muted-foreground">
-            {finalClaims.length} final claims ·{" "}
-            {
-              groups.filter(
-                (group) => group.original && group.finals.length > 1,
-              ).length
-            }{" "}
-            split ·{" "}
-            {
-              groups.filter((group) => group.original && !group.finals.length)
-                .length
-            }{" "}
-            removed
+            {claims.length} model grades · {humanClaims.length} additional human
+            claims
           </p>
-          {editing.size > 0 && (
-            <p className="text-sm">Apply or cancel edits before submitting.</p>
+          {draft && (
+            <p className="text-sm">
+              Add or cancel the draft before saving your review.
+            </p>
           )}
           {existingReview && (
-            <p className="text-sm">
-              Previously submitted correction. Read only.
-            </p>
+            <p className="text-sm">Previously submitted review. Read only.</p>
           )}
           {errorMessage ? (
             <div
@@ -271,12 +303,23 @@ export function FactDecompositionCorrection({
           ) : null}
           <Button
             className="w-full"
-            disabled={locked || editing.size > 0 || finalClaims.length > 10000}
-            onClick={() => onSubmit({ final_claims: finalClaims })}
+            disabled={
+              locked ||
+              draft !== null ||
+              humanClaims.length > 10000 ||
+              humanClaims.some((claim) => !claim.claim_text.trim())
+            }
+            onClick={() =>
+              onSubmit({
+                model_labels: groups
+                  .filter((group) => group.original)
+                  .map((group) => group.claim.label),
+                human_claims: humanClaims,
+              })
+            }
             type="button"
           >
-            <Send />{" "}
-            {submitting ? "Submitting correction" : "Submit correction"}
+            <Send /> {submitting ? "Saving review" : "Save review"}
           </Button>
         </div>
       </div>

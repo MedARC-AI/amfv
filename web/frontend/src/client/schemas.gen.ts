@@ -190,11 +190,11 @@ export const AdminExportAuthoredItemSchema = {
 
 export const AdminExportCorrectionReviewSchema = {
     properties: {
-        final_claims: {
+        human_claims: {
             items: {
-                '$ref': '#/components/schemas/FinalModelClaim'
+                '$ref': '#/components/schemas/HumanClaim'
             },
-            title: 'Final Claims',
+            title: 'Human Claims',
             type: 'array'
         },
         id: {
@@ -204,6 +204,14 @@ export const AdminExportCorrectionReviewSchema = {
         item_revision: {
             title: 'Item Revision',
             type: 'integer'
+        },
+        model_labels: {
+            items: {
+                enum: ['substantive', 'incidental', 'borderline'],
+                type: 'string'
+            },
+            title: 'Model Labels',
+            type: 'array'
         },
         proposed_labels: {
             items: {
@@ -226,7 +234,7 @@ export const AdminExportCorrectionReviewSchema = {
             type: 'string'
         }
     },
-    required: ['id', 'user_id', 'item_revision', 'proposed_labels', 'final_claims', 'reviewer_kind', 'source'],
+    required: ['id', 'user_id', 'item_revision', 'proposed_labels', 'model_labels', 'human_claims', 'reviewer_kind', 'source'],
     title: 'AdminExportCorrectionReview',
     type: 'object'
 } as const;
@@ -1973,48 +1981,6 @@ export const FactPolaritySchema = {
     type: 'string'
 } as const;
 
-export const FinalModelClaimSchema = {
-    additionalProperties: false,
-    description: 'A final human claim linked to an immutable model claim, or newly added.',
-    properties: {
-        claim_text: {
-            maxLength: 20000,
-            minLength: 1,
-            title: 'Claim Text',
-            type: 'string'
-        },
-        label: {
-            enum: ['substantive', 'incidental', 'borderline'],
-            title: 'Label',
-            type: 'string'
-        },
-        original_position: {
-            anyOf: [
-                {
-                    minimum: 0,
-                    type: 'integer'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Original Position'
-        },
-        response_spans: {
-            items: {
-                '$ref': '#/components/schemas/ResponseClaimSpan'
-            },
-            maxItems: 100,
-            minItems: 1,
-            title: 'Response Spans',
-            type: 'array'
-        }
-    },
-    required: ['original_position', 'claim_text', 'response_spans', 'label'],
-    title: 'FinalModelClaim',
-    type: 'object'
-} as const;
-
 export const HTTPValidationErrorSchema = {
     properties: {
         detail: {
@@ -2064,6 +2030,36 @@ export const HomeSummarySchema = {
     },
     required: ['user'],
     title: 'HomeSummary',
+    type: 'object'
+} as const;
+
+export const HumanClaimSchema = {
+    additionalProperties: false,
+    description: 'An independently authored human claim with exact response provenance.',
+    properties: {
+        claim_text: {
+            maxLength: 20000,
+            minLength: 1,
+            title: 'Claim Text',
+            type: 'string'
+        },
+        label: {
+            enum: ['substantive', 'incidental', 'borderline'],
+            title: 'Label',
+            type: 'string'
+        },
+        response_spans: {
+            items: {
+                '$ref': '#/components/schemas/ResponseClaimSpan'
+            },
+            maxItems: 100,
+            minItems: 1,
+            title: 'Response Spans',
+            type: 'array'
+        }
+    },
+    required: ['claim_text', 'response_spans', 'label'],
+    title: 'HumanClaim',
     type: 'object'
 } as const;
 
@@ -2161,16 +2157,25 @@ export const MessageSchema = {
 
 export const ModelCorrectionReviewSchema = {
     properties: {
-        final_claims: {
+        human_claims: {
             items: {
-                '$ref': '#/components/schemas/FinalModelClaim'
+                '$ref': '#/components/schemas/HumanClaim'
             },
             maxItems: 10000,
-            title: 'Final Claims',
+            title: 'Human Claims',
+            type: 'array'
+        },
+        model_labels: {
+            items: {
+                enum: ['substantive', 'incidental', 'borderline'],
+                type: 'string'
+            },
+            maxItems: 10000,
+            title: 'Model Labels',
             type: 'array'
         }
     },
-    required: ['final_claims'],
+    required: ['model_labels', 'human_claims'],
     title: 'ModelCorrectionReview',
     type: 'object'
 } as const;
@@ -2179,20 +2184,29 @@ export const ModelEvalReviewSubmitSchema = {
     additionalProperties: false,
     description: 'Position-aligned human corrections for an imported model decomposition.',
     properties: {
-        final_claims: {
+        human_claims: {
             items: {
-                '$ref': '#/components/schemas/FinalModelClaim'
+                '$ref': '#/components/schemas/HumanClaim'
             },
             maxItems: 10000,
-            title: 'Final Claims',
+            title: 'Human Claims',
             type: 'array'
         },
         item_revision: {
             title: 'Item Revision',
             type: 'integer'
+        },
+        model_labels: {
+            items: {
+                enum: ['substantive', 'incidental', 'borderline'],
+                type: 'string'
+            },
+            maxItems: 10000,
+            title: 'Model Labels',
+            type: 'array'
         }
     },
-    required: ['final_claims', 'item_revision'],
+    required: ['model_labels', 'human_claims', 'item_revision'],
     title: 'ModelEvalReviewSubmit',
     type: 'object'
 } as const;

@@ -252,24 +252,16 @@ class ReviewModelClaim(SQLModel):
         return value
 
 
-class FinalModelClaim(SQLModel):
-    """A final human claim linked to an immutable model claim, or newly added."""
+class HumanClaim(SQLModel):
+    """An independently authored human claim with exact response provenance."""
 
     model_config = SQLModelConfig(extra="forbid")
 
-    original_position: int | None = Field(ge=0)
     claim_text: str = Field(min_length=1, max_length=MAX_CLAIM_TEXT_LENGTH)
     response_spans: list[ResponseClaimSpan] = Field(
         min_length=1, max_length=MAX_SPANS_PER_CLAIM
     )
     label: ModelClaimLabel
-
-    @field_validator("original_position", mode="before")
-    @classmethod
-    def _strict_position(cls, value: object) -> object:
-        if value is not None and type(value) is not int:
-            raise ValueError("Original position must be an integer or null")
-        return value
 
     @field_validator("claim_text")
     @classmethod
@@ -280,7 +272,8 @@ class FinalModelClaim(SQLModel):
 
 
 class ModelCorrectionReview(SQLModel):
-    final_claims: list[FinalModelClaim] = Field(max_length=MAX_CLAIMS)
+    model_labels: list[ModelClaimLabel] = Field(max_length=MAX_CLAIMS)
+    human_claims: list[HumanClaim] = Field(max_length=MAX_CLAIMS)
 
 
 class ReviewRubricDimension(SQLModel):
@@ -493,7 +486,8 @@ class ModelEvalReviewSubmit(SQLModel):
 
     model_config = SQLModelConfig(extra="forbid")
 
-    final_claims: list[FinalModelClaim] = Field(max_length=MAX_CLAIMS)
+    model_labels: list[ModelClaimLabel] = Field(max_length=MAX_CLAIMS)
+    human_claims: list[HumanClaim] = Field(max_length=MAX_CLAIMS)
     item_revision: int
 
 
@@ -716,7 +710,8 @@ class AdminExportCorrectionReview(SQLModel):
     user_id: str
     item_revision: int
     proposed_labels: list[ModelClaimLabel]
-    final_claims: list[FinalModelClaim]
+    model_labels: list[ModelClaimLabel]
+    human_claims: list[HumanClaim]
     reviewer_kind: str
     source: str
 

@@ -128,9 +128,9 @@ def test_model_eval_accepts_relabel_and_missing_claim_with_unicode_span(
         headers=normal_user_token_headers,
         json={
             "item_revision": 1,
-            "final_claims": [
+            "model_labels": ["incidental", "substantive"],
+            "human_claims": [
                 {
-                    "original_position": None,
                     "claim_text": "The response mentions alpha.",
                     "label": "substantive",
                     "response_spans": [{"start": 0, "end": 5, "text": "Alpha"}],
@@ -146,9 +146,9 @@ def test_model_eval_accepts_relabel_and_missing_claim_with_unicode_span(
     assert review.ratings == {
         "review_mode": "MODEL_LABEL_CORRECTION",
         "proposed_labels": ["substantive", "substantive"],
-        "final_claims": [
+        "model_labels": ["incidental", "substantive"],
+        "human_claims": [
             {
-                "original_position": None,
                 "claim_text": "The response mentions alpha.",
                 "response_spans": [{"start": 0, "end": 5, "text": "Alpha"}],
                 "label": "substantive",
@@ -163,13 +163,14 @@ def test_model_eval_rejects_bad_spans_lengths_stale_and_duplicate(
     _item, task = _imported_task(db)
     base = {
         "item_revision": 1,
-        "final_claims": [],
+        "model_labels": ["incidental", "substantive"],
+        "human_claims": [],
     }
     bad_span = {
         **base,
-        "final_claims": [
+        "model_labels": ["incidental", "substantive"],
+        "human_claims": [
             {
-                "original_position": None,
                 "claim_text": "bad",
                 "label": "substantive",
                 "response_spans": [{"start": 0, "end": 5, "text": "Wrong"}],
@@ -186,9 +187,9 @@ def test_model_eval_rejects_bad_spans_lengths_stale_and_duplicate(
     )
     bool_offset = {
         **base,
-        "final_claims": [
+        "model_labels": ["incidental", "substantive"],
+        "human_claims": [
             {
-                "original_position": None,
                 "claim_text": "bad",
                 "label": "substantive",
                 "response_spans": [{"start": False, "end": 5, "text": "Alpha"}],
@@ -207,17 +208,7 @@ def test_model_eval_rejects_bad_spans_lengths_stale_and_duplicate(
         client.post(
             f"{settings.API_V1_STR}/review/fact-decomp/{task.id}/model-eval",
             headers=normal_user_token_headers,
-            json={
-                **base,
-                "final_claims": [
-                    {
-                        "original_position": 99,
-                        "claim_text": "Alpha",
-                        "label": "substantive",
-                        "response_spans": [{"start": 0, "end": 5, "text": "Alpha"}],
-                    }
-                ],
-            },
+            json={**base, "model_labels": []},
         ).status_code
         == 400
     )
@@ -265,7 +256,6 @@ def test_model_eval_rejects_bounded_collection_and_text_overflows_without_writin
     _item, task = _imported_task(db)
     url = f"{settings.API_V1_STR}/review/fact-decomp/{task.id}/model-eval"
     valid_missing = {
-        "original_position": None,
         "claim_text": "Alpha",
         "label": "substantive",
         "response_spans": [{"start": 0, "end": 5, "text": "Alpha"}],
@@ -273,17 +263,18 @@ def test_model_eval_rejects_bounded_collection_and_text_overflows_without_writin
     requests = [
         {
             "item_revision": 1,
-            "final_claims": [valid_missing] * 10_001,
+            "model_labels": ["incidental", "substantive"],
+            "human_claims": [valid_missing] * 10_001,
         },
         {
             "item_revision": 1,
-            "final_claims": [
-                {**valid_missing, "original_position": None, "claim_text": "x" * 20_001}
-            ],
+            "model_labels": ["incidental", "substantive"],
+            "human_claims": [{**valid_missing, "claim_text": "x" * 20_001}],
         },
         {
             "item_revision": 1,
-            "final_claims": [
+            "model_labels": ["incidental", "substantive"],
+            "human_claims": [
                 {
                     **valid_missing,
                     "response_spans": valid_missing["response_spans"] * 101,
@@ -328,7 +319,7 @@ def test_model_eval_rejects_oversized_body_before_validation(
     )
 
 
-def test_split_edit_remove_and_add_preserve_originals_and_readback(
+def test_human_claims_and_model_grades_preserve_originals_and_readback(
     client: TestClient, normal_user_token_headers: dict[str, str], db: Session
 ) -> None:
     item, task = _imported_task(db)
@@ -338,22 +329,19 @@ def test_split_edit_remove_and_add_preserve_originals_and_readback(
         for fact in db.exec(select(EvalFact).where(EvalFact.item_id == item.id)).all()
     ]
     url = f"{settings.API_V1_STR}/review/fact-decomp/{task.id}"
-    # Two final claims replace original 0; original 1 is removed; one is human-added.
+    # Human claims may overlap model spans without replacing any original claim.
     finals = [
         {
-            "original_position": 0,
             "claim_text": "Alpha is asserted.",
             "label": "borderline",
             "response_spans": [{"start": 0, "end": 5, "text": "Alpha"}],
         },
         {
-            "original_position": 0,
             "claim_text": "Alpha is described as true.",
             "label": "substantive",
             "response_spans": [{"start": 0, "end": 14, "text": "Alpha is true."}],
         },
         {
-            "original_position": None,
             "claim_text": "The response mentions Beta.",
             "label": "incidental",
             "response_spans": [{"start": 15, "end": 19, "text": "Beta"}],
@@ -362,12 +350,19 @@ def test_split_edit_remove_and_add_preserve_originals_and_readback(
     result = client.post(
         f"{url}/model-eval",
         headers=normal_user_token_headers,
-        json={"item_revision": 1, "final_claims": finals},
+        json={
+            "item_revision": 1,
+            "model_labels": ["incidental", "substantive"],
+            "human_claims": finals,
+        },
     )
     assert result.status_code == 200
     readback = client.get(url, headers=normal_user_token_headers)
     assert readback.status_code == 200
-    assert readback.json()["existing_review"] == {"final_claims": finals}
+    assert readback.json()["existing_review"] == {
+        "model_labels": ["incidental", "substantive"],
+        "human_claims": finals,
+    }
     db.refresh(item)
     assert item.item_metadata == original_metadata
     assert [

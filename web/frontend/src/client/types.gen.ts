@@ -34,9 +34,10 @@ export type AdminExportAuthoredItem = {
 };
 
 export type AdminExportCorrectionReview = {
-    final_claims: Array<FinalModelClaim>;
+    human_claims: Array<HumanClaim>;
     id: number;
     item_revision: number;
+    model_labels: Array<('substantive' | 'incidental' | 'borderline')>;
     proposed_labels: Array<('substantive' | 'incidental' | 'borderline')>;
     reviewer_kind: string;
     source: string;
@@ -477,18 +478,6 @@ export type FactDraft = {
 
 export type FactPolarity = 'SHOULD_LIST' | 'SHOULD_NOT_LIST';
 
-/**
- * A final human claim linked to an immutable model claim, or newly added.
- */
-export type FinalModelClaim = {
-    claim_text: string;
-    label: 'substantive' | 'incidental' | 'borderline';
-    original_position: (number | null);
-    response_spans: Array<ResponseClaimSpan>;
-};
-
-export type label = 'substantive' | 'incidental' | 'borderline';
-
 export type HomeSummary = {
     authored_total?: number;
     outstanding_counts?: {
@@ -502,6 +491,17 @@ export type HomeSummary = {
 export type HTTPValidationError = {
     detail?: Array<ValidationError>;
 };
+
+/**
+ * An independently authored human claim with exact response provenance.
+ */
+export type HumanClaim = {
+    claim_text: string;
+    label: 'substantive' | 'incidental' | 'borderline';
+    response_spans: Array<ResponseClaimSpan>;
+};
+
+export type label = 'substantive' | 'incidental' | 'borderline';
 
 /**
  * Signup payload that lets the route normalize malformed invite tokens.
@@ -526,15 +526,17 @@ export type Message = {
 };
 
 export type ModelCorrectionReview = {
-    final_claims: Array<FinalModelClaim>;
+    human_claims: Array<HumanClaim>;
+    model_labels: Array<('substantive' | 'incidental' | 'borderline')>;
 };
 
 /**
  * Position-aligned human corrections for an imported model decomposition.
  */
 export type ModelEvalReviewSubmit = {
-    final_claims: Array<FinalModelClaim>;
+    human_claims: Array<HumanClaim>;
     item_revision: number;
+    model_labels: Array<('substantive' | 'incidental' | 'borderline')>;
 };
 
 export type ModelFactDecompReviewPayload = {

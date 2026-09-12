@@ -211,7 +211,8 @@ def test_dataset_agreement_excludes_model_correction_reviews() -> None:
                     ratings={
                         "review_mode": "MODEL_LABEL_CORRECTION",
                         "proposed_labels": [],
-                        "final_claims": [],
+                        "model_labels": ["incidental", "substantive"],
+                        "human_claims": [],
                     },
                 )
                 for reviewer in reviewers

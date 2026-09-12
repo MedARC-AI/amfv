@@ -126,17 +126,17 @@ The same definitions apply to Q/A inputs and documents.
 
 The previous labels are no longer accepted. No conversion or migration is
 provided. Export preserves the immutable model `claims` and `proposed_labels`,
-plus each review's complete `final_claims` list.
+plus each review's `model_labels` and independently authored `human_claims`.
 
-Submit corrections to `/api/v1/review/fact-decomp/{task_id}/model-eval`:
+Submit a review to `/api/v1/review/fact-decomp/{task_id}/model-eval`:
 
 ```json
 {
   "item_revision": 1,
-  "final_claims": [
+  "model_labels": ["incidental", "substantive"],
+  "human_claims": [
     {
-      "original_position": 0,
-      "claim_text": "The corrected assertion.",
+      "claim_text": "The response mentions Alpha.",
       "response_spans": [{"start": 0, "end": 5, "text": "Alpha"}],
       "label": "substantive"
     }
@@ -144,18 +144,18 @@ Submit corrections to `/api/v1/review/fact-decomp/{task_id}/model-eval`:
 }
 ```
 
-`original_position` references a position in the immutable model claims. Several
-final claims can reference one original when a reviewer splits it. An original
-with no final claim is removed. A human-added claim has `original_position: null`.
-An empty final list removes all originals. Incidental and repeated claims should
-remain; removal corrects extraction errors, not verification relevance.
+`model_labels` contains exactly one human relevance grade per original model
+claim, in the order returned by the review endpoint. Model claim text and source
+spans cannot be changed through this endpoint. Human claims are additional
+annotations; they never replace, remove, or overwrite model claims or grades.
+Several human claims can use the same source passage, including model spans.
+Both lists may be empty when there are no model or human claims.
 
-Each final claim has its own text, label, and exact source spans. The server
-validates every reference and span before saving the review atomically. The
-complete list is limited to 10,000 claims, with at most 20,000 characters and
-100 spans per claim. Original positions must be integers or null. Existing
-reviews return the saved `final_claims` list. Export uses the same shape.
-The former `final_labels` and `missing_claims` fields are not accepted.
+Each human claim has its own text, relevance label, and exact source spans.
+The human list is limited to 10,000 claims, with at most 20,000 characters and
+100 spans per claim. The server validates grades and spans before saving both
+lists atomically. Existing reviews and export return the same two lists.
+The former replacement-list `final_claims` contract is not accepted or converted.
 
 Span offsets are half-open Python code-point offsets into `assistant_response`, and
 the included span text must match exactly. Claims and their local spans are

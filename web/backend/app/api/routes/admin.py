@@ -1023,8 +1023,9 @@ def _export_correction_review(review: FactDecompReview) -> dict:
         "user_id": str(review.user_id),
         "item_revision": review.item_revision,
         "proposed_labels": ratings.proposed_labels,
-        "final_claims": [
-            claim.model_dump(mode="json") for claim in ratings.final_claims
+        "model_labels": ratings.model_labels,
+        "human_claims": [
+            claim.model_dump(mode="json") for claim in ratings.human_claims
         ],
         "reviewer_kind": review.reviewer_kind,
         "source": review.source,

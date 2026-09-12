@@ -247,17 +247,8 @@ def test_generated_relevance_labels_survive_import_review_and_export(
         headers=superuser_token_headers,
         json={
             "item_revision": review.json()["item_revision"],
-            "final_claims": [
-                {
-                    "original_position": claim["position"],
-                    "claim_text": claim["claim_text"],
-                    "response_spans": claim["response_spans"],
-                    "label": label,
-                }
-                for claim, label in zip(
-                    review.json()["claims"], final_labels, strict=True
-                )
-            ],
+            "model_labels": final_labels,
+            "human_claims": [],
         },
     )
     assert saved.status_code == 200
@@ -269,6 +260,4 @@ def test_generated_relevance_labels_survive_import_review_and_export(
     item = exported.json()["items"][0]
     assert [claim["proposed_label"] for claim in item["claims"]] == labels
     assert item["correction_reviews"][0]["proposed_labels"] == labels
-    assert [
-        claim["label"] for claim in item["correction_reviews"][0]["final_claims"]
-    ] == final_labels
+    assert item["correction_reviews"][0]["model_labels"] == final_labels

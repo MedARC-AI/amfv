@@ -61,7 +61,8 @@ test("submits a fact-decomposition review with fact calls and rubric", async ({
   const caseId = "e2e-response-only"
   const armId = "e2e-gpt-oss"
   const response =
-    "Reasoning 😀 shows dehydration activates RAAS and efferent vasoconstriction preserves filtration pressure."
+    "Reasoning 😀 shows dehydration activates RAAS and efferent vasoconstriction preserves filtration pressure." +
+    "\n\nAdditional source context for long-document scrolling.".repeat(30)
   const firstText = "dehydration activates RAAS"
   const secondText =
     "RAAS and efferent vasoconstriction preserves filtration pressure"
@@ -159,40 +160,47 @@ test("submits a fact-decomposition review with fact calls and rubric", async ({
   expect(desktopClaimBox).not.toBeNull()
   expect(desktopClaimBox?.x).toBeGreaterThan(desktopSourceBox?.x ?? 0)
 
-  const firstLabels = page.getByRole("group", { name: "Claim 1 label" })
+  // Verify computed styles: class names alone do not catch omitted Tailwind sources.
+  const firstHighlight = source.locator('[data-owner-positions="0"]').first()
+  const secondHighlight = source.locator('[data-owner-positions="1"]').first()
+  const firstColor = await firstHighlight.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  )
+  const secondColor = await secondHighlight.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  )
+  expect(firstColor).not.toBe("rgba(0, 0, 0, 0)")
+  expect(secondColor).not.toBe("rgba(0, 0, 0, 0)")
+  expect(firstColor).not.toBe(secondColor)
+  const cardColors = await claimList
+    .locator("[data-claim-position]")
+    .evaluateAll((elements) =>
+      elements.map((element) => getComputedStyle(element).borderLeftColor),
+    )
+  expect(cardColors[0]).not.toBe(cardColors[1])
+  await firstHighlight.click()
+  await expect(claimList.locator('[data-claim-position="0"]')).toHaveClass(
+    /ring-2/,
+  )
+
+  const firstLabels = page.getByRole("group", {
+    name: "Claim 1 label",
+    exact: true,
+  })
   await expect(firstLabels.getByRole("button")).toHaveCount(3)
   await firstLabels.getByRole("button", { name: "incidental" }).click()
 
   const firstClaim = page.locator('[data-claim-position="0"]')
   const secondClaim = page.locator('[data-claim-position="1"]')
-  await firstClaim.getByRole("button", { name: "Remove", exact: true }).click()
-  await expect(
-    firstClaim.getByText("Removed from final decomposition."),
-  ).toBeVisible()
-  await firstClaim.getByRole("button", { name: "Undo to original" }).click()
-  await expect(
-    firstLabels.getByRole("button", { name: "substantive" }),
-  ).toHaveAttribute("aria-pressed", "true")
-  await firstClaim.getByRole("button", { name: "Edit", exact: true }).click()
-  await firstClaim.getByLabel("Claim 1 part 1 text").fill("Discard this edit")
-  await firstClaim.getByRole("button", { name: "Cancel", exact: true }).click()
-  await expect(firstClaim.getByText("Discard this edit")).toHaveCount(0)
-  await firstClaim.getByRole("button", { name: "Split", exact: true }).click()
-  await expect(
-    page.getByRole("button", { name: "Submit correction" }),
-  ).toBeDisabled()
-  await firstClaim
-    .getByLabel("Claim 1 part 1 text")
-    .fill("First corrected assertion")
-  await firstClaim
-    .getByLabel("Claim 1 part 2 text")
-    .fill("Second corrected assertion")
-  await firstClaim
-    .getByRole("group", { name: "Claim 1 part 2 label" })
-    .getByRole("button", { name: "borderline" })
-    .click()
-  await firstClaim.getByRole("button", { name: "Apply changes" }).click()
-  await secondClaim.getByRole("button", { name: "Remove", exact: true }).click()
+  await firstClaim.locator("summary").click()
+  await expect(firstClaim).not.toHaveAttribute("open")
+  await expect(firstClaim.locator("summary")).toContainText("incidental")
+  await expect(secondClaim).toHaveAttribute("open")
+  await firstHighlight.click()
+  await expect(firstClaim).toHaveAttribute("open")
+  await page.getByLabel("Hide model results").check()
+  await expect(firstClaim).toBeHidden()
+  await expect(source.locator("[data-owner-positions]")).toHaveCount(0)
 
   await source.evaluate((element) => {
     const target = "RAAS and efferent vasoconstriction"
@@ -240,20 +248,125 @@ test("submits a fact-decomposition review with fact calls and rubric", async ({
     selection?.addRange(range)
     element.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }))
   })
-  await firstClaim.getByRole("button", { name: "Edit", exact: true }).click()
-  await firstClaim
-    .getByRole("button", { name: "Use selected source for part 2" })
+  await page
+    .getByRole("button", { name: "Create human claim", exact: true })
     .click()
-  await firstClaim.getByRole("button", { name: "Apply changes" }).click()
-  await page.getByRole("button", { name: "Add missing claim" }).click()
-  const missing = page.locator('[data-claim-position="2"]')
+  await expect(page.getByLabel("New human claim text")).toHaveValue(
+    "RAAS and efferent vasoconstriction",
+  )
+  await page.getByLabel("New human claim text").fill("First human assertion")
   await expect(
-    missing.getByText("RAAS and efferent vasoconstriction", { exact: true }),
-  ).toBeVisible()
+    page.getByRole("button", { name: "Save review", exact: true }),
+  ).toBeDisabled()
+  await page
+    .getByRole("button", { name: "Add human claim", exact: true })
+    .click()
+  const missing = page.locator('[data-claim-position="2"]')
   await missing
-    .getByRole("group", { name: "Missing claim label" })
+    .getByRole("group", { name: "Human claim 1 label" })
     .getByRole("button", { name: "borderline" })
     .click()
+  await missing.locator("summary").click()
+  await expect(missing).not.toHaveAttribute("open")
+  await expect(missing.locator("summary")).toContainText("borderline")
+  // Another human assertion may use the same passage without replacing model claims.
+  await page
+    .getByRole("button", { name: "Create human claim", exact: true })
+    .click()
+  await page.getByLabel("New human claim text").fill("Second human assertion")
+  await page
+    .getByRole("button", { name: "Add human claim", exact: true })
+    .click()
+  await expect(missing).not.toHaveAttribute("open")
+  await expect(source.locator('[data-owner-positions="2,3"]')).toBeVisible()
+  await page.getByLabel("Hide model results").uncheck()
+  await expect(
+    firstLabels.getByRole("button", { name: "incidental" }),
+  ).toHaveAttribute("aria-pressed", "true")
+  await expect(
+    page.getByTestId("model-claims").locator("[data-claim-position]"),
+  ).toHaveCount(2)
+  await missing.locator("summary").click()
+  await expect(missing.getByLabel("Human claim 1 text")).toHaveValue(
+    "First human assertion",
+  )
+  await missing.getByRole("button", { name: "Use selected source" }).click()
+  // Adding/removing a human draft leaves both model grades untouched.
+  await page
+    .getByRole("button", { name: "Create human claim", exact: true })
+    .click()
+  await page.getByLabel("New human claim text").fill("Discard this draft")
+  await page.getByRole("button", { name: "Cancel", exact: true }).click()
+  await expect(
+    page.getByTestId("human-claims").locator("[data-claim-position]"),
+  ).toHaveCount(2)
+
+  await missing.getByLabel("Human claim 1 text").fill(" ")
+  await expect(
+    page.getByRole("button", { name: "Save review", exact: true }),
+  ).toBeDisabled()
+  await missing.getByLabel("Human claim 1 text").fill("First human assertion")
+  await page
+    .getByRole("button", { name: "Create human claim", exact: true })
+    .click()
+  await page
+    .getByRole("button", { name: "Add human claim", exact: true })
+    .click()
+  await page
+    .locator('[data-claim-position="4"]')
+    .getByRole("button", { name: "Remove human claim" })
+    .click()
+  await expect(
+    page.getByTestId("human-claims").locator("[data-claim-position]"),
+  ).toHaveCount(2)
+
+  await expect(
+    page.getByRole("button", { name: "View source", exact: true }),
+  ).toHaveCount(0)
+  const scrollPositions = await page
+    .locator("main.overflow-y-auto")
+    .evaluate((element) => {
+      const pane = element.querySelector(
+        '[aria-label="Source and human claim editor"]',
+      )!
+      const claims = element.querySelector(
+        '[data-testid="claim-correction-list"]',
+      )!
+      element.scrollTop = 250
+      const first = {
+        source: pane.getBoundingClientRect().top,
+        claims: claims.getBoundingClientRect().top,
+      }
+      element.scrollTop = 400
+      const second = {
+        source: pane.getBoundingClientRect().top,
+        claims: claims.getBoundingClientRect().top,
+      }
+      const sourcePane = pane as HTMLElement
+      const hasSourceOverflow =
+        sourcePane.scrollHeight > sourcePane.clientHeight
+      sourcePane.scrollTop = 0
+      sourcePane.scrollTop = 100
+      return {
+        first,
+        second,
+        hasSourceOverflow,
+        sourceScroll: sourcePane.scrollTop,
+        claimsAfterSourceScroll: claims.getBoundingClientRect().top,
+      }
+    })
+  expect(
+    Math.abs(scrollPositions.first.source - scrollPositions.second.source),
+  ).toBeLessThan(2)
+  expect(scrollPositions.second.claims).toBeLessThan(
+    scrollPositions.first.claims,
+  )
+
+  expect(scrollPositions.hasSourceOverflow).toBe(true)
+  expect(scrollPositions.sourceScroll).toBe(100)
+  expect(scrollPositions.claimsAfterSourceScroll).toBe(
+    scrollPositions.second.claims,
+  )
 
   await page.setViewportSize({ width: 390, height: 844 })
   const mobileSourceBox = await source.boundingBox()
@@ -271,24 +384,22 @@ test("submits a fact-decomposition review with fact calls and rubric", async ({
     await submissionGate
     await route.continue()
   })
-  await page.getByRole("button", { name: "Submit correction" }).click()
+  await page.getByRole("button", { name: "Save review" }).click()
   await expect(
-    page.getByRole("button", { name: "Submitting correction" }),
+    page.getByRole("button", { name: "Saving review" }),
   ).toBeDisabled()
   await expect(
-    firstClaim.getByRole("button", { name: "Edit", exact: true }),
+    firstLabels.getByRole("button", { name: "incidental" }),
   ).toBeDisabled()
   await expect(
     missing.getByRole("button", { name: "incidental" }),
   ).toBeDisabled()
   await expect(
-    page.getByRole("button", { name: "Add missing claim" }),
+    page.getByRole("button", { name: "Create human claim" }),
   ).toBeDisabled()
   releaseSubmission()
-  await expect(page.getByText("Correction submitted.")).toBeVisible()
-  await expect(
-    page.getByRole("button", { name: "Submit correction" }),
-  ).toBeDisabled()
+  await expect(page.getByText("Review saved.")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Save review" })).toBeDisabled()
 
   const exportResponse = await page.request.get(
     `${apiBase}/api/v1/admin/export?dataset_id=${dataset?.id}`,
@@ -301,8 +412,8 @@ test("submits a fact-decomposition review with fact calls and rubric", async ({
       case_id?: string
       claims?: Array<{ proposed_label: string }>
       correction_reviews?: Array<{
-        final_claims?: Array<{
-          original_position: number | null
+        model_labels?: string[]
+        human_claims?: Array<{
           claim_text: string
           label: string
           response_spans: Array<{ start: number; end: number; text: string }>
@@ -315,17 +426,14 @@ test("submits a fact-decomposition review with fact calls and rubric", async ({
     "substantive",
     "substantive",
   ])
-  const finalClaims = exportedItem?.correction_reviews?.[0].final_claims
-  expect(
-    finalClaims?.map((claim) => [
-      claim.original_position,
-      claim.claim_text,
-      claim.label,
-    ]),
-  ).toEqual([
-    [0, "First corrected assertion", "substantive"],
-    [0, "Second corrected assertion", "borderline"],
-    [null, "RAAS and efferent vasoconstriction", "borderline"],
+  expect(exportedItem?.correction_reviews?.[0].model_labels).toEqual([
+    "incidental",
+    "substantive",
+  ])
+  const finalClaims = exportedItem?.correction_reviews?.[0].human_claims
+  expect(finalClaims?.map((claim) => [claim.claim_text, claim.label])).toEqual([
+    ["First human assertion", "borderline"],
+    ["Second human assertion", "substantive"],
   ])
   expect(finalClaims?.[1].response_spans).toEqual([
     {
@@ -336,13 +444,13 @@ test("submits a fact-decomposition review with fact calls and rubric", async ({
     },
   ])
   await expect(
-    firstClaim.getByRole("button", { name: "Edit", exact: true }),
+    firstLabels.getByRole("button", { name: "incidental" }),
   ).toBeDisabled()
   await expect(
     missing.getByRole("button", { name: "incidental" }),
   ).toBeDisabled()
   await expect(
-    page.getByRole("button", { name: "Add missing claim" }),
+    page.getByRole("button", { name: "Create human claim" }),
   ).toBeDisabled()
   await page.screenshot({
     path: "/tmp/amfv-claim-correction-submitted.png",
