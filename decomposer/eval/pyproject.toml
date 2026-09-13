@@ -1,0 +1,40 @@
+[project]
+name = "amfv-eval"
+version = "0.0.1"
+description = "Decomposer eval-set generation for AMFV"
+requires-python = ">=3.13"
+dependencies = [
+    "amfv-utils",
+    "jinja2>=3.0",
+    "openai>=1.50",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+    "torch>=2.0",
+    "tqdm>=4.0",
+    "transformers>=4.40",
+]
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
+
+[tool.uv.sources]
+# cu126 targets CUDA 12.8 (driver forward-compatible); change if needed
+torch = { index = "pytorch" }
+
+[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.ruff]
+extend = "../../ruff.toml"
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+
+[project.scripts]
+amfv-eval = "amfv_eval.cli:main"

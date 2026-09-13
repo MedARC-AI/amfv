@@ -1,0 +1,59 @@
+# amfv-eval pipeline configuration
+# Run with: DIR=/mount/marii python slurm/pipeline.py --config example_config.yaml
+#
+# All relative paths are resolved against the DIR environment variable.
+# Set DIR to your per-user data directory on the cluster, e.g. DIR=/mount/marii
+
+# Shared settings
+base_url: http://localhost:8000/v1
+cache_dir: cache/amfv_eval
+max_retries: 5  # OpenAI client retries on transient errors (SDK default: 2)
+partition: n       # GPU nodes
+cpu_partition: c   # CPU-only nodes (shard/merge jobs)
+account: plus
+tensor_parallel: 2
+n_shards: 1
+max_gpus: 2  # caps concurrent array tasks: max_gpus / tensor_parallel = 4 shards at once
+qos: high  # default; override per-step below
+time_limit: "24:00:00"  # per-job wall time; override per-step if needed
+# vllm container image is set via VLLM_IMAGE env var (defaults to docker://vllm/vllm-openai:latest)
+
+# Supported models: openai/gpt-oss-120b, Qwen/Qwen3-1.7B, Qwen/Qwen3-8B, Qwen/Qwen3.6-27B, LiquidAI/LFM2.5-8B-A1B, baichuan-inc/Baichuan-M2-32B
+# UnSupported models: google/gemma-4-E4B
+
+embed_claims:
+  model: almanach/ModernBERT-bio-large
+  threshold: 0.92
+  splits: [train, validation, test]
+  out: similar_pairs.json
+  print_histogram: true  # print to stdout in pipeline; histogram is always saved in the JSON
+
+generate:
+  model: openai/gpt-oss-120b
+  qos: high
+  splits: [train, validation]
+  n_examples: 40
+  seed: 42
+  out: generated.jsonl
+  similar_pairs: similar_pairs.json  # precomputed by embed_claims step; omit to skip embedding filter
+
+# Below can have multiple entries, one per model. Each entry can override the shared settings above.
+filter:
+  - model: openai/gpt-oss-120b
+    qos: high
+    input: generated.jsonl
+    out: filtered_1.jsonl
+    failures: filtered_1_fail.jsonl
+
+decompose:
+  - model: openai/gpt-oss-120b
+    qos: high
+    enable_thinking: true
+    out: decomposed_gpt120b.jsonl
+
+eval:
+  - model: openai/gpt-oss-120b
+    qos: high
+    input: decomposed_gpt120b.jsonl
+    out: results_gpt120b.jsonl
+    failures: results_gpt120b_fail.jsonl
