@@ -26,3 +26,7 @@ Following Baichuan-M3, the task is split into three models across four steps:
 | [`training`](training/README.md)   | Training experiments and recipes for the above | Independent |
 
 The **Workspace** column marks membership in the root `uv` workspace. Independent packages (`baseline`, `training`) are excluded so they can evolve on their own.
+
+## Evaluation
+
+AMFV-Bench lives under [`datasets/`](datasets/README.md): a frozen, stage-separated test set so later work can say “retrieval A beats B” instead of optimizing against vibes. Gold Likert labels, scope, and evidence spans are graded by **clinicians** against cited guideline text. The scorer is deterministic and does not call an LLM. Annotation rubric: [`datasets/amfv_datasets/eval/taxonomy.md`](datasets/amfv_datasets/eval/taxonomy.md). Physicians who want to label or second-read cases should start there.

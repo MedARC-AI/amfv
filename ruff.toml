@@ -12,3 +12,4 @@ pydocstyle.convention = "google"
 
 [lint.extend-per-file-ignores]
 "__init__.py" = ["D104", "F401", "I002"]
+"datasets/amfv_datasets/eval/gold/_v0.py" = ["E501"]
