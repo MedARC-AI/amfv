@@ -25,6 +25,7 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
+from amfv_datasets.scraping.aafp import scrape_aafp
 from amfv_datasets.scraping.base import ScrapedDocument, ScrapeRun
 from amfv_datasets.scraping.html import LinkMode
 from amfv_datasets.scraping.medlineplus import scrape_medlineplus
@@ -42,6 +43,7 @@ class Scraper(Protocol):
 ALL_SOURCES = "all"
 
 SCRAPERS: dict[str, Scraper] = {
+    "aafp": scrape_aafp,
     "medlineplus": scrape_medlineplus,
     "nice": scrape_nice,
 }
@@ -75,10 +77,14 @@ def scrape_documents(
             until it is exhausted (default: None).
         link_mode: Whether links are kept as markdown links or stripped to their
             visible text.
-        url: Source URL to scrape as a single document (default: None).
+        url: Source page URL to scrape directly. Incompatible with
+            `ALL_SOURCES`, because one URL belongs to one source (default:
+            None).
     """
     if documents is not None and documents < 1:
         raise ValueError(f"documents must be at least 1; got {documents}")
+    if url is not None and source == ALL_SOURCES:
+        raise typer.BadParameter(f"--url requires a specific --source and cannot be used with --source {ALL_SOURCES}")
 
     scrape_runs = [SCRAPERS[name](documents=documents, link_mode=link_mode, url=url) for name in _expand_source(source)]
     if len(scrape_runs) == 1:
@@ -144,7 +150,7 @@ def _expand_source(source: str) -> tuple[str, ...]:
 @app.command(help="Run a scraper and write the scraped documents.")
 def run(
     source: Annotated[str, typer.Option("--source", help=f"Scraper source to run: {', '.join([ALL_SOURCES, *SCRAPERS])}.")],  # noqa: E501
-    url: Annotated[str | None, typer.Option("--url", help="Source URL to scrape as a single document.")] = None,
+    url: Annotated[str | None, typer.Option("--url", help="URL to scrape this source page directly.")] = None,
     documents: Annotated[str, typer.Option("--documents", help="Number of documents to scrape, or 'all'.")] = "1",
     link_mode: Annotated[LinkMode, typer.Option("--links", help="Whether to keep markdown links or strip links to text.")] = LinkMode.KEEP,  # noqa: E501
     output_format: Annotated[OutputFormat, typer.Option("--format", "-f", help="Output format.")] = OutputFormat.JSONL,
@@ -155,7 +161,8 @@ def run(
 
     Args:
         source: Scraper source to run.
-        url: Source URL to scrape as a single document (default: None).
+        url: Source URL to scrape this source page directly. Requires a
+            specific source (default: None).
         documents: Number of documents to scrape, or "all" (default: "1").
         link_mode: Whether links are kept as markdown links or stripped to their
             visible text (default: LinkMode.KEEP).

@@ -5,6 +5,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from click import unstyle
 from typer.testing import CliRunner
 
 from amfv_datasets.scraping.base import ScrapedDocument, ScrapeRun
@@ -226,10 +227,30 @@ def test_cli_run_rejects_an_unregistered_source() -> None:
     runner = CliRunner()
 
     result = runner.invoke(app, ["--source", "nhs"])
+    error = unstyle(result.stderr)
 
     assert result.exit_code != 0
-    assert "'nhs'" in result.stderr
-    assert "all, medlineplus, nice" in result.stderr
+    assert "'nhs'" in error
+    for source in (ALL_SOURCES, *SCRAPERS):
+        assert source in error
+
+
+def test_cli_run_rejects_a_url_with_every_source() -> None:
+    """One URL belongs to one source, so --url cannot be combined with --source all."""
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "--source",
+            ALL_SOURCES,
+            "--url",
+            "https://www.aafp.org/clinical-insights/a/b",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--url requires a specific --source" in unstyle(result.stderr)
 
 
 def test_expand_source_runs_every_registered_scraper() -> None:
