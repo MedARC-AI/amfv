@@ -71,7 +71,7 @@ class ImportClaim(_StrictModel):
 
     claim: str = Field(min_length=1, max_length=20_000)
     spans: list[ImportSpan] = Field(min_length=1, max_length=100)
-    label: Literal["substantive", "incidental", "borderline"]
+    label: Literal["vital", "semi-important"]
 
     @model_validator(mode="after")
     def validate_claim(self) -> Self:
@@ -105,8 +105,7 @@ class ImportGenerator(_StrictModel):
 
     model_id: str = Field(min_length=1, max_length=500)
     model_revision: str | None = Field(default=None, min_length=1, max_length=500)
-    prompt_id: str = Field(pattern=_IDENTIFIER_PATTERN)
-    prompt_hash: str = Field(pattern=_SHA256_PATTERN)
+    prompt_text: str = Field(min_length=1, max_length=100_000)
     pydantic_ai_version: str = Field(min_length=1, max_length=100)
     generation: ImportGeneration = Field(default_factory=ImportGeneration)
 
@@ -117,11 +116,18 @@ class ImportGenerator(_StrictModel):
             raise ValueError("model_id must not be blank")
         return value
 
+    @field_validator("prompt_text")
+    @classmethod
+    def validate_prompt_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("prompt_text must not be blank")
+        return value
+
 
 class FactDecompImportRow(_StrictModel):
-    """Version 1 FACT_DECOMP item envelope emitted by the generator."""
+    """Version 2 FACT_DECOMP item envelope emitted by the generator."""
 
-    schema_version: Literal[1]
+    schema_version: Literal[2]
     eval_type: Literal["FACT_DECOMP"]
     external_id: str = Field(pattern=_SHA256_PATTERN)
     case_id: str = Field(pattern=_IDENTIFIER_PATTERN)
@@ -176,15 +182,15 @@ class FactDecompImportRowError(ValueError):
 
 
 def parse_fact_decomp_row(payload: object) -> FactDecompImportRow:
-    """Validate one decoded JSON object against the strict v1 contract."""
+    """Validate one decoded JSON object against the strict v2 contract."""
     if not isinstance(payload, dict):
         raise FactDecompImportRowError("row must be a JSON object")
     if (
         type(payload.get("schema_version")) is not int
-        or payload.get("schema_version") != 1
+        or payload.get("schema_version") != 2
     ):
         raise FactDecompImportRowError(
-            f"unsupported schema_version {payload.get('schema_version')}; expected 1"
+            f"unsupported schema_version {payload.get('schema_version')}; expected 2"
         )
     try:
         return FactDecompImportRow.model_validate(payload)
@@ -224,7 +230,7 @@ def import_fact_decomp(
         return FactDecompImportResult(status="created")
 
     item_metadata = {
-        "schema_version": 1,
+        "schema_version": 2,
         "review_mode": "MODEL_LABEL_CORRECTION",
         "case_id": row.case_id,
         "arm_id": row.arm_id,

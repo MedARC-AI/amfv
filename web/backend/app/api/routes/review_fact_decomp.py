@@ -26,8 +26,10 @@ from app.schemas import (
     ReviewModelClaim,
 )
 from app.services.fact_decomp_review import (
+    IMPORTANCE_RUBRIC_ID,
     CorrectionMetadataError,
     ModelCorrectionRating,
+    importance_guide,
     is_model_correction_item,
     project_model_claims,
 )
@@ -62,7 +64,10 @@ def _existing_model_review(review: FactDecompReview | None) -> dict | None:
         raise HTTPException(
             status_code=500, detail="Stored correction review is invalid"
         ) from exc
-    return ratings.model_dump(mode="json", include={"model_labels", "human_claims"})
+    return ratings.model_dump(
+        mode="json",
+        include={"rubric_id", "claim_reviews", "human_claims", "coverage_checked"},
+    )
 
 
 @router.get("/fact-decomp/{task_id}", response_model=FactDecompReviewPayload)
@@ -107,6 +112,7 @@ def read_fact_decomp_review(
             user_prompt=item.lazy_query,
             assistant_response=item.prompt_text,
             claims=_model_claims(item, list(facts)),
+            guide=importance_guide(),
         )
     return AuthoredFactDecompReviewPayload(
         dataset=dataset_payload(dataset),
@@ -237,10 +243,14 @@ def submit_model_eval_review(
         .order_by(col(EvalFact.position))
     ).all()
     claims = _model_claims(item, list(facts))
-    if len(body.model_labels) != len(claims):
+    if body.rubric_id != IMPORTANCE_RUBRIC_ID:
+        raise HTTPException(status_code=409, detail="Review rubric is stale")
+    expected_positions = [claim.position for claim in claims]
+    submitted_positions = [review.position for review in body.claim_reviews]
+    if submitted_positions != expected_positions:
         raise HTTPException(
             status_code=400,
-            detail="model_labels must contain one label per model claim",
+            detail="claim_reviews must cover each model claim position exactly once in source order",
         )
     for claim in body.human_claims:
         try:
@@ -252,10 +262,12 @@ def submit_model_eval_review(
     assert task.id is not None
     try:
         ratings = ModelCorrectionRating(
+            schema_version=2,
             review_mode=MODEL_REVIEW_MODE,
-            proposed_labels=[claim.proposed_label for claim in claims],
-            model_labels=body.model_labels,
+            rubric_id=body.rubric_id,
+            claim_reviews=body.claim_reviews,
             human_claims=body.human_claims,
+            coverage_checked=body.coverage_checked,
         ).model_dump(mode="json")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

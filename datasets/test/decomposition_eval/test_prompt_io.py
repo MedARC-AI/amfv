@@ -1,6 +1,5 @@
 """Tests for exact prompt loading and no-network preview."""
 
-import hashlib
 from pathlib import Path
 
 import pytest
@@ -24,7 +23,6 @@ def test_prompt_bytes_and_case_envelope_are_exact(tmp_path: Path) -> None:
     preview = build_preview(
         case,
         instructions=instructions,
-        prompt_id="prompt-a",
         model_id="model-a",
         model_revision="revision-a",
         model_family="gpt-oss",
@@ -32,7 +30,6 @@ def test_prompt_bytes_and_case_envelope_are_exact(tmp_path: Path) -> None:
     )
 
     assert instructions == "Café\r\nKeep spacing.\n"
-    assert preview["prompt_hash"] == hashlib.sha256(prompt_path.read_bytes()).hexdigest()
     assert preview["instructions"] == instructions
     assert preview["model"]["model_revision"] == "revision-a"
     assert preview["case_envelope"] == render_case(case)
@@ -41,8 +38,9 @@ def test_prompt_bytes_and_case_envelope_are_exact(tmp_path: Path) -> None:
     )
 
 
-def test_prompt_has_no_fallback_and_duplicate_cases_fail(tmp_path: Path) -> None:
-    """Require explicit instructions and unique case identities."""
+def test_default_prompt_and_duplicate_case_validation(tmp_path: Path) -> None:
+    """Load packaged instructions and require unique case identities."""
+    assert "Use only vital or semi-important" in load_prompt()
     with pytest.raises(FileNotFoundError):
         load_prompt(tmp_path / "missing.txt")
     blank = tmp_path / "blank.txt"

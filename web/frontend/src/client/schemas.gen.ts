@@ -190,6 +190,18 @@ export const AdminExportAuthoredItemSchema = {
 
 export const AdminExportCorrectionReviewSchema = {
     properties: {
+        claim_reviews: {
+            items: {
+                '$ref': '#/components/schemas/ClaimReview'
+            },
+            title: 'Claim Reviews',
+            type: 'array'
+        },
+        coverage_checked: {
+            const: true,
+            title: 'Coverage Checked',
+            type: 'boolean'
+        },
         human_claims: {
             items: {
                 '$ref': '#/components/schemas/HumanClaim'
@@ -205,24 +217,12 @@ export const AdminExportCorrectionReviewSchema = {
             title: 'Item Revision',
             type: 'integer'
         },
-        model_labels: {
-            items: {
-                enum: ['substantive', 'incidental', 'borderline'],
-                type: 'string'
-            },
-            title: 'Model Labels',
-            type: 'array'
-        },
-        proposed_labels: {
-            items: {
-                enum: ['substantive', 'incidental', 'borderline'],
-                type: 'string'
-            },
-            title: 'Proposed Labels',
-            type: 'array'
-        },
         reviewer_kind: {
             title: 'Reviewer Kind',
+            type: 'string'
+        },
+        rubric_id: {
+            title: 'Rubric Id',
             type: 'string'
         },
         source: {
@@ -234,7 +234,7 @@ export const AdminExportCorrectionReviewSchema = {
             type: 'string'
         }
     },
-    required: ['id', 'user_id', 'item_revision', 'proposed_labels', 'model_labels', 'human_claims', 'reviewer_kind', 'source'],
+    required: ['id', 'user_id', 'item_revision', 'rubric_id', 'claim_reviews', 'human_claims', 'coverage_checked', 'reviewer_kind', 'source'],
     title: 'AdminExportCorrectionReview',
     type: 'object'
 } as const;
@@ -389,12 +389,10 @@ export const AdminExportGeneratorSchema = {
             ],
             title: 'Model Revision'
         },
-        prompt_hash: {
-            title: 'Prompt Hash',
-            type: 'string'
-        },
-        prompt_id: {
-            title: 'Prompt Id',
+        prompt_text: {
+            maxLength: 100000,
+            minLength: 1,
+            title: 'Prompt Text',
             type: 'string'
         },
         pydantic_ai_version: {
@@ -402,7 +400,7 @@ export const AdminExportGeneratorSchema = {
             type: 'string'
         }
     },
-    required: ['model_id', 'model_revision', 'prompt_id', 'prompt_hash', 'pydantic_ai_version', 'generation'],
+    required: ['model_id', 'model_revision', 'prompt_text', 'pydantic_ai_version', 'generation'],
     title: 'AdminExportGenerator',
     type: 'object'
 } as const;
@@ -418,7 +416,7 @@ export const AdminExportModelClaimSchema = {
             type: 'integer'
         },
         proposed_label: {
-            enum: ['substantive', 'incidental', 'borderline'],
+            enum: ['vital', 'semi-important'],
             title: 'Proposed Label',
             type: 'string'
         },
@@ -506,6 +504,11 @@ export const AdminExportModelCorrectionItemSchema = {
             title: 'Review Task Count',
             type: 'integer'
         },
+        schema_version: {
+            const: 2,
+            title: 'Schema Version',
+            type: 'integer'
+        },
         status: {
             '$ref': '#/components/schemas/ItemStatus'
         },
@@ -521,7 +524,7 @@ export const AdminExportModelCorrectionItemSchema = {
             title: 'User Prompt'
         }
     },
-    required: ['review_mode', 'id', 'dataset_id', 'eval_type', 'status', 'external_id', 'case_id', 'arm_id', 'canonical_row_sha256', 'user_prompt', 'assistant_response', 'generator', 'claims', 'review_task', 'review_task_count', 'correction_reviews'],
+    required: ['review_mode', 'id', 'dataset_id', 'eval_type', 'status', 'schema_version', 'external_id', 'case_id', 'arm_id', 'canonical_row_sha256', 'user_prompt', 'assistant_response', 'generator', 'claims', 'review_task', 'review_task_count', 'correction_reviews'],
     title: 'AdminExportModelCorrectionItem',
     type: 'object'
 } as const;
@@ -1288,6 +1291,45 @@ export const ChunkSummarySchema = {
     type: 'object'
 } as const;
 
+export const ClaimReviewSchema = {
+    additionalProperties: false,
+    description: 'One explicit human judgment of an original model claim.',
+    properties: {
+        issue: {
+            anyOf: [
+                {
+                    maxLength: 500,
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Issue'
+        },
+        label: {
+            anyOf: [
+                {
+                    enum: ['vital', 'semi-important', 'unimportant'],
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Label'
+        },
+        position: {
+            minimum: 0,
+            title: 'Position',
+            type: 'integer'
+        }
+    },
+    required: ['position'],
+    title: 'ClaimReview',
+    type: 'object'
+} as const;
+
 export const CreateFactDecompDraftSubmitSchema = {
     additionalProperties: false,
     properties: {
@@ -2044,7 +2086,7 @@ export const HumanClaimSchema = {
             type: 'string'
         },
         label: {
-            enum: ['substantive', 'incidental', 'borderline'],
+            enum: ['vital', 'semi-important', 'unimportant'],
             title: 'Label',
             type: 'string'
         },
@@ -2060,6 +2102,53 @@ export const HumanClaimSchema = {
     },
     required: ['claim_text', 'response_spans', 'label'],
     title: 'HumanClaim',
+    type: 'object'
+} as const;
+
+export const ImportanceGuideSchema = {
+    properties: {
+        instructions: {
+            items: {
+                type: 'string'
+            },
+            title: 'Instructions',
+            type: 'array'
+        },
+        labels: {
+            items: {
+                '$ref': '#/components/schemas/ImportanceGuideLabel'
+            },
+            title: 'Labels',
+            type: 'array'
+        },
+        rubric_id: {
+            title: 'Rubric Id',
+            type: 'string'
+        }
+    },
+    required: ['rubric_id', 'instructions', 'labels'],
+    title: 'ImportanceGuide',
+    type: 'object'
+} as const;
+
+export const ImportanceGuideLabelSchema = {
+    properties: {
+        definition: {
+            title: 'Definition',
+            type: 'string'
+        },
+        label: {
+            title: 'Label',
+            type: 'string'
+        },
+        value: {
+            enum: ['vital', 'semi-important', 'unimportant'],
+            title: 'Value',
+            type: 'string'
+        }
+    },
+    required: ['value', 'label', 'definition'],
+    title: 'ImportanceGuideLabel',
     type: 'object'
 } as const;
 
@@ -2157,6 +2246,19 @@ export const MessageSchema = {
 
 export const ModelCorrectionReviewSchema = {
     properties: {
+        claim_reviews: {
+            items: {
+                '$ref': '#/components/schemas/ClaimReview'
+            },
+            maxItems: 10000,
+            title: 'Claim Reviews',
+            type: 'array'
+        },
+        coverage_checked: {
+            const: true,
+            title: 'Coverage Checked',
+            type: 'boolean'
+        },
         human_claims: {
             items: {
                 '$ref': '#/components/schemas/HumanClaim'
@@ -2165,17 +2267,12 @@ export const ModelCorrectionReviewSchema = {
             title: 'Human Claims',
             type: 'array'
         },
-        model_labels: {
-            items: {
-                enum: ['substantive', 'incidental', 'borderline'],
-                type: 'string'
-            },
-            maxItems: 10000,
-            title: 'Model Labels',
-            type: 'array'
+        rubric_id: {
+            title: 'Rubric Id',
+            type: 'string'
         }
     },
-    required: ['model_labels', 'human_claims'],
+    required: ['rubric_id', 'claim_reviews', 'human_claims', 'coverage_checked'],
     title: 'ModelCorrectionReview',
     type: 'object'
 } as const;
@@ -2184,6 +2281,19 @@ export const ModelEvalReviewSubmitSchema = {
     additionalProperties: false,
     description: 'Position-aligned human corrections for an imported model decomposition.',
     properties: {
+        claim_reviews: {
+            items: {
+                '$ref': '#/components/schemas/ClaimReview'
+            },
+            maxItems: 10000,
+            title: 'Claim Reviews',
+            type: 'array'
+        },
+        coverage_checked: {
+            const: true,
+            title: 'Coverage Checked',
+            type: 'boolean'
+        },
         human_claims: {
             items: {
                 '$ref': '#/components/schemas/HumanClaim'
@@ -2196,17 +2306,12 @@ export const ModelEvalReviewSubmitSchema = {
             title: 'Item Revision',
             type: 'integer'
         },
-        model_labels: {
-            items: {
-                enum: ['substantive', 'incidental', 'borderline'],
-                type: 'string'
-            },
-            maxItems: 10000,
-            title: 'Model Labels',
-            type: 'array'
+        rubric_id: {
+            title: 'Rubric Id',
+            type: 'string'
         }
     },
-    required: ['model_labels', 'human_claims', 'item_revision'],
+    required: ['rubric_id', 'claim_reviews', 'human_claims', 'coverage_checked', 'item_revision'],
     title: 'ModelEvalReviewSubmit',
     type: 'object'
 } as const;
@@ -2261,6 +2366,9 @@ export const ModelFactDecompReviewPayloadSchema = {
                 }
             ]
         },
+        guide: {
+            '$ref': '#/components/schemas/ImportanceGuide'
+        },
         item: {
             '$ref': '#/components/schemas/ReviewItem'
         },
@@ -2296,7 +2404,7 @@ export const ModelFactDecompReviewPayloadSchema = {
             title: 'User Prompt'
         }
     },
-    required: ['dataset', 'item', 'task_id', 'item_revision', 'review_mode', 'user_prompt', 'assistant_response', 'claims', 'allowed_actions'],
+    required: ['dataset', 'item', 'task_id', 'item_revision', 'review_mode', 'user_prompt', 'assistant_response', 'claims', 'guide', 'allowed_actions'],
     title: 'ModelFactDecompReviewPayload',
     type: 'object'
 } as const;
@@ -3164,7 +3272,7 @@ export const ReviewModelClaimSchema = {
             type: 'integer'
         },
         proposed_label: {
-            enum: ['substantive', 'incidental', 'borderline'],
+            enum: ['vital', 'semi-important'],
             title: 'Proposed Label',
             type: 'string'
         },

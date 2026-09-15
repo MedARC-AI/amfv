@@ -9,8 +9,8 @@ Workspace member (`amfv-datasets`).
 ## Decomposition-evaluation JSONL contract
 
 Install the `decomposition-eval` extra to preview prompts or generate model
-artifacts. The command always reads the evaluation instructions from a caller-
-supplied UTF-8 file; the package contains no default evaluation prompt.
+artifacts. The package uses its approved prompt by default. Use `--prompt-file`
+to supply an exact UTF-8 prompt for an experiment.
 PydanticAI requests provider-native JSON Schema output and validates it as a
 Pydantic model; generation does not use function tools or prompted JSON. The
 model copies exact source quotations but does not calculate character offsets.
@@ -20,24 +20,22 @@ response in labeled, three-backtick Markdown blocks.
 
 Generator input contains `schema_version`, `case_id`, `assistant_response`, and
 an optional `user_prompt`. Omitting the prompt supports response-only material
-such as documents and reasoning traces. Version 1 output is a strict
-`FACT_DECOMP` import row.
+such as documents and reasoning traces. Inputs use version 1. Generated
+`FACT_DECOMP` rows use version 2.
 Each ordered claim has nonblank text, one or more exact Python code-point spans
-in the assistant response, and one label: `substantive`, `incidental`, or
-`borderline`. Zero claims is valid. Unknown fields are rejected.
+in the assistant response, and one label: `vital` or `semi-important`. Zero
+claims is valid. Unknown fields are rejected.
 
-- `substantive`: Correctness materially affects information, reasoning, conclusions, or actions.
-- `incidental`: Correctness has little bearing on that substantive content.
-- `borderline`: Context leaves verification relevance unclear. This is not uncertainty about factual truth.
+- `vital`: The claim is essential to a substantive point, conclusion, action, or correct interpretation.
+- `semi-important`: The claim gives useful explanation, evidence, or context while the central point remains intact without it.
 
-Verification includes substantive and borderline claims. Incidental claims remain
-in the artifact for human review. Repeated assertions retain their relevance
-labels; downstream processing handles duplication. The same labels apply to
-Q/A inputs and documents. The website preserves original model labels and final
-human labels. The previous four-label contract is replaced without conversion.
+The extractor omits incidental details. The same selection policy applies to
+Q/A inputs and standalone documents. Human review adds `unimportant` for model
+claims that did not need extraction.
 
 `external_id` is the SHA-256 digest of `case_id`, a null byte, and `arm_id`.
-The prompt hash covers the exact prompt-file bytes. Canonical output contains no
+Each row stores the exact instructions in `generator.prompt_text`. Use a new
+`arm_id` to retain another prompt version for the same case. Canonical output contains no
 timestamps, run identifiers, credentials, provider messages, or free-form
 metadata, so rerunning the same case and arm produces a stable identity.
 

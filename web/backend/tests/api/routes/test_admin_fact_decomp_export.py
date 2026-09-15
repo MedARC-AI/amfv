@@ -50,7 +50,7 @@ def test_admin_export_joins_model_corrections_without_private_metadata(
         lazy_query="What does the response say?",
         generator_name="model-name-must-not-be-used-as-provenance",
         item_metadata={
-            "schema_version": 1,
+            "schema_version": 2,
             "review_mode": "MODEL_LABEL_CORRECTION",
             "case_id": "case-export",
             "arm_id": "arm-gpt-oss",
@@ -58,20 +58,19 @@ def test_admin_export_joins_model_corrections_without_private_metadata(
             "generator": {
                 "model_id": "gpt-oss-20b",
                 "model_revision": None,
-                "prompt_id": "decomp-v1",
-                "prompt_hash": "a" * 64,
+                "prompt_text": "Exact prompt.\r\nUnicode 😀\n",
                 "pydantic_ai_version": "2.33.0",
                 "generation": {"reasoning_effort": "low"},
             },
             "ordered_claim_annotations": [
                 {
                     "claim": "Alpha is true.",
-                    "label": "substantive",
+                    "label": "vital",
                     "spans": [{"start": 0, "end": 14, "text": "Alpha is true."}],
                 },
                 {
                     "claim": "Beta is false.",
-                    "label": "substantive",
+                    "label": "semi-important",
                     "spans": [{"start": 15, "end": 29, "text": "Beta is false."}],
                 },
             ],
@@ -127,16 +126,25 @@ def test_admin_export_joins_model_corrections_without_private_metadata(
                 reviewer_kind=ReviewerKind.human,
                 source="web_model_eval",
                 ratings={
+                    "schema_version": 2,
                     "review_mode": "MODEL_LABEL_CORRECTION",
-                    "proposed_labels": ["substantive", "substantive"],
-                    "model_labels": ["incidental", "substantive"],
+                    "rubric_id": "importance-v1",
+                    "claim_reviews": [
+                        {"position": 0, "label": "unimportant", "issue": None},
+                        {
+                            "position": 1,
+                            "label": "semi-important",
+                            "issue": "Needs context.",
+                        },
+                    ],
                     "human_claims": [
                         {
                             "claim_text": "The response mentions alpha.",
                             "response_spans": [{"start": 0, "end": 5, "text": "Alpha"}],
-                            "label": "substantive",
+                            "label": "vital",
                         }
                     ],
+                    "coverage_checked": True,
                 },
             ),
             FactDecompReview(
@@ -189,8 +197,7 @@ def test_admin_export_joins_model_corrections_without_private_metadata(
     assert exported["generator"] == {
         "model_id": "gpt-oss-20b",
         "model_revision": None,
-        "prompt_id": "decomp-v1",
-        "prompt_hash": "a" * 64,
+        "prompt_text": "Exact prompt.\r\nUnicode 😀\n",
         "pydantic_ai_version": "2.33.0",
         "generation": {"reasoning_effort": "low"},
     }
@@ -199,13 +206,13 @@ def test_admin_export_joins_model_corrections_without_private_metadata(
             "claim": "Alpha is true.",
             "position": 0,
             "spans": [{"start": 0, "end": 14, "text": "Alpha is true."}],
-            "proposed_label": "substantive",
+            "proposed_label": "vital",
         },
         {
             "claim": "Beta is false.",
             "position": 1,
             "spans": [{"start": 15, "end": 29, "text": "Beta is false."}],
-            "proposed_label": "substantive",
+            "proposed_label": "semi-important",
         },
     ]
     assert exported["correction_reviews"][0]["human_claims"]
@@ -250,7 +257,7 @@ def test_admin_export_rejects_a_page_over_the_content_budget(
                 source=ItemSource.LLM,
                 prompt_text="x" * 1_000_000,
                 item_metadata={
-                    "schema_version": 1,
+                    "schema_version": 2,
                     "review_mode": "MODEL_LABEL_CORRECTION",
                     "case_id": f"case-{index}",
                     "arm_id": "arm-1",
@@ -258,8 +265,7 @@ def test_admin_export_rejects_a_page_over_the_content_budget(
                     "generator": {
                         "model_id": "gpt-oss-20b",
                         "model_revision": None,
-                        "prompt_id": "decomp-v1",
-                        "prompt_hash": "a" * 64,
+                        "prompt_text": "x" * 100_000,
                         "pydantic_ai_version": "2.33.0",
                         "generation": {},
                     },

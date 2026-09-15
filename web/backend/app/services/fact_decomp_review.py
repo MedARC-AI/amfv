@@ -8,7 +8,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from app.models import EvalFact, EvalItem, ItemSource
 from app.schemas import (
+    ClaimReview,
     HumanClaim,
+    ImportanceGuide,
+    ImportanceGuideLabel,
     ModelClaimLabel,
     ResponseClaimSpan,
     ReviewModelClaim,
@@ -17,8 +20,10 @@ from app.schemas import (
 __all__ = [
     "CorrectionMetadataError",
     "FactDecompCorrectionMetadata",
+    "IMPORTANCE_RUBRIC_ID",
     "ModelCorrectionRating",
     "is_model_correction_item",
+    "importance_guide",
     "project_model_claims",
     "read_correction_metadata",
 ]
@@ -29,6 +34,8 @@ MAX_CLAIMS = 10_000
 MAX_CLAIM_TEXT_LENGTH = 20_000
 MAX_SPANS_PER_CLAIM = 100
 MAX_RESPONSE_LENGTH = 1_000_000
+MAX_PROMPT_LENGTH = 100_000
+IMPORTANCE_RUBRIC_ID = "importance-v1"
 IDENTIFIER_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
 SHA256_PATTERN = r"^[0-9a-f]{64}$"
 
@@ -80,8 +87,7 @@ class StoredCorrectionClaim(_StrictModel):
 class StoredCorrectionGenerator(_StrictModel):
     model_id: str = Field(min_length=1, max_length=500)
     model_revision: str | None = Field(default=None, min_length=1, max_length=500)
-    prompt_id: str = Field(pattern=IDENTIFIER_PATTERN)
-    prompt_hash: str = Field(pattern=SHA256_PATTERN)
+    prompt_text: str = Field(min_length=1, max_length=MAX_PROMPT_LENGTH)
     pydantic_ai_version: str = Field(min_length=1, max_length=100)
     generation: dict[str, str | int | float] = Field(
         default_factory=dict, max_length=16
@@ -94,9 +100,16 @@ class StoredCorrectionGenerator(_StrictModel):
             raise ValueError("model_id must not be blank")
         return value
 
+    @field_validator("prompt_text")
+    @classmethod
+    def validate_prompt_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("prompt_text must not be blank")
+        return value
+
 
 class FactDecompCorrectionMetadata(_StrictModel):
-    schema_version: Literal[1]
+    schema_version: Literal[2]
     review_mode: Literal["MODEL_LABEL_CORRECTION"]
     case_id: str = Field(pattern=IDENTIFIER_PATTERN, max_length=MAX_CASE_ID_LENGTH)
     arm_id: str = Field(pattern=IDENTIFIER_PATTERN, max_length=MAX_ARM_ID_LENGTH)
@@ -111,9 +124,46 @@ class ModelCorrectionRating(_StrictModel):
     """The only persisted shape accepted for a correction review."""
 
     review_mode: Literal["MODEL_LABEL_CORRECTION"]
-    proposed_labels: list[ModelClaimLabel] = Field(max_length=MAX_CLAIMS)
-    model_labels: list[ModelClaimLabel] = Field(max_length=MAX_CLAIMS)
+    schema_version: Literal[2]
+    rubric_id: Literal["importance-v1"]
+    claim_reviews: list[ClaimReview] = Field(max_length=MAX_CLAIMS)
     human_claims: list[HumanClaim] = Field(max_length=MAX_CLAIMS)
+    coverage_checked: Literal[True]
+
+
+def importance_guide() -> ImportanceGuide:
+    """Return the backend-owned guide for extraction and importance review."""
+    return ImportanceGuide(
+        rubric_id=IMPORTANCE_RUBRIC_ID,
+        instructions=[
+            "Judge each claim by its contribution to the passage's purpose. Use the question as context when one is present.",
+            "Flag changed meaning, lost context, unsuitable splitting or grouping, non-claims, and duplicates separately from importance.",
+            "Add a missing claim only when it is a worthwhile assertion in the source text.",
+            "Grade extraction and importance. Do not judge factual correctness.",
+        ],
+        labels=[
+            ImportanceGuideLabel(
+                value="vital",
+                label="Vital",
+                definition=(
+                    "Essential to a substantive point, conclusion, or action, including information needed for correct "
+                    "interpretation. Importance is independent of truth."
+                ),
+            ),
+            ImportanceGuideLabel(
+                value="semi-important",
+                label="Semi-important",
+                definition=(
+                    "Useful substantive explanation, evidence, or context whose removal leaves the central point intact."
+                ),
+            ),
+            ImportanceGuideLabel(
+                value="unimportant",
+                label="Unimportant",
+                definition="An incidental claim that did not need to be extracted.",
+            ),
+        ],
+    )
 
 
 class CorrectionMetadataError(ValueError):

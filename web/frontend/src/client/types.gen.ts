@@ -34,12 +34,13 @@ export type AdminExportAuthoredItem = {
 };
 
 export type AdminExportCorrectionReview = {
+    claim_reviews: Array<ClaimReview>;
+    coverage_checked: true;
     human_claims: Array<HumanClaim>;
     id: number;
     item_revision: number;
-    model_labels: Array<('substantive' | 'incidental' | 'borderline')>;
-    proposed_labels: Array<('substantive' | 'incidental' | 'borderline')>;
     reviewer_kind: string;
+    rubric_id: string;
     source: string;
     user_id: string;
 };
@@ -85,19 +86,18 @@ export type AdminExportGenerator = {
     };
     model_id: string;
     model_revision: (string | null);
-    prompt_hash: string;
-    prompt_id: string;
+    prompt_text: string;
     pydantic_ai_version: string;
 };
 
 export type AdminExportModelClaim = {
     claim: string;
     position: number;
-    proposed_label: 'substantive' | 'incidental' | 'borderline';
+    proposed_label: 'vital' | 'semi-important';
     spans: Array<ResponseClaimSpan>;
 };
 
-export type proposed_label = 'substantive' | 'incidental' | 'borderline';
+export type proposed_label = 'vital' | 'semi-important';
 
 export type AdminExportModelCorrectionItem = {
     arm_id: string;
@@ -114,6 +114,7 @@ export type AdminExportModelCorrectionItem = {
     review_mode: "MODEL_LABEL_CORRECTION";
     review_task: (AdminExportReviewTask | null);
     review_task_count: number;
+    schema_version: 2;
     status: ItemStatus;
     user_prompt: (string | null);
 };
@@ -310,6 +311,15 @@ export type ChunkSummary = {
     text: string;
 };
 
+/**
+ * One explicit human judgment of an original model claim.
+ */
+export type ClaimReview = {
+    issue?: (string | null);
+    label?: ('vital' | 'semi-important' | 'unimportant' | null);
+    position: number;
+};
+
 export type CreateFactDecompDraftSubmit = {
     dataset_id: number;
     document_id?: (number | null);
@@ -497,11 +507,25 @@ export type HTTPValidationError = {
  */
 export type HumanClaim = {
     claim_text: string;
-    label: 'substantive' | 'incidental' | 'borderline';
+    label: 'vital' | 'semi-important' | 'unimportant';
     response_spans: Array<ResponseClaimSpan>;
 };
 
-export type label = 'substantive' | 'incidental' | 'borderline';
+export type label = 'vital' | 'semi-important' | 'unimportant';
+
+export type ImportanceGuide = {
+    instructions: Array<(string)>;
+    labels: Array<ImportanceGuideLabel>;
+    rubric_id: string;
+};
+
+export type ImportanceGuideLabel = {
+    definition: string;
+    label: string;
+    value: 'vital' | 'semi-important' | 'unimportant';
+};
+
+export type value = 'vital' | 'semi-important' | 'unimportant';
 
 /**
  * Signup payload that lets the route normalize malformed invite tokens.
@@ -526,17 +550,21 @@ export type Message = {
 };
 
 export type ModelCorrectionReview = {
+    claim_reviews: Array<ClaimReview>;
+    coverage_checked: true;
     human_claims: Array<HumanClaim>;
-    model_labels: Array<('substantive' | 'incidental' | 'borderline')>;
+    rubric_id: string;
 };
 
 /**
  * Position-aligned human corrections for an imported model decomposition.
  */
 export type ModelEvalReviewSubmit = {
+    claim_reviews: Array<ClaimReview>;
+    coverage_checked: true;
     human_claims: Array<HumanClaim>;
     item_revision: number;
-    model_labels: Array<('substantive' | 'incidental' | 'borderline')>;
+    rubric_id: string;
 };
 
 export type ModelFactDecompReviewPayload = {
@@ -547,6 +575,7 @@ export type ModelFactDecompReviewPayload = {
     dataset: ReviewDataset;
     documents?: Array<DocumentDetail>;
     existing_review?: (ModelCorrectionReview | null);
+    guide: ImportanceGuide;
     item: ReviewItem;
     item_revision: number;
     kind?: "fact_decomp";
@@ -743,7 +772,7 @@ export type ReviewItem = {
 export type ReviewModelClaim = {
     claim_text: string;
     position: number;
-    proposed_label: 'substantive' | 'incidental' | 'borderline';
+    proposed_label: 'vital' | 'semi-important';
     response_spans: Array<ResponseClaimSpan>;
 };
 

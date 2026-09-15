@@ -8,6 +8,7 @@ import pytest
 pydantic_ai = pytest.importorskip("pydantic_ai")
 
 from amfv_datasets.decomposition_eval.cli import main  # noqa: E402
+from amfv_datasets.decomposition_eval.prompt_io import default_prompt_path  # noqa: E402
 
 
 def _source_alias(kind: str, *, cases: Path, prompt: Path, tmp_path: Path) -> Path:
@@ -46,8 +47,6 @@ def test_preview_cli_needs_no_provider_or_credentials(tmp_path: Path, monkeypatc
             str(cases),
             "--prompt-file",
             str(prompt),
-            "--prompt-id",
-            "prompt-a",
             "--model-id",
             "model-a",
             "--model-family",
@@ -59,6 +58,35 @@ def test_preview_cli_needs_no_provider_or_credentials(tmp_path: Path, monkeypatc
 
     assert "Exact prompt." in output.read_text()
     assert "must-not-appear" not in output.read_text()
+
+
+def test_preview_uses_packaged_default_and_rejects_output_alias(tmp_path: Path) -> None:
+    """Use the default resource and protect it from output aliasing."""
+    cases = tmp_path / "cases.jsonl"
+    cases.write_text(
+        '{"schema_version":1,"case_id":"case-a","assistant_response":"a"}\n',
+        encoding="utf-8",
+    )
+    output = tmp_path / "preview.json"
+    arguments = [
+        "preview",
+        "--input",
+        str(cases),
+        "--model-id",
+        "model-a",
+        "--model-family",
+        "generic",
+        "--output",
+        str(output),
+    ]
+    main(arguments)
+    assert "Use only vital or semi-important" in output.read_text()
+
+    resource_path = default_prompt_path()
+    assert resource_path is not None
+    arguments[-1] = str(resource_path)
+    with pytest.raises(ValueError, match="must not alias the prompt file"):
+        main(arguments)
 
 
 @pytest.mark.parametrize(
@@ -86,8 +114,6 @@ def test_preview_rejects_source_alias_without_modifying_source(tmp_path: Path, a
                 str(cases),
                 "--prompt-file",
                 str(prompt),
-                "--prompt-id",
-                "prompt-a",
                 "--model-id",
                 "model-a",
                 "--model-family",

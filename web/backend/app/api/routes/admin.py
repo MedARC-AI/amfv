@@ -879,6 +879,7 @@ def _export_items(
                     dataset_id=item.dataset_id,
                     eval_type=EvalType.FACT_DECOMP,
                     status=item.status,
+                    schema_version=metadata.schema_version,
                     external_id=item.external_id,
                     case_id=metadata.case_id,
                     arm_id=metadata.arm_id,
@@ -1022,11 +1023,14 @@ def _export_correction_review(review: FactDecompReview) -> dict:
         "id": review.id,
         "user_id": str(review.user_id),
         "item_revision": review.item_revision,
-        "proposed_labels": ratings.proposed_labels,
-        "model_labels": ratings.model_labels,
+        "rubric_id": ratings.rubric_id,
+        "claim_reviews": [
+            review.model_dump(mode="json") for review in ratings.claim_reviews
+        ],
         "human_claims": [
             claim.model_dump(mode="json") for claim in ratings.human_claims
         ],
+        "coverage_checked": ratings.coverage_checked,
         "reviewer_kind": review.reviewer_kind,
         "source": review.source,
     }

@@ -8,15 +8,14 @@ from app.services.fact_decomp_review import (
 
 def _metadata() -> dict:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "review_mode": "MODEL_LABEL_CORRECTION",
         "case_id": "case-1",
         "arm_id": "arm-1",
         "canonical_row_sha256": "a" * 64,
         "generator": {
             "model_id": "model",
-            "prompt_id": "prompt-1",
-            "prompt_hash": "b" * 64,
+            "prompt_text": "Exact prompt.",
             "pydantic_ai_version": "2.33.0",
             "generation": {},
         },
@@ -41,9 +40,14 @@ def test_correction_rating_rejects_unbounded_claim_lists() -> None:
         ModelCorrectionRating.model_validate(
             {
                 "review_mode": "MODEL_LABEL_CORRECTION",
-                "proposed_labels": ["substantive"] * 10_001,
-                "model_labels": ["incidental", "substantive"],
+                "schema_version": 2,
+                "rubric_id": "importance-v1",
+                "claim_reviews": [
+                    {"position": index, "label": "vital", "issue": None}
+                    for index in range(10_001)
+                ],
                 "human_claims": [],
+                "coverage_checked": True,
             }
         )
 
@@ -51,15 +55,17 @@ def test_correction_rating_rejects_unbounded_claim_lists() -> None:
         ModelCorrectionRating.model_validate(
             {
                 "review_mode": "MODEL_LABEL_CORRECTION",
-                "proposed_labels": [],
-                "model_labels": ["incidental", "substantive"],
+                "schema_version": 2,
+                "rubric_id": "importance-v1",
+                "claim_reviews": [],
                 "human_claims": [
                     {
                         "claim_text": "claim",
                         "response_spans": [{"start": 0, "end": 1, "text": "c"}],
-                        "label": "substantive",
+                        "label": "vital",
                     }
                 ]
                 * 10_001,
+                "coverage_checked": True,
             }
         )

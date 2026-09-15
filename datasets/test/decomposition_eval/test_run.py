@@ -79,16 +79,18 @@ def test_batch_is_bounded_ordered_and_closes_client(tmp_path: Path) -> None:
     tracker = _CloseTracker()
     active = 0
     maximum_active = 0
+    observed_instructions: set[str] = set()
 
-    async def function(messages: object, _info: AgentInfo) -> ModelResponse:
+    async def function(messages: object, info: AgentInfo) -> ModelResponse:
         nonlocal active, maximum_active
+        observed_instructions.add(str(info.instructions))
         active += 1
         maximum_active = max(maximum_active, active)
         rendered = str(messages)
         text = next(value for value in ["Alpha.", "Beta.", "Gamma.", "Delta.", "Epsilon."] if value in rendered)
         await asyncio.sleep((6 - len(text)) * 0.005 + 0.01)
         active -= 1
-        label = "substantive" if text == "Alpha." else "borderline"
+        label = "vital" if text == "Alpha." else "semi-important"
         payload = {"claims": [{"claim": text, "source_texts": [text], "label": label}]}
         return ModelResponse(parts=[TextPart(content=json.dumps(payload))])
 
@@ -98,7 +100,6 @@ def test_batch_is_bounded_ordered_and_closes_client(tmp_path: Path) -> None:
             input_path,
             output_path,
             prompt_path,
-            prompt_id="smoke-local",
             arm_id="arm-a",
             config=_config(),
             concurrency=2,
@@ -111,7 +112,40 @@ def test_batch_is_bounded_ordered_and_closes_client(tmp_path: Path) -> None:
     assert parsed == rows
     assert maximum_active == 2
     assert tracker.closed
-    assert [row.claims[0].label.value for row in rows[:2]] == ["substantive", "borderline"]
+    assert [row.claims[0].label.value for row in rows[:2]] == ["vital", "semi-important"]
+    assert observed_instructions == {"Smoke instructions."}
+    assert {row.generator.prompt_text for row in rows} == observed_instructions
+
+
+@pytest.mark.parametrize(
+    ("prompt_text", "message"),
+    [(" \n\t", "must not be blank"), ("x" * 100_001, "at most 100000")],
+    ids=["blank", "oversize"],
+)
+def test_invalid_prompt_fails_before_runtime_construction(tmp_path: Path, prompt_text: str, message: str) -> None:
+    """Reject invalid prompt text before provider construction."""
+    input_path, output_path, prompt_path = _paths(tmp_path)
+    prompt_path.write_text(prompt_text, encoding="utf-8")
+    constructed = False
+
+    def factory(_config: RuntimeConfig) -> Any:
+        nonlocal constructed
+        constructed = True
+        raise AssertionError("runtime must not be constructed")
+
+    with pytest.raises(ValueError, match=message):
+        asyncio.run(
+            generate_artifact(
+                input_path,
+                output_path,
+                prompt_path,
+                arm_id="arm-a",
+                config=_config(),
+                runtime_factory=factory,
+            )
+        )
+    assert not constructed
+    assert not output_path.exists()
 
 
 @pytest.mark.parametrize(
@@ -133,7 +167,6 @@ def test_failure_preserves_prior_output_and_leaves_no_temporary_file(tmp_path: P
                 input_path,
                 output_path,
                 prompt_path,
-                prompt_id="smoke-local",
                 arm_id="arm-a",
                 config=_config(),
                 concurrency=1,
@@ -164,7 +197,6 @@ def test_duplicate_cases_fail_before_runtime_construction(tmp_path: Path) -> Non
                 input_path,
                 output_path,
                 prompt_path,
-                prompt_id="prompt-a",
                 arm_id="arm-a",
                 config=_config(),
                 runtime_factory=factory,
@@ -190,7 +222,6 @@ def test_invalid_arm_fails_before_runtime_construction(tmp_path: Path) -> None:
                 input_path,
                 output_path,
                 prompt_path,
-                prompt_id="prompt-a",
                 arm_id="../unsafe",
                 config=_config(),
                 runtime_factory=factory,
@@ -223,7 +254,6 @@ def test_output_alias_fails_before_runtime_construction_and_preserves_sources(tm
                 input_path,
                 output_path,
                 prompt_path,
-                prompt_id="prompt-a",
                 arm_id="arm-a",
                 config=_config(),
                 runtime_factory=factory,
@@ -249,7 +279,6 @@ def test_rows_exclude_private_and_volatile_fields(tmp_path: Path) -> None:
             input_path,
             output_path,
             prompt_path,
-            prompt_id="prompt-a",
             arm_id="arm-a",
             config=_config(),
             runtime_factory=lambda _config: runtime,
@@ -290,7 +319,6 @@ def test_worker_failure_cancels_and_awaits_concurrent_sibling(tmp_path: Path) ->
                 input_path,
                 output_path,
                 prompt_path,
-                prompt_id="smoke-local",
                 arm_id="arm-a",
                 config=_config(),
                 concurrency=2,

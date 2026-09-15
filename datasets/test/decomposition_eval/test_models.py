@@ -17,7 +17,6 @@ from amfv_datasets.decomposition_eval import (
     canonical_json,
     external_id_for,
     project_prediction,
-    prompt_hash_for,
     resolve_prediction,
 )
 
@@ -25,8 +24,7 @@ from amfv_datasets.decomposition_eval import (
 def _generator() -> GeneratorProvenance:
     return GeneratorProvenance(
         model_id="openai/gpt-oss-20b",
-        prompt_id="prompt-v1",
-        prompt_hash="a" * 64,
+        prompt_text="Exact prompt.\r\nUnicode 😀\n",
         pydantic_ai_version="2.33.0",
         generation=GenerationSettings(max_tokens=512, temperature=0.2, top_p=0.9, reasoning_effort="medium"),
     )
@@ -43,11 +41,11 @@ def test_prediction_projects_losslessly_to_exact_ingest_row() -> None:
             ExtractedClaim(
                 claim="Café helps twice.",
                 source_texts=["Café helps twice."],
-                label="substantive",
+                label="vital",
             ),
-            ExtractedClaim(claim="Extra context.", source_texts=["Extra context."], label="substantive"),
-            ExtractedClaim(claim="Context is extra.", source_texts=["Extra c"], label="incidental"),
-            ExtractedClaim(claim="Café helps.", source_texts=["Café helps."], label="borderline"),
+            ExtractedClaim(claim="Extra context.", source_texts=["Extra context."], label="vital"),
+            ExtractedClaim(claim="Context is extra.", source_texts=["Extra c"], label="semi-important"),
+            ExtractedClaim(claim="Café helps.", source_texts=["Café helps."], label="semi-important"),
         ]
     )
 
@@ -67,10 +65,10 @@ def test_prediction_projects_losslessly_to_exact_ingest_row() -> None:
     assert row.external_id == hashlib.sha256(b"case-unicode\0arm-a").hexdigest()
 
 
-def test_zero_claims_and_exact_prompt_bytes_are_valid() -> None:
-    """Accept extraction failure and hash bytes without normalization."""
+def test_zero_claims_and_exact_prompt_text_are_valid() -> None:
+    """Accept zero selected claims and exact prompt text."""
     assert DecompositionPrediction(claims=[]).claims == []
-    assert prompt_hash_for("﻿line\r\n".encode()) == hashlib.sha256("﻿line\r\n".encode()).hexdigest()
+    assert _generator().prompt_text == "Exact prompt.\r\nUnicode 😀\n"
     assert GenerationSettings().model_dump() == {}
     with pytest.raises(ValidationError, match="Field required"):
         DecompositionPrediction.model_validate({})
@@ -80,7 +78,7 @@ def test_response_only_case_projects_null_query() -> None:
     """Preserve the absence of a query in the import artifact."""
     case = DecompositionCase(schema_version=1, case_id="document-a", assistant_response="Alpha.")
     prediction = DecompositionPrediction(
-        claims=[ExtractedClaim(claim="Alpha.", source_texts=["Alpha."], label="substantive")]
+        claims=[ExtractedClaim(claim="Alpha.", source_texts=["Alpha."], label="vital")]
     )
 
     row = project_prediction(case, prediction, arm_id="arm-a", generator=_generator())
@@ -93,11 +91,7 @@ def test_model_schema_asks_for_quotes_and_not_offsets() -> None:
     """Keep deterministic character offsets outside the model contract."""
     schema = json.dumps(DecompositionPrediction.model_json_schema())
 
-    assert DecompositionPrediction.model_json_schema()["$defs"]["ClaimLabel"]["enum"] == [
-        "substantive",
-        "incidental",
-        "borderline",
-    ]
+    assert DecompositionPrediction.model_json_schema()["$defs"]["ClaimLabel"]["enum"] == ["vital", "semi-important"]
     assert "source_texts" in schema
     assert '"start"' not in schema
     assert '"end"' not in schema
@@ -111,7 +105,7 @@ def test_resolver_uses_python_code_points_and_ordered_exact_quotes() -> None:
             ExtractedClaim(
                 claim="Alpha and beta, then omega.",
                 source_texts=["Alpha and beta.", "omega."],
-                label="substantive",
+                label="vital",
             ),
         ]
     )
@@ -126,11 +120,9 @@ def test_resolver_uses_python_code_points_and_ordered_exact_quotes() -> None:
 
 def test_resolver_rejects_nonexact_or_out_of_order_quotes() -> None:
     """Require quotations that code can locate deterministically in source order."""
-    nonexact = DecompositionPrediction(
-        claims=[ExtractedClaim(claim="Alpha.", source_texts=["alpha."], label="substantive")]
-    )
+    nonexact = DecompositionPrediction(claims=[ExtractedClaim(claim="Alpha.", source_texts=["alpha."], label="vital")])
     out_of_order = DecompositionPrediction(
-        claims=[ExtractedClaim(claim="Alpha beta.", source_texts=["beta", "Alpha"], label="substantive")]
+        claims=[ExtractedClaim(claim="Alpha beta.", source_texts=["beta", "Alpha"], label="vital")]
     )
 
     with pytest.raises(ValueError, match="exact quotation"):
@@ -142,7 +134,7 @@ def test_resolver_rejects_nonexact_or_out_of_order_quotes() -> None:
 def test_resolver_rejects_ambiguous_repeated_quote() -> None:
     """Never guess which repeated source occurrence the model intended."""
     prediction = DecompositionPrediction(
-        claims=[ExtractedClaim(claim="Alpha.", source_texts=["Alpha."], label="substantive")]
+        claims=[ExtractedClaim(claim="Alpha.", source_texts=["Alpha."], label="vital")]
     )
 
     with pytest.raises(ValueError, match="matches more than once"):
@@ -153,8 +145,8 @@ def test_resolver_accepts_unique_context_for_repeated_text() -> None:
     """Let exact surrounding text distinguish otherwise repeated assertions."""
     prediction = DecompositionPrediction(
         claims=[
-            ExtractedClaim(claim="First Alpha.", source_texts=["First Alpha."], label="substantive"),
-            ExtractedClaim(claim="Then Alpha.", source_texts=["Then Alpha."], label="substantive"),
+            ExtractedClaim(claim="First Alpha.", source_texts=["First Alpha."], label="vital"),
+            ExtractedClaim(claim="Then Alpha.", source_texts=["Then Alpha."], label="vital"),
         ]
     )
 
@@ -167,16 +159,16 @@ def test_resolver_accepts_unique_context_for_repeated_text() -> None:
     ("payload", "message"),
     [
         (
-            {"claim": " ", "spans": [{"start": 0, "end": 1, "text": "x"}], "label": "substantive"},
+            {"claim": " ", "spans": [{"start": 0, "end": 1, "text": "x"}], "label": "vital"},
             "claim must not be blank",
         ),
-        ({"claim": "x", "spans": [], "label": "substantive"}, "at least 1 item"),
-        ({"claim": "x", "spans": [{"start": 2, "end": 2, "text": "x"}], "label": "substantive"}, "end must be greater"),
+        ({"claim": "x", "spans": [], "label": "vital"}, "at least 1 item"),
+        ({"claim": "x", "spans": [{"start": 2, "end": 2, "text": "x"}], "label": "vital"}, "end must be greater"),
         (
             {
                 "claim": "x",
                 "spans": [{"start": 2, "end": 4, "text": "xx"}, {"start": 3, "end": 5, "text": "xx"}],
-                "label": "substantive",
+                "label": "vital",
             },
             "nonoverlapping",
         ),
@@ -246,7 +238,7 @@ def test_ingest_row_revalidates_spans_against_its_response() -> None:
     """Reject an ingest row whose provenance contradicts its response."""
     case = DecompositionCase(schema_version=1, case_id="case-a", user_prompt="u", assistant_response="Alpha.")
     prediction = DecompositionPrediction(
-        claims=[ExtractedClaim(claim="Alpha.", source_texts=["Alpha."], label="substantive")]
+        claims=[ExtractedClaim(claim="Alpha.", source_texts=["Alpha."], label="vital")]
     )
     payload = project_prediction(case, prediction, arm_id="arm-a", generator=_generator()).model_dump(mode="json")
     payload["claims"][0]["spans"][0]["text"] = "secret mismatch"

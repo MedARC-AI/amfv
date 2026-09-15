@@ -176,15 +176,14 @@ def test_dataset_agreement_excludes_model_correction_reviews() -> None:
             source=ItemSource.LLM,
             prompt_text="Alpha.",
             item_metadata={
-                "schema_version": 1,
+                "schema_version": 2,
                 "review_mode": "MODEL_LABEL_CORRECTION",
                 "case_id": "case-1",
                 "arm_id": "arm-1",
                 "canonical_row_sha256": "a" * 64,
                 "generator": {
                     "model_id": "model",
-                    "prompt_id": "prompt-1",
-                    "prompt_hash": "b" * 64,
+                    "prompt_text": "Exact prompt.",
                     "pydantic_ai_version": "2.33.0",
                     "generation": {},
                 },
@@ -209,10 +208,12 @@ def test_dataset_agreement_excludes_model_correction_reviews() -> None:
                     reviewer_kind=ReviewerKind.human,
                     source="web_model_eval",
                     ratings={
+                        "schema_version": 2,
                         "review_mode": "MODEL_LABEL_CORRECTION",
-                        "proposed_labels": [],
-                        "model_labels": ["incidental", "substantive"],
+                        "rubric_id": "importance-v1",
+                        "claim_reviews": [],
                         "human_claims": [],
+                        "coverage_checked": True,
                     },
                 )
                 for reviewer in reviewers

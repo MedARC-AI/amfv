@@ -41,7 +41,7 @@ def test_function_model_receives_exact_instructions_and_structured_output() -> N
                     {
                         "claim": "Café helps.",
                         "source_texts": ["Café helps."],
-                        "label": "substantive",
+                        "label": "vital",
                     }
                 ]
             },
@@ -58,7 +58,7 @@ def test_function_model_receives_exact_instructions_and_structured_output() -> N
     native_schema = observed["output_schema"].json_schema
     assert '"start"' not in json.dumps(native_schema)
     assert '"end"' not in json.dumps(native_schema)
-    assert result.claims[0].label.value == "substantive"
+    assert result.claims[0].label.value == "vital"
 
 
 def test_response_mismatch_asks_model_to_retry() -> None:
@@ -75,7 +75,7 @@ def test_response_mismatch_asks_model_to_retry() -> None:
                     {
                         "claim": "Café helps.",
                         "source_texts": [source_text],
-                        "label": "substantive",
+                        "label": "vital",
                     }
                 ]
             },
@@ -103,13 +103,13 @@ def test_zero_claims_are_valid() -> None:
     [
         (
             [
-                ClaimPrediction(claim="second", spans=[SourceSpan(start=4, end=6, text="ef")], label="substantive"),
-                ClaimPrediction(claim="first", spans=[SourceSpan(start=0, end=2, text="ab")], label="substantive"),
+                ClaimPrediction(claim="second", spans=[SourceSpan(start=4, end=6, text="ef")], label="vital"),
+                ClaimPrediction(claim="first", spans=[SourceSpan(start=0, end=2, text="ab")], label="vital"),
             ],
             "starts before",
         ),
         (
-            [ClaimPrediction(claim="outside", spans=[SourceSpan(start=4, end=8, text="efgh")], label="substantive")],
+            [ClaimPrediction(claim="outside", spans=[SourceSpan(start=4, end=8, text="efgh")], label="vital")],
             "ends outside",
         ),
     ],

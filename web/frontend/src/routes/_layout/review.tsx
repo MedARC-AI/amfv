@@ -59,7 +59,11 @@ function Review() {
             Question, answer, and evidence review
           </p>
         </Link>
-        <Link className="rounded-md border p-5" to="/review/fact-decomposition">
+        <Link
+          className="rounded-md border p-5"
+          search={{ task_id: undefined }}
+          to="/review/fact-decomposition"
+        >
           <div className="flex items-start justify-between gap-4">
             <ListChecks className="text-muted-foreground size-5" />
             <span className="font-semibold text-2xl">

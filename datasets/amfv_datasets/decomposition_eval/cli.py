@@ -23,8 +23,7 @@ __all__ = ["main"]
 
 def _common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--input", type=Path, required=True)
-    parser.add_argument("--prompt-file", type=Path, required=True)
-    parser.add_argument("--prompt-id", required=True)
+    parser.add_argument("--prompt-file", type=Path)
     parser.add_argument("--model-id", required=True)
     parser.add_argument("--model-family", choices=[family.value for family in ModelFamily], required=True)
     parser.add_argument("--model-revision")
@@ -78,7 +77,6 @@ def _preview(arguments: argparse.Namespace) -> None:
     preview = build_preview(
         case,
         instructions=instructions,
-        prompt_id=arguments.prompt_id,
         model_id=arguments.model_id,
         model_revision=arguments.model_revision,
         model_family=arguments.model_family,
@@ -106,7 +104,6 @@ async def _run(arguments: argparse.Namespace) -> None:
         arguments.input,
         arguments.output,
         arguments.prompt_file,
-        prompt_id=arguments.prompt_id,
         arm_id=arguments.arm_id,
         config=config,
         concurrency=arguments.concurrency,

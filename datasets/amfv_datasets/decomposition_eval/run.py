@@ -17,7 +17,6 @@ from amfv_datasets.decomposition_eval.models import (
     GeneratorProvenance,
     canonical_json,
     project_prediction,
-    prompt_hash_for,
     validate_identifier,
 )
 from amfv_datasets.decomposition_eval.prompt_io import load_cases, load_prompt, validate_output_path
@@ -30,7 +29,6 @@ async def run_arm(
     cases: list[DecompositionCase],
     *,
     instructions: str,
-    prompt_id: str,
     arm_id: str,
     config: RuntimeConfig,
     runtime: OwnedModelRuntime,
@@ -39,7 +37,6 @@ async def run_arm(
     """Run one model arm with bounded concurrency and stable input ordering."""
     if concurrency < 1:
         raise ValueError("concurrency must be at least 1")
-    validate_identifier(prompt_id)
     validate_identifier(arm_id)
     agent = create_agent(
         runtime.model,
@@ -50,8 +47,7 @@ async def run_arm(
     generator = GeneratorProvenance(
         model_id=config.model_id,
         model_revision=config.model_revision,
-        prompt_id=prompt_id,
-        prompt_hash=prompt_hash_for(instructions.encode("utf-8")),
+        prompt_text=instructions,
         pydantic_ai_version=importlib.metadata.version("pydantic-ai-slim"),
         generation=config.generation,
     )
@@ -81,9 +77,8 @@ async def run_arm(
 async def generate_artifact(
     input_path: Path,
     output_path: Path,
-    prompt_path: Path,
+    prompt_path: Path | None = None,
     *,
-    prompt_id: str,
     arm_id: str,
     config: RuntimeConfig,
     concurrency: int = 1,
@@ -95,7 +90,6 @@ async def generate_artifact(
     instructions = load_prompt(prompt_path)
     if concurrency < 1:
         raise ValueError("concurrency must be at least 1")
-    validate_identifier(prompt_id)
     validate_identifier(arm_id)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     temporary_path: Path | None = None
@@ -105,7 +99,6 @@ async def generate_artifact(
             rows = await run_arm(
                 cases,
                 instructions=instructions,
-                prompt_id=prompt_id,
                 arm_id=arm_id,
                 config=config,
                 runtime=runtime,

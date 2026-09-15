@@ -31,6 +31,10 @@ import { apiErrorMessage } from "@/utils"
 
 export const Route = createFileRoute("/_layout/review/fact-decomposition")({
   component: FactDecompositionReview,
+  validateSearch: (search: Record<string, unknown>) => {
+    const value = Number(search.task_id)
+    return { task_id: Number.isInteger(value) && value > 0 ? value : undefined }
+  },
   head: () => ({
     meta: [
       {
@@ -85,6 +89,8 @@ function correctionClaims(
 }
 
 function FactDecompositionReview() {
+  const search = Route.useSearch()
+  const navigate = Route.useNavigate()
   const [factCalls, setFactCalls] = React.useState<string[]>([])
   const [rubricValues, setRubricValues] = React.useState<
     Record<string, string>
@@ -107,9 +113,10 @@ function FactDecompositionReview() {
         mode: "ITEM_AUDIT",
       }),
     retry: false,
+    enabled: search.task_id === undefined,
   })
 
-  const taskId = nextQuery.data?.task_id ?? null
+  const taskId = search.task_id ?? nextQuery.data?.task_id ?? null
 
   const payloadQuery = useQuery({
     queryKey: ["review-fact-decomp", taskId],
@@ -122,6 +129,15 @@ function FactDecompositionReview() {
   })
 
   const payload = payloadQuery.data
+
+  React.useEffect(() => {
+    if (
+      search.task_id === undefined &&
+      payload?.review_mode === "MODEL_LABEL_CORRECTION"
+    ) {
+      void navigate({ replace: true, search: { task_id: payload.task_id } })
+    }
+  }, [navigate, payload, search.task_id])
 
   React.useEffect(() => {
     if (!payload || initializedTaskId.current === payload.task_id) {
@@ -171,7 +187,10 @@ function FactDecompositionReview() {
     })
   }
 
-  if (nextQuery.isLoading || payloadQuery.isLoading) {
+  if (
+    (search.task_id === undefined && nextQuery.isLoading) ||
+    payloadQuery.isLoading
+  ) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="size-4 animate-spin" />
@@ -180,7 +199,7 @@ function FactDecompositionReview() {
     )
   }
 
-  if (nextQuery.isError) {
+  if (search.task_id === undefined && nextQuery.isError) {
     return (
       <div className="flex flex-col gap-3">
         <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
@@ -223,6 +242,7 @@ function FactDecompositionReview() {
           "save_model_eval",
         )}
         claims={correctionClaims(payload)}
+        guide={payload.guide}
         existingReview={payload.existing_review}
         completionMessage={completionMessage}
         errorMessage={errorMessage}

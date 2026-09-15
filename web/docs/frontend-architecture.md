@@ -77,24 +77,21 @@ through bounded product messages rather than raw response bodies.
 
 ## Model decomposition review
 
-The review view keeps original model text, source spans, and proposed labels
-immutable. Reviewers grade each model claim's verification relevance. They can
-also select source text and create independent human claims with their own labels.
-Human claims supplement the review; they do not replace model claims.
+The review view keeps original model text, source spans, and labels immutable.
+Original model labels are visible and preselected for new correction reviews.
+Reviewers can keep or change each label and explain an extraction issue.
+Saved reviews retain the reviewer’s judgments, including issue-only entries.
 
-Hide model results hides model cards and their source highlights. It preserves
-model grades and leaves human claims and their highlights visible. Each model or
-human card collapses independently. Its number and current relevance label remain
-visible. Clicking a source highlight opens and focuses the corresponding card.
+The **Hide model results** control hides model cards and source highlights.
+It preserves review state.
 
-New human claims start as drafts. Add human claim saves the draft to the local
-review; Cancel discards it. The source selection remains available for another
-claim from the same passage. Existing human text, labels, and source spans can be
-edited, and human claims can be removed. A draft blocks submission until added or
-cancelled. Blank human claims also block submission.
+New human claims start without an importance label. Each completed claim needs
+text, exact source spans, and an explicit label. The omission checkbox records
+that the reviewer examined the text for missing worthwhile claims.
 
-Both groups are saved atomically as `model_labels` and `human_claims`. Mutation
-controls lock during submission and after success. Saved reviews open read-only.
+The API saves `claim_reviews`, `human_claims`, and `coverage_checked` atomically.
+Mutation controls lock during submission and after success. Saved reviews open read-only.
+The optional `task_id` search value reloads a submitted task for read-only inspection.
 Visibility and collapse controls remain available to inspect a saved review.
 On desktop, the source pane stays in place as claims scroll. Long source content
 scrolls within that pane; narrow screens retain a stacked layout.

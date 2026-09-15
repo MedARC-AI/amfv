@@ -201,7 +201,8 @@ class ReviewFact(SQLModel):
     position: int
 
 
-ModelClaimLabel = Literal["substantive", "incidental", "borderline"]
+ModelClaimLabel = Literal["vital", "semi-important"]
+ImportanceLabel = Literal["vital", "semi-important", "unimportant"]
 MAX_CLAIMS = 10_000
 MAX_CLAIM_TEXT_LENGTH = 20_000
 MAX_SPANS_PER_CLAIM = 100
@@ -261,7 +262,7 @@ class HumanClaim(SQLModel):
     response_spans: list[ResponseClaimSpan] = Field(
         min_length=1, max_length=MAX_SPANS_PER_CLAIM
     )
-    label: ModelClaimLabel
+    label: ImportanceLabel
 
     @field_validator("claim_text")
     @classmethod
@@ -271,9 +272,48 @@ class HumanClaim(SQLModel):
         return value
 
 
+class ClaimReview(SQLModel):
+    """One explicit human judgment of an original model claim."""
+
+    model_config = SQLModelConfig(extra="forbid")
+
+    position: int = Field(ge=0)
+    label: ImportanceLabel | None = None
+    issue: str | None = Field(default=None, max_length=500)
+
+    @field_validator("position", mode="before")
+    @classmethod
+    def _validate_position(cls, value: object) -> object:
+        if type(value) is not int:
+            raise ValueError("Claim review positions must be integers")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_judgment(self) -> ClaimReview:
+        if self.issue is not None and not self.issue.strip():
+            raise ValueError("An extraction issue must not be blank")
+        if self.label is None and self.issue is None:
+            raise ValueError("Each claim review requires a label or extraction issue")
+        return self
+
+
+class ImportanceGuideLabel(SQLModel):
+    value: ImportanceLabel
+    label: str
+    definition: str
+
+
+class ImportanceGuide(SQLModel):
+    rubric_id: str
+    instructions: list[str]
+    labels: list[ImportanceGuideLabel]
+
+
 class ModelCorrectionReview(SQLModel):
-    model_labels: list[ModelClaimLabel] = Field(max_length=MAX_CLAIMS)
+    rubric_id: str
+    claim_reviews: list[ClaimReview] = Field(max_length=MAX_CLAIMS)
     human_claims: list[HumanClaim] = Field(max_length=MAX_CLAIMS)
+    coverage_checked: Literal[True]
 
 
 class ReviewRubricDimension(SQLModel):
@@ -374,6 +414,7 @@ class ModelFactDecompReviewPayload(FactDecompReviewPayloadBase):
     user_prompt: str | None = Field(max_length=1_000_000)
     assistant_response: str = Field(max_length=1_000_000)
     claims: list[ReviewModelClaim] = Field(max_length=MAX_CLAIMS)
+    guide: ImportanceGuide
     allowed_actions: list[Literal["save_model_eval"]]
     existing_review: ModelCorrectionReview | None = None
 
@@ -486,9 +527,18 @@ class ModelEvalReviewSubmit(SQLModel):
 
     model_config = SQLModelConfig(extra="forbid")
 
-    model_labels: list[ModelClaimLabel] = Field(max_length=MAX_CLAIMS)
+    rubric_id: str
+    claim_reviews: list[ClaimReview] = Field(max_length=MAX_CLAIMS)
     human_claims: list[HumanClaim] = Field(max_length=MAX_CLAIMS)
+    coverage_checked: Literal[True]
     item_revision: int
+
+    @field_validator("coverage_checked", mode="before")
+    @classmethod
+    def _validate_coverage_checked(cls, value: object) -> object:
+        if value is not True:
+            raise ValueError("coverage_checked must be the JSON boolean true")
+        return value
 
 
 class CreateRetrievalDraftSubmit(SQLModel):
@@ -684,10 +734,16 @@ class AdminExportRetrievalReview(SQLModel):
 class AdminExportGenerator(SQLModel):
     model_id: str
     model_revision: str | None
-    prompt_id: str
-    prompt_hash: str
+    prompt_text: str = Field(min_length=1, max_length=100_000)
     pydantic_ai_version: str
     generation: dict[str, str | int | float]
+
+    @field_validator("prompt_text")
+    @classmethod
+    def _validate_prompt_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Prompt text must not be blank")
+        return value
 
 
 class AdminExportModelClaim(SQLModel):
@@ -709,9 +765,10 @@ class AdminExportCorrectionReview(SQLModel):
     id: int
     user_id: str
     item_revision: int
-    proposed_labels: list[ModelClaimLabel]
-    model_labels: list[ModelClaimLabel]
+    rubric_id: str
+    claim_reviews: list[ClaimReview]
     human_claims: list[HumanClaim]
+    coverage_checked: Literal[True]
     reviewer_kind: str
     source: str
 
@@ -743,6 +800,7 @@ class AdminExportModelCorrectionItem(SQLModel):
     dataset_id: int
     eval_type: Literal[EvalType.FACT_DECOMP]
     status: ItemStatus
+    schema_version: Literal[2]
     external_id: str
     case_id: str
     arm_id: str

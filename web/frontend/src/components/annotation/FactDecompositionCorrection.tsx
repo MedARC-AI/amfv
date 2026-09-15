@@ -1,13 +1,19 @@
 import { Plus, Send } from "lucide-react"
 import * as React from "react"
 
-import type { HumanClaim } from "@/client/types.gen"
+import type {
+  ClaimReview,
+  HumanClaim,
+  ImportanceGuide,
+  ModelCorrectionReview,
+} from "@/client/types.gen"
 import { Button } from "@/components/ui/button"
 import { evalItemColor } from "@/lib/evalItemPalette"
 import {
   ClaimCorrectionList,
   type ClaimGroup,
-  type ClaimLabel,
+  type DraftHumanClaim,
+  type ImportanceLabel,
   initialModelClaim,
   Labels,
 } from "./ClaimCorrectionList"
@@ -22,19 +28,17 @@ export type CorrectionInputClaim = {
   claim_text: string
   position: number
   response_spans: ClaimResponseSpan[]
-  proposed_label: ClaimLabel
+  proposed_label: "vital" | "semi-important"
 }
 
-export type CorrectionSubmission = {
-  model_labels: ClaimLabel[]
-  human_claims: HumanClaim[]
-}
+export type CorrectionSubmission = ModelCorrectionReview
 
 type FactDecompositionCorrectionProps = {
   query?: string | null
   response: string
   claims: CorrectionInputClaim[]
-  existingReview?: CorrectionSubmission | null
+  guide: ImportanceGuide
+  existingReview?: ModelCorrectionReview | null
   canSubmit: boolean
   submitting?: boolean
   errorMessage?: string | null
@@ -42,10 +46,20 @@ type FactDecompositionCorrectionProps = {
   onSubmit: (submission: CorrectionSubmission) => void
 }
 
+function completedHumanClaims(groups: ClaimGroup[]): HumanClaim[] | null {
+  const humanGroups = groups.filter((group) => !group.original)
+  if (humanGroups.some((group) => !group.claim.label)) return null
+  return humanGroups.map((group) => ({
+    ...group.claim,
+    label: group.claim.label as ImportanceLabel,
+  }))
+}
+
 export function FactDecompositionCorrection({
   canSubmit,
   existingReview,
   claims,
+  guide,
   completionMessage = null,
   errorMessage = null,
   onSubmit,
@@ -54,21 +68,31 @@ export function FactDecompositionCorrection({
   submitting = false,
 }: FactDecompositionCorrectionProps) {
   const [groups, setGroups] = React.useState<ClaimGroup[]>(() => [
-    ...claims.map((claim, index) => ({
-      id: claim.position,
-      original: claim,
-      claim: {
-        ...initialModelClaim(claim),
-        label: existingReview?.model_labels[index] ?? claim.proposed_label,
-      },
-    })),
+    ...claims.map((claim) => {
+      const saved = existingReview?.claim_reviews.find(
+        (review) => review.position === claim.position,
+      )
+      return {
+        id: claim.position,
+        original: claim,
+        claim: {
+          ...initialModelClaim(claim),
+          label: saved ? (saved.label ?? undefined) : claim.proposed_label,
+        },
+        issue: saved?.issue,
+      }
+    }),
     ...(existingReview?.human_claims.map((claim, i) => ({
-      id: Math.max(-1, ...claims.map((c) => c.position)) + 1 + i,
+      id:
+        Math.max(-1, ...claims.map((candidate) => candidate.position)) + 1 + i,
       claim,
     })) ?? []),
   ])
   const [hiddenModels, setHiddenModels] = React.useState(false)
-  const [draft, setDraft] = React.useState<HumanClaim | null>(null)
+  const [coverageChecked, setCoverageChecked] = React.useState(
+    existingReview?.coverage_checked ?? false,
+  )
+  const [draft, setDraft] = React.useState<DraftHumanClaim | null>(null)
   const [stagedSpans, setStagedSpans] = React.useState<ClaimResponseSpan[]>([])
   const [activePosition, setActivePosition] = React.useState<number | null>(
     null,
@@ -86,9 +110,19 @@ export function FactDecompositionCorrection({
       dotClass: evalItemColor(group.id).dot,
       markClass: evalItemColor(group.id).mark,
     }))
-  const humanClaims = groups
-    .filter((group) => !group.original)
-    .map((group) => group.claim)
+  const humanClaims = completedHumanClaims(groups)
+  const modelGroups = groups.filter((group) => group.original)
+  const modelReviewsComplete = modelGroups.every(
+    (group) =>
+      !!group.claim.label ||
+      (group.issue !== null &&
+        group.issue !== undefined &&
+        !!group.issue.trim()),
+  )
+  const issueNotesComplete = modelGroups.every(
+    (group) =>
+      group.issue === null || group.issue === undefined || !!group.issue.trim(),
+  )
 
   const focusClaimRow = (position: number) => {
     setActivePosition(position)
@@ -111,15 +145,29 @@ export function FactDecompositionCorrection({
     if (!stagedSpans.length || locked || draft) return
     setDraft({
       claim_text: responseSelectionText(response, stagedSpans),
-      label: "substantive",
       response_spans: [...stagedSpans],
     })
   }
   const saveHumanClaim = () => {
-    if (!draft?.claim_text.trim() || locked) return
+    if (!draft?.claim_text.trim() || !draft.label || locked) return
     const id = nextDraftId.current++
     setGroups((current) => [...current, { id, claim: draft }])
     setDraft(null)
+  }
+
+  const submit = () => {
+    if (!humanClaims) return
+    const claimReviews: ClaimReview[] = modelGroups.map((group) => ({
+      position: group.original!.position,
+      label: group.claim.label ?? null,
+      issue: group.issue?.trim() || null,
+    }))
+    onSubmit({
+      rubric_id: guide.rubric_id,
+      claim_reviews: claimReviews,
+      human_claims: humanClaims,
+      coverage_checked: true,
+    })
   }
 
   return (
@@ -133,23 +181,24 @@ export function FactDecompositionCorrection({
             Fact decomposition
           </p>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Review verification relevance
+            Review extraction and importance
           </h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Review every claim, including incidental claims. Substantive and
-            borderline claims are included in verification. Labels describe
-            relevance, not truth. Grade model claims and add your own claims
-            where needed.
-          </p>
+          <div className="mt-2 max-w-2xl space-y-1 text-sm text-muted-foreground">
+            {guide.instructions.map((instruction) => (
+              <p key={instruction}>{instruction}</p>
+            ))}
+          </div>
         </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={hiddenModels}
-            onChange={(event) => setHiddenModels(event.target.checked)}
-          />
-          Hide model results
-        </label>
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={hiddenModels}
+              onChange={(event) => setHiddenModels(event.target.checked)}
+            />
+            Hide model results
+          </label>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.8fr)] lg:items-start">
@@ -160,7 +209,7 @@ export function FactDecompositionCorrection({
           {query?.trim() ? (
             <div className="rounded-xl border bg-card p-4 shadow-sm">
               <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                User prompt
+                Question
               </p>
               <p className="whitespace-pre-wrap text-sm leading-7">{query}</p>
             </div>
@@ -169,11 +218,10 @@ export function FactDecompositionCorrection({
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                  Response or document
+                  Source text
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Click a color to focus its claim. Select exact text to add a
-                  human claim.
+                  Select exact text to add a missing claim.
                 </p>
               </div>
               <span className="text-xs text-muted-foreground">
@@ -202,7 +250,7 @@ export function FactDecompositionCorrection({
             />
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed bg-muted/20 p-3">
               <span className="text-xs text-muted-foreground">
-                Hold Cmd/Ctrl while selecting to add another discontiguous span.
+                Hold Cmd/Ctrl to select another span.
               </span>
               <Button
                 disabled={locked || stagedSpans.length === 0 || draft !== null}
@@ -211,11 +259,11 @@ export function FactDecompositionCorrection({
                 type="button"
                 variant="outline"
               >
-                <Plus /> Create human claim
+                <Plus /> Add missing claim
               </Button>
             </div>
           </div>
-          {draft && (
+          {draft ? (
             <section
               className="rounded-xl border bg-card p-4 space-y-3"
               aria-label="New human claim"
@@ -237,11 +285,12 @@ export function FactDecompositionCorrection({
                 <Labels
                   name="New human claim"
                   value={draft.label}
+                  labels={guide.labels}
                   onChange={(label) => setDraft({ ...draft, label })}
                 />
                 <div className="flex flex-wrap gap-2">
                   <Button
-                    disabled={!draft.claim_text.trim()}
+                    disabled={!draft.claim_text.trim() || !draft.label}
                     onClick={saveHumanClaim}
                   >
                     Add human claim
@@ -252,21 +301,22 @@ export function FactDecompositionCorrection({
                 </div>
               </fieldset>
             </section>
-          )}
+          ) : null}
         </section>
 
         <div className="space-y-4">
           <ClaimCorrectionList
             activePosition={activePosition}
             groups={groups}
+            guide={guide}
             locked={locked}
             stagedSpans={stagedSpans}
             onFocusClaim={focusSourceSpan}
             hiddenModels={hiddenModels}
-            onChange={(id, claim) =>
+            onChange={(id, claim, issue) =>
               setGroups((current) =>
                 current.map((group) =>
-                  group.id === id ? { ...group, claim } : group,
+                  group.id === id ? { ...group, claim, issue } : group,
                 ),
               )
             }
@@ -276,18 +326,27 @@ export function FactDecompositionCorrection({
               )
             }
           />
+          <label className="flex items-start gap-2 rounded-xl border p-4 text-sm">
+            <input
+              type="checkbox"
+              checked={coverageChecked}
+              disabled={locked}
+              onChange={(event) => setCoverageChecked(event.target.checked)}
+            />
+            I checked the text for missing worthwhile claims
+          </label>
           <p className="text-sm text-muted-foreground">
-            {claims.length} model grades · {humanClaims.length} additional human
+            {claims.length} model claims · {humanClaims?.length ?? 0} added
             claims
           </p>
-          {draft && (
+          {draft ? (
             <p className="text-sm">
               Add or cancel the draft before saving your review.
             </p>
-          )}
-          {existingReview && (
+          ) : null}
+          {existingReview ? (
             <p className="text-sm">Previously submitted review. Read only.</p>
-          )}
+          ) : null}
           {errorMessage ? (
             <div
               className="rounded-lg border border-destructive/40 p-3 text-sm"
@@ -306,17 +365,14 @@ export function FactDecompositionCorrection({
             disabled={
               locked ||
               draft !== null ||
+              humanClaims === null ||
               humanClaims.length > 10000 ||
-              humanClaims.some((claim) => !claim.claim_text.trim())
+              humanClaims.some((claim) => !claim.claim_text.trim()) ||
+              !modelReviewsComplete ||
+              !issueNotesComplete ||
+              !coverageChecked
             }
-            onClick={() =>
-              onSubmit({
-                model_labels: groups
-                  .filter((group) => group.original)
-                  .map((group) => group.claim.label),
-                human_claims: humanClaims,
-              })
-            }
+            onClick={submit}
             type="button"
           >
             <Send /> {submitting ? "Saving review" : "Save review"}

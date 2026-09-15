@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
+from copy import deepcopy
 from uuid import uuid4
 
 import pytest
@@ -37,7 +39,7 @@ def _dataset(db: Session) -> Dataset:
 def _row(*, case_id: str = "case-a", arm_id: str = "arm-a") -> dict:
     response = "Alpha is true. Beta is useful."
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "eval_type": "FACT_DECOMP",
         "external_id": hashlib.sha256(f"{case_id}\0{arm_id}".encode()).hexdigest(),
         "case_id": case_id,
@@ -48,8 +50,7 @@ def _row(*, case_id: str = "case-a", arm_id: str = "arm-a") -> dict:
         "generator": {
             "model_id": "openai/gpt-oss-20b",
             "model_revision": None,
-            "prompt_id": "prompt-v1",
-            "prompt_hash": "a" * 64,
+            "prompt_text": "Exact instructions.\r\nUnicode 😀\n",
             "pydantic_ai_version": "2.33.0",
             "generation": {"reasoning_effort": "medium"},
         },
@@ -57,12 +58,12 @@ def _row(*, case_id: str = "case-a", arm_id: str = "arm-a") -> dict:
             {
                 "claim": "Alpha is true.",
                 "spans": [{"start": 0, "end": 14, "text": "Alpha is true."}],
-                "label": "substantive",
+                "label": "vital",
             },
             {
                 "claim": "Beta is useful.",
                 "spans": [{"start": 15, "end": 30, "text": "Beta is useful."}],
-                "label": "substantive",
+                "label": "semi-important",
             },
         ],
     }
@@ -143,6 +144,36 @@ def test_import_rejects_bad_spans_extra_fields_and_conflicts(
     assert "different content" in conflict_result.json()["errors"][0]["message"]
 
 
+@pytest.mark.parametrize(
+    ("mutate", "message"),
+    [
+        (
+            lambda row: row.update(schema_version=1),
+            "unsupported schema_version 1; expected 2",
+        ),
+        (
+            lambda row: row["generator"].update(prompt_id="old", prompt_hash="a" * 64),
+            "prompt_id",
+        ),
+        (lambda row: row["claims"][0].update(label="substantive"), "label"),
+    ],
+    ids=["old-version", "old-prompt-fields", "old-label"],
+)
+def test_import_rejects_old_contracts_explicitly(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    db: Session,
+    mutate: Callable[[dict], None],
+    message: str,
+) -> None:
+    dataset = _dataset(db)
+    row = _row(case_id=f"old-{uuid4()}")
+    mutate(row)
+    result = _post(client, superuser_token_headers, dataset, _jsonl(row))
+    assert result.json()["rejected"] == 1
+    assert message in result.json()["errors"][0]["message"]
+
+
 def test_import_dry_run_and_oversized_artifact_do_not_persist(
     client: TestClient,
     superuser_token_headers: dict[str, str],
@@ -186,7 +217,7 @@ def test_import_rejects_malformed_json_line_without_rolling_back_valid_rows(
 
 
 @pytest.mark.parametrize("query", ["What is asserted?", None], ids=["qa", "document"])
-def test_generated_relevance_labels_survive_import_review_and_export(
+def test_generated_import_review_and_export_preserve_exact_contract(
     client: TestClient,
     superuser_token_headers: dict[str, str],
     db: Session,
@@ -206,14 +237,14 @@ def test_generated_relevance_labels_survive_import_review_and_export(
         user_prompt=query,
         assistant_response="First Alpha. Context. Unclear. Then Alpha.",
     )
-    labels = ["substantive", "incidental", "borderline", "substantive"]
+    labels = ["vital", "semi-important"]
     prediction = DecompositionPrediction.model_validate(
         {
             "claims": [
                 {"claim": claim, "source_texts": [quote], "label": label}
                 for claim, quote, label in zip(
-                    ["Alpha.", "Context.", "Unclear.", "Alpha."],
-                    ["First Alpha.", "Context.", "Unclear.", "Then Alpha."],
+                    ["Alpha.", "Context."],
+                    ["First Alpha.", "Context."],
                     labels,
                     strict=True,
                 )
@@ -226,8 +257,7 @@ def test_generated_relevance_labels_survive_import_review_and_export(
         arm_id="relevance-arm",
         generator=GeneratorProvenance(
             model_id="test",
-            prompt_id="relevance",
-            prompt_hash="a" * 64,
+            prompt_text="Instructions with CRLF.\r\nUnicode 😀\n",
             pydantic_ai_version="test",
         ),
     )
@@ -241,14 +271,22 @@ def test_generated_relevance_labels_survive_import_review_and_export(
     assert review.status_code == 200
     assert review.json()["user_prompt"] == query
     assert [claim["proposed_label"] for claim in review.json()["claims"]] == labels
-    final_labels = ["borderline", "substantive", "incidental", "substantive"]
     saved = client.post(
         f"{review_url}/model-eval",
         headers=superuser_token_headers,
         json={
             "item_revision": review.json()["item_revision"],
-            "model_labels": final_labels,
+            "rubric_id": "importance-v1",
+            "claim_reviews": [
+                {"position": 0, "label": "unimportant", "issue": None},
+                {
+                    "position": 1,
+                    "label": "semi-important",
+                    "issue": "Grouped too broadly.",
+                },
+            ],
             "human_claims": [],
+            "coverage_checked": True,
         },
     )
     assert saved.status_code == 200
@@ -258,6 +296,37 @@ def test_generated_relevance_labels_survive_import_review_and_export(
     )
     assert exported.status_code == 200
     item = exported.json()["items"][0]
+    assert item["schema_version"] == 2
+    assert item["generator"]["prompt_text"] == "Instructions with CRLF.\r\nUnicode 😀\n"
     assert [claim["proposed_label"] for claim in item["claims"]] == labels
-    assert item["correction_reviews"][0]["proposed_labels"] == labels
-    assert item["correction_reviews"][0]["model_labels"] == final_labels
+    assert item["correction_reviews"][0]["claim_reviews"][0]["label"] == "unimportant"
+    assert item["correction_reviews"][0]["coverage_checked"] is True
+
+
+def test_two_arms_preserve_distinct_prompt_text_and_same_identity_conflicts(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    db: Session,
+) -> None:
+    dataset = _dataset(db)
+    first = _row(case_id="history", arm_id="arm-one")
+    second = _row(case_id="history", arm_id="arm-two")
+    second["generator"]["prompt_text"] = "Second prompt.\n"
+    result = _post(client, superuser_token_headers, dataset, _jsonl(first, second))
+    assert result.json()["created"] == 2
+    conflict = deepcopy(first)
+    conflict["generator"]["prompt_text"] = "Changed prompt.\n"
+    assert (
+        _post(client, superuser_token_headers, dataset, _jsonl(conflict)).json()[
+            "rejected"
+        ]
+        == 1
+    )
+    exported = client.get(
+        f"{settings.API_V1_STR}/admin/export?dataset_id={dataset.id}",
+        headers=superuser_token_headers,
+    ).json()["items"]
+    assert {item["arm_id"]: item["generator"]["prompt_text"] for item in exported} == {
+        "arm-one": "Exact instructions.\r\nUnicode 😀\n",
+        "arm-two": "Second prompt.\n",
+    }

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
@@ -12,16 +13,28 @@ from amfv_datasets.decomposition_eval.models import (
     DecompositionCase,
     DecompositionPrediction,
     GenerationSettings,
-    prompt_hash_for,
-    validate_identifier,
 )
 
-__all__ = ["build_preview", "load_cases", "load_prompt", "render_case", "validate_output_path"]
+__all__ = ["build_preview", "default_prompt_path", "load_cases", "load_prompt", "render_case", "validate_output_path"]
+
+_DEFAULT_PROMPT_PACKAGE = "amfv_datasets.decomposition_eval.prompts"
+_DEFAULT_PROMPT_NAME = "decomposition-04-elementcheck-claimify.txt"
+_MAX_PROMPT_LENGTH = 100_000
 
 
-def validate_output_path(output_path: Path, *, input_path: Path, prompt_path: Path) -> None:
+def default_prompt_path() -> Path | None:
+    """Return the default resource path when the package uses the local filesystem."""
+    resource = files(_DEFAULT_PROMPT_PACKAGE).joinpath(_DEFAULT_PROMPT_NAME)
+    return resource if isinstance(resource, Path) else None
+
+
+def validate_output_path(output_path: Path, *, input_path: Path, prompt_path: Path | None = None) -> None:
     """Reject an output path that aliases either immutable source file."""
-    for source_name, source_path in (("input", input_path), ("prompt", prompt_path)):
+    resolved_prompt_path = prompt_path if prompt_path is not None else default_prompt_path()
+    sources = [("input", input_path)]
+    if resolved_prompt_path is not None:
+        sources.append(("prompt", resolved_prompt_path))
+    for source_name, source_path in sources:
         same_resolved_path = output_path.resolve() == source_path.resolve()
         try:
             same_file = output_path.samefile(source_path)
@@ -31,18 +44,27 @@ def validate_output_path(output_path: Path, *, input_path: Path, prompt_path: Pa
             raise ValueError(f"output path must not alias the {source_name} file: {output_path}")
 
 
-def load_prompt(path: Path) -> str:
-    """Load nonempty prompt bytes as strict UTF-8 without normalization."""
-    prompt_bytes = path.read_bytes()
+def _validate_prompt_bytes(prompt_bytes: bytes, source: str) -> str:
+    """Decode and validate exact prompt bytes without normalization."""
     if not prompt_bytes:
-        raise ValueError(f"prompt file must not be empty: {path}")
+        raise ValueError(f"prompt must not be empty: {source}")
     try:
         prompt_text = prompt_bytes.decode("utf-8")
     except UnicodeDecodeError as error:
-        raise ValueError(f"prompt file must contain valid UTF-8: {path}") from error
+        raise ValueError(f"prompt must contain valid UTF-8: {source}") from error
     if not prompt_text.strip():
-        raise ValueError(f"prompt file must not be blank: {path}")
+        raise ValueError(f"prompt must not be blank: {source}")
+    if len(prompt_text) > _MAX_PROMPT_LENGTH:
+        raise ValueError(f"prompt must contain at most {_MAX_PROMPT_LENGTH} Unicode code points: {source}")
     return prompt_text
+
+
+def load_prompt(path: Path | None = None) -> str:
+    """Load nonempty prompt bytes as strict UTF-8 without normalization."""
+    if path is not None:
+        return _validate_prompt_bytes(path.read_bytes(), str(path))
+    resource = files(_DEFAULT_PROMPT_PACKAGE).joinpath(_DEFAULT_PROMPT_NAME)
+    return _validate_prompt_bytes(resource.read_bytes(), f"packaged resource {_DEFAULT_PROMPT_NAME}")
 
 
 def load_cases(path: Path) -> list[DecompositionCase]:
@@ -83,19 +105,15 @@ def build_preview(
     case: DecompositionCase,
     *,
     instructions: str,
-    prompt_id: str,
     model_id: str,
     model_revision: str | None,
     model_family: str,
     generation: GenerationSettings,
 ) -> dict[str, Any]:
     """Build the complete no-network preview of one model request contract."""
-    validated_prompt_id = validate_identifier(prompt_id)
     return {
         "instructions": instructions,
         "case_envelope": render_case(case),
-        "prompt_id": validated_prompt_id,
-        "prompt_hash": prompt_hash_for(instructions.encode("utf-8")),
         "model": {
             "model_id": model_id,
             "model_revision": model_revision,

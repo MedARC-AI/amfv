@@ -33,7 +33,6 @@ __all__ = [
     "canonical_json",
     "external_id_for",
     "project_prediction",
-    "prompt_hash_for",
     "resolve_prediction",
     "validate_claim_spans_against_response",
     "validate_identifier",
@@ -50,9 +49,15 @@ def _require_nonblank(value: str) -> str:
     return value
 
 
-def _require_schema_version(value: object) -> int:
+def _require_case_schema_version(value: object) -> int:
     if type(value) is not int or value != 1:
         raise ValueError("schema_version must be the integer 1")
+    return value
+
+
+def _require_artifact_schema_version(value: object) -> int:
+    if type(value) is not int or value != 2:
+        raise ValueError("schema_version must be the integer 2")
     return value
 
 
@@ -62,7 +67,13 @@ NonblankText = Annotated[
     AfterValidator(_require_nonblank),
 ]
 ClaimText = Annotated[str, StringConstraints(strip_whitespace=False, min_length=1, max_length=20_000)]
-SchemaVersion = Annotated[Literal[1], BeforeValidator(_require_schema_version)]
+CaseSchemaVersion = Annotated[Literal[1], BeforeValidator(_require_case_schema_version)]
+ArtifactSchemaVersion = Annotated[Literal[2], BeforeValidator(_require_artifact_schema_version)]
+PromptText = Annotated[
+    str,
+    StringConstraints(strip_whitespace=False, min_length=1, max_length=100_000),
+    AfterValidator(_require_nonblank),
+]
 _IDENTIFIER_ADAPTER = TypeAdapter(Identifier)
 
 
@@ -71,17 +82,10 @@ class _StrictModel(BaseModel):
 
 
 class ClaimLabel(StrEnum):
-    """Label verification relevance without judging factual truth.
+    """Label the importance of a selected claim."""
 
-    Substantive claims materially affect information, reasoning, conclusions, or actions.
-    Incidental claims have little bearing on that content and remain available for review.
-    Borderline means context leaves verification relevance unclear, not factual truth.
-    Verification includes substantive and borderline claims. Repetition does not change the label.
-    """
-
-    SUBSTANTIVE = "substantive"
-    INCIDENTAL = "incidental"
-    BORDERLINE = "borderline"
+    VITAL = "vital"
+    SEMI_IMPORTANT = "semi-important"
 
 
 class SourceSpan(_StrictModel):
@@ -147,7 +151,7 @@ class DecompositionPrediction(_StrictModel):
 class DecompositionCase(_StrictModel):
     """One stable response input case with an optional query."""
 
-    schema_version: SchemaVersion
+    schema_version: CaseSchemaVersion
     case_id: Identifier
     user_prompt: NonblankText | None = None
     assistant_response: NonblankText
@@ -172,8 +176,7 @@ class GeneratorProvenance(_StrictModel):
 
     model_id: Annotated[str, StringConstraints(min_length=1, max_length=500)]
     model_revision: Annotated[str, StringConstraints(min_length=1, max_length=500)] | None = None
-    prompt_id: Identifier
-    prompt_hash: Annotated[str, StringConstraints(pattern=_SHA256_PATTERN)]
+    prompt_text: PromptText
     pydantic_ai_version: Annotated[str, StringConstraints(min_length=1, max_length=100)]
     generation: GenerationSettings = Field(default_factory=GenerationSettings)
 
@@ -186,9 +189,9 @@ class GeneratorProvenance(_StrictModel):
 
 
 class FactDecompRow(_StrictModel):
-    """Version 1 FACT_DECOMP JSONL row consumed by the website importer."""
+    """Version 2 FACT_DECOMP JSONL row consumed by the website importer."""
 
-    schema_version: SchemaVersion
+    schema_version: ArtifactSchemaVersion
     eval_type: Literal["FACT_DECOMP"]
     external_id: Annotated[str, StringConstraints(pattern=_SHA256_PATTERN)]
     case_id: Identifier
@@ -207,11 +210,6 @@ class FactDecompRow(_StrictModel):
             raise ValueError(f"external_id must equal sha256(case_id + NUL + arm_id): {expected}")
         validate_claim_spans_against_response(self.assistant_response, self.claims)
         return self
-
-
-def prompt_hash_for(prompt_bytes: bytes) -> str:
-    """Return the SHA-256 digest of exact prompt bytes."""
-    return hashlib.sha256(prompt_bytes).hexdigest()
 
 
 def external_id_for(case_id: str, arm_id: str) -> str:
@@ -283,7 +281,7 @@ def project_prediction(
 ) -> FactDecompRow:
     """Project one validated prediction into the exact import row."""
     return FactDecompRow(
-        schema_version=1,
+        schema_version=2,
         eval_type="FACT_DECOMP",
         external_id=external_id_for(case.case_id, arm_id),
         case_id=case.case_id,
