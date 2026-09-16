@@ -79,7 +79,7 @@ def importance_guide(*, authored: bool = False) -> ImportanceGuide:
             "Different wording can express the same claim. Shared subject matter or partial overlap alone does not establish duplication. Different conditions, populations, quantities, timeframes, or qualifications can make claims distinct. Contradictory claims are not duplicates.",
             "Grade importance separately: a claim can be vital and duplicate.",
             "Check the source for missing worthwhile factual assertions. Add those claims, select their exact supporting passages, and assign an importance grade. Do not add every factual detail, repetitions, or assertions drawn only from the question.",
-            "For each claim, select Looks good if its extraction and grade are acceptable and it is not a duplicate. Otherwise change its grade, mark Duplicate, or explain an Extraction issue. Untouched claims still need review. Reverting all changes requires a new decision.",
+            "For each claim, select Looks good if its extraction and grade are acceptable and it is not a duplicate. Otherwise change its grade, mark Duplicate, mark Multiple Facts if the claim contains more than one atomic fact, or explain an Extraction issue. Untouched claims still need review. Reverting all changes requires a new decision.",
             "Before submitting, confirm that you reviewed every extracted claim and checked the source for missing worthwhile claims.",
         ],
         labels=[
@@ -112,7 +112,7 @@ def importance_guide(*, authored: bool = False) -> ImportanceGuide:
             "Use Malformed for extraction problems. Use Should list or Should not list to judge whether each fact belongs in the decomposition.",
             *guide.instructions[7:9],
             "Mark Duplicate separately from the reviewer call. A claim may belong in the decomposition but repeat an earlier claim.",
-            "For each fact, select Looks good if its extraction and proposed call are acceptable and it is not a duplicate. Otherwise change its call or mark Duplicate. Reverting all changes requires a new decision.",
+            "For each fact, select Looks good if its extraction and proposed call are acceptable and it is not a duplicate. Otherwise change its call, mark Duplicate, or mark Multiple Facts if it contains more than one atomic fact. Reverting all changes requires a new decision.",
             "Grade the whole decomposition for independent verifiability, removal of noise, and deduplication and ordering. Use Comments for missing assertions or other problems.",
         ]
     return guide

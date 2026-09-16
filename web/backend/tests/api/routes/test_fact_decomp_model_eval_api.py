@@ -98,6 +98,7 @@ def _valid_submission() -> dict:
                 "label": "unimportant",
                 "issue": None,
                 "duplicate": False,
+                "multiple_facts": False,
                 "looks_good": False,
             },
             {
@@ -105,6 +106,7 @@ def _valid_submission() -> dict:
                 "label": None,
                 "issue": "The subject is ambiguous.",
                 "duplicate": False,
+                "multiple_facts": False,
                 "looks_good": False,
             },
         ],
@@ -413,8 +415,9 @@ def test_zero_claim_review_requires_coverage_and_saves(
     )
 
 
+@pytest.mark.parametrize("flag", ["duplicate", "multiple_facts"])
 def test_explicit_decisions_required_and_flags_round_trip(
-    client, normal_user_token_headers, db
+    client, normal_user_token_headers, db, flag
 ):
     item, task = _imported_task(db)
     url = f"{settings.API_V1_STR}/review/fact-decomp/{task.id}"
@@ -434,7 +437,7 @@ def test_explicit_decisions_required_and_flags_round_trip(
         ).status_code
         == 400
     )
-    body["claim_reviews"][0]["duplicate"] = True
+    body["claim_reviews"][0][flag] = True
     body["claim_reviews"][0]["label"] = None
     assert (
         client.post(
@@ -445,5 +448,24 @@ def test_explicit_decisions_required_and_flags_round_trip(
     saved = client.get(url, headers=normal_user_token_headers).json()[
         "existing_review"
     ]["claim_reviews"]
-    assert saved[0]["duplicate"] is True and saved[0]["label"] is None
+    assert saved[0][flag] is True and saved[0]["label"] is None
     assert saved[1]["looks_good"] is True and saved[1]["duplicate"] is False
+
+
+@pytest.mark.parametrize("value", ["true", 1, None])
+def test_multiple_facts_rejects_non_boolean(value):
+    from pydantic import ValidationError
+
+    from app.schemas import ClaimReview
+
+    with pytest.raises(ValidationError):
+        ClaimReview(position=0, multiple_facts=value)
+
+
+def test_multiple_facts_cannot_be_accepted():
+    from pydantic import ValidationError
+
+    from app.schemas import ClaimReview
+
+    with pytest.raises(ValidationError):
+        ClaimReview(position=0, label="vital", multiple_facts=True, looks_good=True)

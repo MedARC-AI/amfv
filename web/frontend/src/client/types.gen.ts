@@ -320,6 +320,7 @@ export type ClaimReview = {
     issue?: (string | null);
     label?: ('vital' | 'semi-important' | 'unimportant' | null);
     looks_good?: boolean;
+    multiple_facts?: boolean;
     position: number;
 };
 
@@ -456,6 +457,7 @@ export type FactDecompReviewSubmit = {
     fact_calls: Array<(string)>;
     item_revision: number;
     looks_good: Array<(boolean)>;
+    multiple_facts_flags?: (Array<(boolean)> | null);
     values: {
         [key: string]: (string);
     };

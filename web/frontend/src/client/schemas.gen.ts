@@ -1332,6 +1332,11 @@ export const ClaimReviewSchema = {
             title: 'Looks Good',
             type: 'boolean'
         },
+        multiple_facts: {
+            default: false,
+            title: 'Multiple Facts',
+            type: 'boolean'
+        },
         position: {
             minimum: 0,
             title: 'Position',
@@ -1910,6 +1915,21 @@ export const FactDecompReviewSubmitSchema = {
             maxItems: 10000,
             title: 'Looks Good',
             type: 'array'
+        },
+        multiple_facts_flags: {
+            anyOf: [
+                {
+                    items: {
+                        type: 'boolean'
+                    },
+                    maxItems: 10000,
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Multiple Facts Flags'
         },
         values: {
             additionalProperties: {

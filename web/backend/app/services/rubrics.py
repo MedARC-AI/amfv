@@ -41,6 +41,7 @@ def validate_fact_decomp_ratings(
     values: dict[str, str],
     duplicate_flags: list[bool],
     looks_good: list[bool],
+    multiple_facts_flags: list[bool] | None = None,
 ) -> dict:
     if item.eval_type != EvalType.FACT_DECOMP:
         raise ValueError(
@@ -53,14 +54,23 @@ def validate_fact_decomp_ratings(
         )
     if len(duplicate_flags) != len(ordered) or len(looks_good) != len(ordered):
         raise ValueError("Duplicate and looks-good flags must cover every fact")
-    for fact, call, duplicate, accepted in zip(
-        ordered, fact_calls, duplicate_flags, looks_good, strict=True
+    if multiple_facts_flags is None:
+        multiple_facts_flags = [False] * len(ordered)
+    if len(multiple_facts_flags) != len(ordered):
+        raise ValueError("Multiple facts flags must cover every fact")
+    for fact, call, duplicate, accepted, multiple in zip(
+        ordered,
+        fact_calls,
+        duplicate_flags,
+        looks_good,
+        multiple_facts_flags,
+        strict=True,
     ):
-        if accepted and (duplicate or call == "MALFORMED"):
+        if accepted and (duplicate or multiple or call == "MALFORMED"):
             raise ValueError(
-                "Looks good cannot be combined with duplicate or malformed"
+                "Looks good cannot be combined with duplicate, multiple facts, or malformed"
             )
-        if not (accepted or duplicate or call != fact.polarity.value):
+        if not (accepted or duplicate or multiple or call != fact.polarity.value):
             raise ValueError("Each fact needs an explicit review decision")
     unknown_calls = {call for call in fact_calls if call not in FACT_CALL_OPTIONS}
     if unknown_calls:
@@ -70,6 +80,7 @@ def validate_fact_decomp_ratings(
         **values,
         "fact_calls": fact_calls,
         "duplicate_flags": duplicate_flags,
+        "multiple_facts_flags": multiple_facts_flags,
         "looks_good": looks_good,
         "fact_agreement": [
             _fact_agreement(call, fact.polarity.value)

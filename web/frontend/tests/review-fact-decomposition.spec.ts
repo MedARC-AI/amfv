@@ -32,6 +32,10 @@ test("submits an authored fact-decomposition review", async ({
   await expect(
     page.getByRole("button", { name: "Looks good", exact: true }).first(),
   ).toHaveAttribute("aria-pressed", "false")
+  await page
+    .getByRole("button", { name: "Multiple Facts", exact: true })
+    .first()
+    .click()
   const taskText = await page.getByText(/^Task \d+$/).innerText()
   await page.screenshot({
     path: testInfo.outputPath("authored-duplicate.png"),
@@ -46,6 +50,9 @@ test("submits an authored fact-decomposition review", async ({
   )
   await expect(
     page.getByRole("button", { name: "Duplicate", exact: true }).first(),
+  ).toHaveAttribute("aria-pressed", "true")
+  await expect(
+    page.getByRole("button", { name: "Multiple Facts", exact: true }).first(),
   ).toHaveAttribute("aria-pressed", "true")
   await expect(
     page.getByRole("button", { name: "Duplicate", exact: true }).first(),
@@ -302,6 +309,20 @@ test("grades model claims and saves human selections through a failed request an
   await decisions
     .getByRole("button", { name: "Duplicate", exact: true })
     .click()
+  const multipleFacts = decisions.getByRole("button", {
+    name: "Multiple Facts",
+    exact: true,
+  })
+  await multipleFacts.click()
+  await expect(multipleFacts).toHaveAttribute("aria-pressed", "true")
+  await decisions
+    .getByRole("button", { name: "Looks good", exact: true })
+    .click()
+  await expect(multipleFacts).toHaveAttribute("aria-pressed", "false")
+  await multipleFacts.click()
+  await decisions
+    .getByRole("button", { name: "Duplicate", exact: true })
+    .click()
   await firstLabels.getByRole("button", { name: "Unimportant" }).click()
   const firstClaim = page.locator('[data-claim-position="0"]')
   const secondClaim = page.locator('[data-claim-position="1"]')
@@ -459,6 +480,7 @@ test("grades model claims and saves human selections through a failed request an
       label: "unimportant",
       issue: "This claim changes the stated causal relationship.",
       duplicate: true,
+      multiple_facts: true,
       looks_good: false,
     },
     {
@@ -466,6 +488,7 @@ test("grades model claims and saves human selections through a failed request an
       label: null,
       issue: "The source leaves the subject ambiguous.",
       duplicate: false,
+      multiple_facts: false,
       looks_good: false,
     },
   ])
@@ -528,6 +551,7 @@ test("downloads exact prompt history and saved corrections", async ({
         label: "vital",
         issue: null,
         duplicate: false,
+        multiple_facts: false,
         looks_good: true,
       },
       {
@@ -535,6 +559,7 @@ test("downloads exact prompt history and saved corrections", async ({
         label: null,
         issue: "Missing context.",
         duplicate: false,
+        multiple_facts: false,
         looks_good: false,
       },
     ],

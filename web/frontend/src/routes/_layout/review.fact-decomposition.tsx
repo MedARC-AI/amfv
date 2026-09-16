@@ -92,6 +92,9 @@ function correctionClaims(
 function FactDecompositionReview() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+  const [multipleFactsFlags, setMultipleFactsFlags] = React.useState<boolean[]>(
+    [],
+  )
   const [duplicateFlags, setDuplicateFlags] = React.useState<boolean[]>([])
   const [looksGood, setLooksGood] = React.useState<boolean[]>([])
   const [factCalls, setFactCalls] = React.useState<string[]>([])
@@ -151,6 +154,7 @@ function FactDecompositionReview() {
       const existing = payload.existing_review as {
         ratings: {
           fact_calls: string[]
+          multiple_facts_flags?: boolean[]
           duplicate_flags: boolean[]
           looks_good: boolean[]
           [key: string]: unknown
@@ -162,6 +166,9 @@ function FactDecompositionReview() {
       setFactCalls(saved?.fact_calls ?? initialFactCalls(payload.facts))
       setDuplicateFlags(
         saved?.duplicate_flags ?? payload.facts.map(() => false),
+      )
+      setMultipleFactsFlags(
+        saved?.multiple_facts_flags ?? payload.facts.map(() => false),
       )
       setLooksGood(saved?.looks_good ?? payload.facts.map(() => false))
       setRubricValues(
@@ -210,6 +217,7 @@ function FactDecompositionReview() {
     submitMutation.mutate({
       fact_calls: factCalls,
       duplicate_flags: duplicateFlags,
+      multiple_facts_flags: multipleFactsFlags,
       looks_good: looksGood,
       values: rubricValues,
       comments: comments.trim() || null,
@@ -308,7 +316,10 @@ function FactDecompositionReview() {
     !isReviewActionAllowed(payload.allowed_actions, "save_review")
   const authoredComplete = payload.facts.every(
     (fact, i) =>
-      looksGood[i] || duplicateFlags[i] || factCalls[i] !== fact.polarity,
+      looksGood[i] ||
+      duplicateFlags[i] ||
+      multipleFactsFlags[i] ||
+      factCalls[i] !== fact.polarity,
   )
   return (
     <div className="flex flex-col gap-6">
@@ -343,10 +354,12 @@ function FactDecompositionReview() {
                       Fact {fact.position + 1} ·{" "}
                       {looksGood[index] ||
                       duplicateFlags[index] ||
+                      multipleFactsFlags[index] ||
                       factCalls[index] !== fact.polarity
                         ? "Reviewed"
                         : "Needs review"}
                       {duplicateFlags[index] ? " · Duplicate" : ""}
+                      {multipleFactsFlags[index] ? " · Multiple Facts" : ""}
                     </div>
                     <p className="mt-1 whitespace-pre-wrap text-sm">
                       {fact.fact_text}
@@ -410,6 +423,9 @@ function FactDecompositionReview() {
                         setDuplicateFlags((current) =>
                           current.map((v, i) => (i === index ? false : v)),
                         )
+                        setMultipleFactsFlags((current) =>
+                          current.map((v, i) => (i === index ? false : v)),
+                        )
                       }}
                     >
                       Looks good
@@ -430,6 +446,26 @@ function FactDecompositionReview() {
                       }}
                     >
                       Duplicate
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={authoredLocked}
+                      variant={
+                        multipleFactsFlags[index] ? "default" : "outline"
+                      }
+                      aria-pressed={!!multipleFactsFlags[index]}
+                      title="This claim contains multiple facts and is not atomic"
+                      onClick={() => {
+                        setMultipleFactsFlags((current) =>
+                          current.map((v, i) => (i === index ? !v : v)),
+                        )
+                        setLooksGood((current) =>
+                          current.map((v, i) => (i === index ? false : v)),
+                        )
+                      }}
+                    >
+                      Multiple Facts
                     </Button>
                   </fieldset>
                 </div>

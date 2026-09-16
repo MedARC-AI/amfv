@@ -82,6 +82,7 @@ export function FactDecompositionCorrection({
         },
         issue: saved?.issue,
         duplicate: saved?.duplicate ?? false,
+        multipleFacts: saved?.multiple_facts ?? false,
         looksGood: saved?.looks_good ?? false,
       }
     }),
@@ -119,6 +120,7 @@ export function FactDecompositionCorrection({
     (group) =>
       !!group.looksGood ||
       !!group.duplicate ||
+      !!group.multipleFacts ||
       (!!group.claim.label &&
         group.claim.label !== group.original?.proposed_label) ||
       (group.issue !== null &&
@@ -168,6 +170,7 @@ export function FactDecompositionCorrection({
       label: group.claim.label ?? null,
       issue: group.issue?.trim() || null,
       duplicate: group.duplicate ?? false,
+      multiple_facts: group.multipleFacts ?? false,
       looks_good: group.looksGood ?? false,
     }))
     onSubmit({
@@ -317,11 +320,18 @@ export function FactDecompositionCorrection({
             stagedSpans={stagedSpans}
             onFocusClaim={focusSourceSpan}
             hiddenModels={hiddenModels}
-            onChange={(id, claim, issue, duplicate, looksGood) =>
+            onChange={(id, claim, issue, duplicate, looksGood, multipleFacts) =>
               setGroups((current) =>
                 current.map((group) =>
                   group.id === id
-                    ? { ...group, claim, issue, duplicate, looksGood }
+                    ? {
+                        ...group,
+                        claim,
+                        issue,
+                        duplicate,
+                        looksGood,
+                        multipleFacts,
+                      }
                     : group,
                 ),
               )

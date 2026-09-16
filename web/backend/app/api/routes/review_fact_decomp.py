@@ -171,6 +171,7 @@ def submit_fact_decomp_review(
             list(facts),
             fact_calls=body.fact_calls,
             duplicate_flags=body.duplicate_flags,
+            multiple_facts_flags=body.multiple_facts_flags,
             looks_good=body.looks_good,
             values=body.values,
         )
@@ -260,7 +261,11 @@ def submit_model_eval_review(
             judgment.label is not None and judgment.label != claim.proposed_label
         )
         if not (
-            judgment.looks_good or judgment.duplicate or judgment.issue or changed_label
+            judgment.looks_good
+            or judgment.duplicate
+            or judgment.multiple_facts
+            or judgment.issue
+            or changed_label
         ):
             raise HTTPException(
                 status_code=400, detail="Each claim needs an explicit review decision"

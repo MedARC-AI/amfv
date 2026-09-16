@@ -281,6 +281,7 @@ class ClaimReview(SQLModel):
 
     position: int = Field(ge=0)
     duplicate: StrictBool = False
+    multiple_facts: StrictBool = False
     looks_good: StrictBool = False
     label: ImportanceLabel | None = None
     issue: str | None = Field(default=None, max_length=500)
@@ -296,13 +297,20 @@ class ClaimReview(SQLModel):
     def _validate_judgment(self) -> ClaimReview:
         if self.issue is not None and not self.issue.strip():
             raise ValueError("An extraction issue must not be blank")
-        if self.looks_good and (self.duplicate or self.issue is not None):
+        if self.looks_good and (
+            self.duplicate or self.multiple_facts or self.issue is not None
+        ):
             raise ValueError(
-                "Looks good cannot be combined with extraction issues or duplicate"
+                "Looks good cannot be combined with extraction issues, duplicate, or multiple facts"
             )
-        if self.label is None and self.issue is None and not self.duplicate:
+        if (
+            self.label is None
+            and self.issue is None
+            and not self.duplicate
+            and not self.multiple_facts
+        ):
             raise ValueError(
-                "Each claim review requires a label, extraction issue, or duplicate flag"
+                "Each claim review requires a label, extraction issue, duplicate, or multiple facts flag"
             )
         return self
 
@@ -527,6 +535,9 @@ class FactDecompReviewSubmissionResponse(SQLModel):
 
 class FactDecompReviewSubmit(SQLModel):
     duplicate_flags: list[StrictBool] = Field(max_length=MAX_CLAIMS)
+    multiple_facts_flags: list[StrictBool] | None = Field(
+        default=None, max_length=MAX_CLAIMS
+    )
     looks_good: list[StrictBool] = Field(max_length=MAX_CLAIMS)
     fact_calls: list[str]
     values: dict[str, str]

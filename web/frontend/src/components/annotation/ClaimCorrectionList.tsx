@@ -20,6 +20,7 @@ export type ClaimGroup = {
   claim: DraftHumanClaim
   issue?: string | null
   duplicate?: boolean
+  multipleFacts?: boolean
   looksGood?: boolean
 }
 
@@ -87,6 +88,7 @@ function ClaimRow({
     issue?: string | null,
     duplicate?: boolean,
     looksGood?: boolean,
+    multipleFacts?: boolean,
   ) => void
   onRemove: () => void
   onFocus: () => void
@@ -96,6 +98,7 @@ function ClaimRow({
   const reviewed =
     group.looksGood ||
     group.duplicate ||
+    group.multipleFacts ||
     !!group.issue?.trim() ||
     (!!claim.label && claim.label !== original?.proposed_label)
   const flagged = group.issue !== null && group.issue !== undefined
@@ -122,6 +125,7 @@ function ClaimRow({
         {name} · <span className="capitalize">{claim.label ?? "Unjudged"}</span>
         {flagged ? " · Extraction issue" : ""}
         {group.duplicate ? " · Duplicate" : ""}
+        {group.multipleFacts ? " · Multiple Facts" : ""}
         {original ? (reviewed ? " · Reviewed" : " · Needs review") : ""}
       </summary>
       <div className="mt-3 space-y-3">
@@ -161,7 +165,13 @@ function ClaimRow({
             labels={labels}
             locked={locked}
             onChange={(label) =>
-              onChange({ ...claim, label }, group.issue, group.duplicate, false)
+              onChange(
+                { ...claim, label },
+                group.issue,
+                group.duplicate,
+                false,
+                group.multipleFacts,
+              )
             }
           />
           {original ? (
@@ -190,6 +200,7 @@ function ClaimRow({
                       null,
                       false,
                       !group.looksGood,
+                      false,
                     )
                   }
                 >
@@ -201,7 +212,13 @@ function ClaimRow({
                   variant={flagged ? "default" : "outline"}
                   aria-pressed={flagged}
                   onClick={() =>
-                    onChange(claim, flagged ? null : "", group.duplicate, false)
+                    onChange(
+                      claim,
+                      flagged ? null : "",
+                      group.duplicate,
+                      false,
+                      group.multipleFacts,
+                    )
                   }
                 >
                   Extraction issue
@@ -212,10 +229,34 @@ function ClaimRow({
                   variant={group.duplicate ? "default" : "outline"}
                   aria-pressed={!!group.duplicate}
                   onClick={() =>
-                    onChange(claim, group.issue, !group.duplicate, false)
+                    onChange(
+                      claim,
+                      group.issue,
+                      !group.duplicate,
+                      false,
+                      group.multipleFacts,
+                    )
                   }
                 >
                   Duplicate
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={group.multipleFacts ? "default" : "outline"}
+                  aria-pressed={!!group.multipleFacts}
+                  title="This claim contains multiple facts and is not atomic"
+                  onClick={() =>
+                    onChange(
+                      claim,
+                      group.issue,
+                      group.duplicate,
+                      false,
+                      !group.multipleFacts,
+                    )
+                  }
+                >
+                  Multiple Facts
                 </Button>
               </fieldset>
               {flagged ? (
@@ -226,7 +267,13 @@ function ClaimRow({
                   placeholder="Explain the extraction issue"
                   value={group.issue ?? ""}
                   onChange={(event) =>
-                    onChange(claim, event.target.value, group.duplicate, false)
+                    onChange(
+                      claim,
+                      event.target.value,
+                      group.duplicate,
+                      false,
+                      group.multipleFacts,
+                    )
                   }
                 />
               ) : null}
@@ -286,6 +333,7 @@ export function ClaimCorrectionList({
     issue?: string | null,
     duplicate?: boolean,
     looksGood?: boolean,
+    multipleFacts?: boolean,
   ) => void
   onRemove: (id: number) => void
   onFocusClaim: (position: number) => void
@@ -301,8 +349,8 @@ export function ClaimCorrectionList({
       locked={locked}
       labels={guide.labels}
       stagedSpans={stagedSpans}
-      onChange={(claim, issue, duplicate, looksGood) =>
-        onChange(group.id, claim, issue, duplicate, looksGood)
+      onChange={(claim, issue, duplicate, looksGood, multipleFacts) =>
+        onChange(group.id, claim, issue, duplicate, looksGood, multipleFacts)
       }
       onRemove={() => onRemove(group.id)}
       onFocus={() => onFocusClaim(group.id)}

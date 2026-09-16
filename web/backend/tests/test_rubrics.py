@@ -168,3 +168,42 @@ def test_fact_decomp_rejects_incomplete_decisions(calls, duplicates, accepted):
                 "deduplicated_ordered": "pass",
             },
         )
+
+
+@pytest.mark.parametrize(
+    "flags, accepted, valid",
+    [([True], [False], True), ([True], [True], False), ([], [False], False)],
+)
+def test_multiple_facts_decision(flags, accepted, valid):
+    item = EvalItem(
+        dataset_id=1,
+        eval_type=EvalType.FACT_DECOMP,
+        source=ItemSource.HUMAN,
+        prompt_text="A and B",
+    )
+    facts = [
+        EvalFact(
+            item_id=1,
+            fact_text="A and B",
+            polarity=FactPolarity.SHOULD_LIST,
+            position=0,
+        )
+    ]
+    kwargs = {
+        "fact_calls": ["SHOULD_LIST"],
+        "duplicate_flags": [False],
+        "multiple_facts_flags": flags,
+        "looks_good": accepted,
+        "values": {
+            "independently_verifiable": "pass",
+            "noise_removed": "pass",
+            "deduplicated_ordered": "pass",
+        },
+    }
+    if valid:
+        assert validate_fact_decomp_ratings(item, facts, **kwargs)[
+            "multiple_facts_flags"
+        ] == [True]
+    else:
+        with pytest.raises(ValueError):
+            validate_fact_decomp_ratings(item, facts, **kwargs)
