@@ -259,6 +259,12 @@ def test_generated_import_review_and_export_preserve_exact_contract(
             model_id="test",
             prompt_text="Instructions with CRLF.\r\nUnicode 😀\n",
             pydantic_ai_version="test",
+            generation={
+                "max_tokens": 128,
+                "temperature": 0.25,
+                "top_p": 0.9,
+                "reasoning_effort": "medium",
+            },
         ),
     )
     imported = _post(
@@ -297,7 +303,7 @@ def test_generated_import_review_and_export_preserve_exact_contract(
     assert exported.status_code == 200
     item = exported.json()["items"][0]
     assert item["schema_version"] == 2
-    assert item["generator"]["prompt_text"] == "Instructions with CRLF.\r\nUnicode 😀\n"
+    assert item["generator"] == row.generator.model_dump(mode="json")
     assert [claim["proposed_label"] for claim in item["claims"]] == labels
     assert item["correction_reviews"][0]["claim_reviews"][0]["label"] == "unimportant"
     assert item["correction_reviews"][0]["coverage_checked"] is True

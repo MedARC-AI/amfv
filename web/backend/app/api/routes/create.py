@@ -448,7 +448,7 @@ def _create_or_update_fact_decomp_item(
         status=item.status,
         prompt_text=item.prompt_text,
         document_id=item.document_id,
-        facts=authoring_fact_decomp.ordered_facts(body.facts),
+        facts=body.facts,
         item_revision=item.revision,
         validation=preview,
     )
@@ -463,7 +463,7 @@ def _create_or_update_fact_decomp_item(
     )
     session.add(receipt)
     try:
-        _commit_fact_decomp_save(session)
+        session.commit()
     except IntegrityError:
         session.rollback()
         raced_receipt = authoring_fact_decomp.read_fact_decomp_save_receipt(
@@ -502,9 +502,3 @@ def _claim_fact_draft_update(
         validation=validation,
         status=status,
     )
-
-
-def _commit_fact_decomp_save(session: SessionDep) -> None:
-    """Keep the route-level commit seam used by rollback tests."""
-
-    authoring_fact_decomp.commit_fact_decomp_save(session)

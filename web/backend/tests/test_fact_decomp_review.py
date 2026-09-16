@@ -69,3 +69,20 @@ def test_correction_rating_rejects_unbounded_claim_lists() -> None:
                 "coverage_checked": True,
             }
         )
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"duplicate": "true"},
+        {"looks_good": 1},
+        {"duplicate": True, "looks_good": True},
+        {"looks_good": True, "issue": "Bad context"},
+        {"label": None, "duplicate": False},
+    ],
+)
+def test_claim_review_rejects_invalid_decisions(fields):
+    from app.schemas import ClaimReview
+
+    with pytest.raises(ValueError):
+        ClaimReview.model_validate({"position": 0, "label": "vital", **fields})

@@ -3,10 +3,16 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, StrictBool, field_validator, model_validator
 from sqlmodel import Field, SQLModel
 from sqlmodel.main import SQLModelConfig
 
+from app.fact_decomp_contract import (
+    MAX_CLAIM_TEXT_LENGTH,
+    MAX_CLAIMS,
+    MAX_SPANS_PER_CLAIM,
+    ImportanceLabel,
+)
 from app.models import (
     AssignmentKind,
     AssignmentMode,
@@ -201,11 +207,7 @@ class ReviewFact(SQLModel):
     position: int
 
 
-ModelClaimLabel = Literal["vital", "semi-important", "unimportant"]
-ImportanceLabel = Literal["vital", "semi-important", "unimportant"]
-MAX_CLAIMS = 10_000
-MAX_CLAIM_TEXT_LENGTH = 20_000
-MAX_SPANS_PER_CLAIM = 100
+ModelClaimLabel = ImportanceLabel
 
 
 class ResponseClaimSpan(SQLModel):
@@ -278,6 +280,8 @@ class ClaimReview(SQLModel):
     model_config = SQLModelConfig(extra="forbid")
 
     position: int = Field(ge=0)
+    duplicate: StrictBool = False
+    looks_good: StrictBool = False
     label: ImportanceLabel | None = None
     issue: str | None = Field(default=None, max_length=500)
 
@@ -292,8 +296,14 @@ class ClaimReview(SQLModel):
     def _validate_judgment(self) -> ClaimReview:
         if self.issue is not None and not self.issue.strip():
             raise ValueError("An extraction issue must not be blank")
-        if self.label is None and self.issue is None:
-            raise ValueError("Each claim review requires a label or extraction issue")
+        if self.looks_good and (self.duplicate or self.issue is not None):
+            raise ValueError(
+                "Looks good cannot be combined with extraction issues or duplicate"
+            )
+        if self.label is None and self.issue is None and not self.duplicate:
+            raise ValueError(
+                "Each claim review requires a label, extraction issue, or duplicate flag"
+            )
         return self
 
 
@@ -404,6 +414,7 @@ class FactDecompReviewPayloadBase(SQLModel):
 class AuthoredFactDecompReviewPayload(FactDecompReviewPayloadBase):
     review_mode: Literal["AUTHORED_RUBRIC"]
     facts: list[ReviewFact]
+    guide: ImportanceGuide
     rubric_dimensions: list[ReviewRubricDimension]
     allowed_actions: list[Literal["save_review"]]
     existing_review: dict | None = None
@@ -515,6 +526,8 @@ class FactDecompReviewSubmissionResponse(SQLModel):
 
 
 class FactDecompReviewSubmit(SQLModel):
+    duplicate_flags: list[StrictBool] = Field(max_length=MAX_CLAIMS)
+    looks_good: list[StrictBool] = Field(max_length=MAX_CLAIMS)
     fact_calls: list[str]
     values: dict[str, str]
     comments: str | None = None

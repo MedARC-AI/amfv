@@ -19,6 +19,8 @@ export type ClaimGroup = {
   original?: ReviewModelClaim
   claim: DraftHumanClaim
   issue?: string | null
+  duplicate?: boolean
+  looksGood?: boolean
 }
 
 export function initialModelClaim(claim: ReviewModelClaim): DraftHumanClaim {
@@ -39,26 +41,25 @@ export function Labels({
   onChange: (label: ImportanceLabel | undefined) => void
 }) {
   return (
-    <fieldset className="flex flex-wrap gap-1" disabled={locked}>
+    <fieldset className="flex flex-wrap items-center gap-2" disabled={locked}>
       <legend className="sr-only">{name} label</legend>
+      <span aria-hidden="true" className="w-14 shrink-0 text-sm font-medium">
+        Grade:
+      </span>
       {labels.map((option) => (
-        <button
+        <Button
+          size="sm"
+          variant={option.value === value ? "default" : "outline"}
           key={option.value}
           type="button"
           aria-pressed={option.value === value}
           title={option.definition}
-          className={cn(
-            "rounded border px-2 py-1 text-xs capitalize",
-            option.value === value
-              ? "bg-primary text-primary-foreground"
-              : "bg-background",
-          )}
           onClick={() =>
             onChange(option.value === value ? undefined : option.value)
           }
         >
           {option.label}
-        </button>
+        </Button>
       ))}
     </fieldset>
   )
@@ -81,12 +82,22 @@ function ClaimRow({
   locked: boolean
   labels: ImportanceGuideLabel[]
   stagedSpans: ClaimResponseSpan[]
-  onChange: (claim: DraftHumanClaim, issue?: string | null) => void
+  onChange: (
+    claim: DraftHumanClaim,
+    issue?: string | null,
+    duplicate?: boolean,
+    looksGood?: boolean,
+  ) => void
   onRemove: () => void
   onFocus: () => void
 }) {
   const [open, setOpen] = React.useState(true)
   const { claim, original } = group
+  const reviewed =
+    group.looksGood ||
+    group.duplicate ||
+    !!group.issue?.trim() ||
+    (!!claim.label && claim.label !== original?.proposed_label)
   const flagged = group.issue !== null && group.issue !== undefined
   return (
     <details
@@ -109,7 +120,9 @@ function ClaimRow({
           )}
         />
         {name} · <span className="capitalize">{claim.label ?? "Unjudged"}</span>
-        {flagged ? " · Flagged" : ""}
+        {flagged ? " · Extraction issue" : ""}
+        {group.duplicate ? " · Duplicate" : ""}
+        {original ? (reviewed ? " · Reviewed" : " · Needs review") : ""}
       </summary>
       <div className="mt-3 space-y-3">
         {original ? (
@@ -147,20 +160,64 @@ function ClaimRow({
             name={name}
             labels={labels}
             locked={locked}
-            onChange={(label) => onChange({ ...claim, label }, group.issue)}
+            onChange={(label) =>
+              onChange({ ...claim, label }, group.issue, group.duplicate, false)
+            }
           />
           {original ? (
             <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={flagged}
-                  onChange={(event) =>
-                    onChange(claim, event.target.checked ? "" : null)
+              <fieldset
+                className="flex flex-wrap items-center gap-2"
+                aria-label={`${name} review decision`}
+              >
+                <span
+                  aria-hidden="true"
+                  className="w-14 shrink-0 text-sm font-medium"
+                >
+                  Review:
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={group.looksGood ? "default" : "outline"}
+                  aria-pressed={!!group.looksGood}
+                  onClick={() =>
+                    onChange(
+                      {
+                        ...claim,
+                        label: claim.label ?? original.proposed_label,
+                      },
+                      null,
+                      false,
+                      !group.looksGood,
+                    )
                   }
-                />
-                Flag extraction
-              </label>
+                >
+                  Looks good
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={flagged ? "default" : "outline"}
+                  aria-pressed={flagged}
+                  onClick={() =>
+                    onChange(claim, flagged ? null : "", group.duplicate, false)
+                  }
+                >
+                  Extraction issue
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={group.duplicate ? "default" : "outline"}
+                  aria-pressed={!!group.duplicate}
+                  onClick={() =>
+                    onChange(claim, group.issue, !group.duplicate, false)
+                  }
+                >
+                  Duplicate
+                </Button>
+              </fieldset>
               {flagged ? (
                 <textarea
                   aria-label={`${name} extraction issue`}
@@ -168,7 +225,9 @@ function ClaimRow({
                   maxLength={500}
                   placeholder="Explain the extraction issue"
                   value={group.issue ?? ""}
-                  onChange={(event) => onChange(claim, event.target.value)}
+                  onChange={(event) =>
+                    onChange(claim, event.target.value, group.duplicate, false)
+                  }
                 />
               ) : null}
             </div>
@@ -221,7 +280,13 @@ export function ClaimCorrectionList({
   hiddenModels: boolean
   locked: boolean
   stagedSpans: ClaimResponseSpan[]
-  onChange: (id: number, claim: DraftHumanClaim, issue?: string | null) => void
+  onChange: (
+    id: number,
+    claim: DraftHumanClaim,
+    issue?: string | null,
+    duplicate?: boolean,
+    looksGood?: boolean,
+  ) => void
   onRemove: (id: number) => void
   onFocusClaim: (position: number) => void
 }) {
@@ -236,7 +301,9 @@ export function ClaimCorrectionList({
       locked={locked}
       labels={guide.labels}
       stagedSpans={stagedSpans}
-      onChange={(claim, issue) => onChange(group.id, claim, issue)}
+      onChange={(claim, issue, duplicate, looksGood) =>
+        onChange(group.id, claim, issue, duplicate, looksGood)
+      }
       onRemove={() => onRemove(group.id)}
       onFocus={() => onFocusClaim(group.id)}
     />

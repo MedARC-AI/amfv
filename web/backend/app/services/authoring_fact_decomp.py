@@ -38,13 +38,11 @@ from app.services.validation import validate_item
 __all__ = [
     "canonical_fact_save_hash",
     "claim_fact_draft_update",
-    "commit_fact_decomp_save",
     "ensure_fact_decomp_dataset",
     "ensure_optional_source_document",
     "fact_decomp_save_receipt_response",
     "fact_models",
     "fact_provenance_dicts",
-    "ordered_facts",
     "preview_fact_decomp_validation",
     "read_fact_decomp_save_receipt",
     "read_owned_fact_item",
@@ -124,12 +122,6 @@ def fact_decomp_save_receipt_response(
         response=FactDecompCreateResponse.model_validate(receipt.response_payload),
         replayed=replayed,
     )
-
-
-def commit_fact_decomp_save(session: Session) -> None:
-    """Commit an authored item and recovery receipt as one transaction."""
-
-    session.commit()
 
 
 def read_owned_fact_item(
@@ -313,12 +305,6 @@ def fact_models(item_id: int, facts: list[FactDraft]) -> list[EvalFact]:
         )
         for position, fact in enumerate(facts)
     ]
-
-
-def ordered_facts(facts: list[FactDraft]) -> list[FactDraft]:
-    """Return fact payloads in their declared canonical order."""
-
-    return list(facts)
 
 
 def fact_provenance_dicts(facts: list[FactDraft]) -> list[dict]:

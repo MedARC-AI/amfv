@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Any, Literal, Self
+from typing import Literal, Self
 
 from pydantic import (
     BaseModel,
@@ -13,12 +13,19 @@ from pydantic import (
     Field,
     ValidationError,
     field_validator,
-    model_serializer,
     model_validator,
 )
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
+from app.fact_decomp_contract import (
+    IDENTIFIER_PATTERN,
+    MAX_CLAIMS,
+    MAX_RESPONSE_LENGTH,
+    SHA256_PATTERN,
+    GeneratorProvenance,
+    ModelClaim,
+)
 from app.models import (
     AuthorKind,
     Dataset,
@@ -42,86 +49,9 @@ __all__ = [
     "parse_fact_decomp_row",
 ]
 
-_IDENTIFIER_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
-_SHA256_PATTERN = r"^[0-9a-f]{64}$"
-
 
 class _StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
-
-
-class ImportSpan(_StrictModel):
-    """Exact half-open Python code-point span in the response."""
-
-    start: int = Field(ge=0)
-    end: int = Field(gt=0)
-    text: str = Field(min_length=1, max_length=20_000)
-
-    @model_validator(mode="after")
-    def validate_order(self) -> Self:
-        if self.end <= self.start:
-            raise ValueError("span end must be greater than start")
-        if not self.text.strip():
-            raise ValueError("span text must not be blank")
-        return self
-
-
-class ImportClaim(_StrictModel):
-    """One ordered generated claim with exact response provenance."""
-
-    claim: str = Field(min_length=1, max_length=20_000)
-    spans: list[ImportSpan] = Field(min_length=1, max_length=100)
-    label: Literal["vital", "semi-important", "unimportant"]
-
-    @model_validator(mode="after")
-    def validate_claim(self) -> Self:
-        if not self.claim.strip():
-            raise ValueError("claim must not be blank")
-        previous_end = -1
-        for span in self.spans:
-            if span.start < previous_end:
-                raise ValueError(
-                    "spans must be source-ordered and nonoverlapping within a claim"
-                )
-            previous_end = span.end
-        return self
-
-
-class ImportGeneration(_StrictModel):
-    """Known generation settings retained as nonsecret provenance."""
-
-    max_tokens: int | None = Field(default=None, ge=1)
-    temperature: float | None = Field(default=None, ge=0, allow_inf_nan=False)
-    top_p: float | None = Field(default=None, gt=0, le=1, allow_inf_nan=False)
-    reasoning_effort: Literal["low", "medium", "high"] | None = None
-
-    @model_serializer(mode="wrap")
-    def omit_nulls(self, handler: Any) -> dict[str, Any]:
-        return {key: value for key, value in handler(self).items() if value is not None}
-
-
-class ImportGenerator(_StrictModel):
-    """Reproduction metadata accepted from a generated artifact."""
-
-    model_id: str = Field(min_length=1, max_length=500)
-    model_revision: str | None = Field(default=None, min_length=1, max_length=500)
-    prompt_text: str = Field(min_length=1, max_length=100_000)
-    pydantic_ai_version: str = Field(min_length=1, max_length=100)
-    generation: ImportGeneration = Field(default_factory=ImportGeneration)
-
-    @field_validator("model_id")
-    @classmethod
-    def validate_model_id(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("model_id must not be blank")
-        return value
-
-    @field_validator("prompt_text")
-    @classmethod
-    def validate_prompt_text(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("prompt_text must not be blank")
-        return value
 
 
 class FactDecompImportRow(_StrictModel):
@@ -129,14 +59,16 @@ class FactDecompImportRow(_StrictModel):
 
     schema_version: Literal[2]
     eval_type: Literal["FACT_DECOMP"]
-    external_id: str = Field(pattern=_SHA256_PATTERN)
-    case_id: str = Field(pattern=_IDENTIFIER_PATTERN)
+    external_id: str = Field(pattern=SHA256_PATTERN)
+    case_id: str = Field(pattern=IDENTIFIER_PATTERN)
     source: Literal["LLM"]
-    user_prompt: str | None = Field(default=None, min_length=1, max_length=1_000_000)
-    assistant_response: str = Field(min_length=1, max_length=1_000_000)
-    arm_id: str = Field(pattern=_IDENTIFIER_PATTERN)
-    generator: ImportGenerator
-    claims: list[ImportClaim] = Field(max_length=10_000)
+    user_prompt: str | None = Field(
+        default=None, min_length=1, max_length=MAX_RESPONSE_LENGTH
+    )
+    assistant_response: str = Field(min_length=1, max_length=MAX_RESPONSE_LENGTH)
+    arm_id: str = Field(pattern=IDENTIFIER_PATTERN)
+    generator: GeneratorProvenance
+    claims: list[ModelClaim] = Field(max_length=MAX_CLAIMS)
 
     @field_validator("user_prompt", "assistant_response")
     @classmethod

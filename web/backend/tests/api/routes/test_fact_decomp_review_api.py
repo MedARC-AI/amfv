@@ -273,6 +273,8 @@ def test_fact_decomp_review_submit_persists_review_and_updates_labels(
         headers=normal_user_token_headers,
         json={
             "fact_calls": ["SHOULD_LIST", "SHOULD_NOT_LIST"],
+            "duplicate_flags": [False, False],
+            "looks_good": [True, True],
             "values": {
                 "independently_verifiable": "pass",
                 "noise_removed": "pass",
@@ -299,6 +301,8 @@ def test_fact_decomp_review_submit_persists_review_and_updates_labels(
     assert review.flags == {"confidence": "EASY_CALL"}
     assert review.ratings["independently_verifiable"] == "pass"
     assert review.ratings["fact_agreement"] == ["agree", "agree"]
+    assert review.ratings["duplicate_flags"] == [False, False]
+    assert review.ratings["looks_good"] == [True, True]
     db.refresh(task)
     assert task.labels_count == 2
 
@@ -307,6 +311,8 @@ def test_fact_decomp_review_submit_persists_review_and_updates_labels(
         headers=normal_user_token_headers,
         json={
             "fact_calls": ["SHOULD_LIST", "SHOULD_NOT_LIST"],
+            "duplicate_flags": [False, False],
+            "looks_good": [True, True],
             "values": {
                 "independently_verifiable": "pass",
                 "noise_removed": "pass",
@@ -395,6 +401,8 @@ def test_fact_decomp_review_submit_rejects_stale_invalid_and_self_review(
         headers=normal_user_token_headers,
         json={
             "fact_calls": ["SHOULD_LIST"],
+            "duplicate_flags": [False],
+            "looks_good": [True],
             "values": {
                 "independently_verifiable": "pass",
                 "noise_removed": "pass",
@@ -410,6 +418,8 @@ def test_fact_decomp_review_submit_rejects_stale_invalid_and_self_review(
         headers=normal_user_token_headers,
         json={
             "fact_calls": [],
+            "duplicate_flags": [],
+            "looks_good": [],
             "values": {
                 "independently_verifiable": "pass",
                 "noise_removed": "pass",
@@ -426,6 +436,8 @@ def test_fact_decomp_review_submit_rejects_stale_invalid_and_self_review(
         headers=normal_user_token_headers,
         json={
             "fact_calls": [],
+            "duplicate_flags": [],
+            "looks_good": [],
             "values": {
                 "independently_verifiable": "pass",
                 "noise_removed": "pass",

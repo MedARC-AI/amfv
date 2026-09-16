@@ -41,6 +41,8 @@ def test_fact_decomp_requires_call_for_every_fact() -> None:
         validate_fact_decomp_ratings(
             item,
             facts,
+            duplicate_flags=[False, False],
+            looks_good=[True, True],
             fact_calls=["SHOULD_LIST"],
             values={
                 "independently_verifiable": "pass",
@@ -76,6 +78,8 @@ def test_fact_decomp_derives_fact_agreement() -> None:
     ratings = validate_fact_decomp_ratings(
         item,
         facts,
+        duplicate_flags=[False, False],
+        looks_good=[True, True],
         fact_calls=["SHOULD_LIST", "SHOULD_LIST"],
         values={
             "independently_verifiable": "pass",
@@ -127,3 +131,40 @@ def test_eval_fact_positions_are_unique_per_item() -> None:
 
         with pytest.raises(IntegrityError):
             session.flush()
+
+
+@pytest.mark.parametrize(
+    ("calls", "duplicates", "accepted"),
+    [
+        (["SHOULD_LIST"], [False], [False]),
+        (["SHOULD_LIST"], [], [True]),
+        (["SHOULD_LIST"], [True], [True]),
+        (["MALFORMED"], [False], [True]),
+    ],
+    ids=["untouched", "missing-flag", "conflicting-decision", "malformed-accepted"],
+)
+def test_fact_decomp_rejects_incomplete_decisions(calls, duplicates, accepted):
+    item = EvalItem(
+        dataset_id=1,
+        eval_type=EvalType.FACT_DECOMP,
+        source=ItemSource.HUMAN,
+        prompt_text="A",
+    )
+    facts = [
+        EvalFact(
+            item_id=1, fact_text="A", polarity=FactPolarity.SHOULD_LIST, position=0
+        )
+    ]
+    with pytest.raises(ValueError):
+        validate_fact_decomp_ratings(
+            item,
+            facts,
+            fact_calls=calls,
+            duplicate_flags=duplicates,
+            looks_good=accepted,
+            values={
+                "independently_verifiable": "pass",
+                "noise_removed": "pass",
+                "deduplicated_ordered": "pass",
+            },
+        )

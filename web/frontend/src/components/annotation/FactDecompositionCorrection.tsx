@@ -17,6 +17,7 @@ import {
   initialModelClaim,
   Labels,
 } from "./ClaimCorrectionList"
+import { GradingInstructions } from "./GradingInstructions"
 import {
   type ClaimResponseSpan,
   normalizeResponseSpans,
@@ -80,6 +81,8 @@ export function FactDecompositionCorrection({
           label: saved ? (saved.label ?? undefined) : claim.proposed_label,
         },
         issue: saved?.issue,
+        duplicate: saved?.duplicate ?? false,
+        looksGood: saved?.looks_good ?? false,
       }
     }),
     ...(existingReview?.human_claims.map((claim, i) => ({
@@ -114,7 +117,10 @@ export function FactDecompositionCorrection({
   const modelGroups = groups.filter((group) => group.original)
   const modelReviewsComplete = modelGroups.every(
     (group) =>
-      !!group.claim.label ||
+      !!group.looksGood ||
+      !!group.duplicate ||
+      (!!group.claim.label &&
+        group.claim.label !== group.original?.proposed_label) ||
       (group.issue !== null &&
         group.issue !== undefined &&
         !!group.issue.trim()),
@@ -161,6 +167,8 @@ export function FactDecompositionCorrection({
       position: group.original!.position,
       label: group.claim.label ?? null,
       issue: group.issue?.trim() || null,
+      duplicate: group.duplicate ?? false,
+      looks_good: group.looksGood ?? false,
     }))
     onSubmit({
       rubric_id: guide.rubric_id,
@@ -183,11 +191,6 @@ export function FactDecompositionCorrection({
           <h1 className="text-2xl font-semibold tracking-tight">
             Review extraction and importance
           </h1>
-          <div className="mt-2 max-w-2xl space-y-1 text-sm text-muted-foreground">
-            {guide.instructions.map((instruction) => (
-              <p key={instruction}>{instruction}</p>
-            ))}
-          </div>
         </div>
         <div className="space-y-2">
           <label className="flex items-center gap-2 text-sm">
@@ -305,6 +308,7 @@ export function FactDecompositionCorrection({
         </section>
 
         <div className="space-y-4">
+          <GradingInstructions guide={guide} />
           <ClaimCorrectionList
             activePosition={activePosition}
             groups={groups}
@@ -313,10 +317,12 @@ export function FactDecompositionCorrection({
             stagedSpans={stagedSpans}
             onFocusClaim={focusSourceSpan}
             hiddenModels={hiddenModels}
-            onChange={(id, claim, issue) =>
+            onChange={(id, claim, issue, duplicate, looksGood) =>
               setGroups((current) =>
                 current.map((group) =>
-                  group.id === id ? { ...group, claim, issue } : group,
+                  group.id === id
+                    ? { ...group, claim, issue, duplicate, looksGood }
+                    : group,
                 ),
               )
             }

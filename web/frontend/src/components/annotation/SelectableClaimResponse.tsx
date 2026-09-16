@@ -1,6 +1,5 @@
 import * as React from "react"
 
-import { codeUnitOffsetToCodePointOffset } from "@/lib/offsets"
 import { cn } from "@/lib/utils"
 
 export type ClaimResponseSpan = {
@@ -64,19 +63,6 @@ function selectionSpan(response: string): ClaimResponseSpan | null {
   })
   if (start === null || end === null || start === end) return null
   return responseSpanFromCodePointRange(response, start, end)
-}
-
-/** Convert a browser UTF-16 selection into the API's code-point span. */
-export function responseSpanFromCodeUnitRange(
-  response: string,
-  startUnit: number,
-  endUnit: number,
-): ClaimResponseSpan | null {
-  return responseSpanFromCodePointRange(
-    response,
-    codeUnitOffsetToCodePointOffset(response, Math.min(startUnit, endUnit)),
-    codeUnitOffsetToCodePointOffset(response, Math.max(startUnit, endUnit)),
-  )
 }
 
 function responseSpanFromCodePointRange(

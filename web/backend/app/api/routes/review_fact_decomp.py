@@ -119,6 +119,7 @@ def read_fact_decomp_review(
         item=item_payload(item),
         task_id=task.id,
         facts=[ReviewFact.model_validate(fact) for fact in facts],
+        guide=importance_guide(authored=True),
         rubric_dimensions=fact_decomp_rubric(),
         documents=documents,
         chunks=[ChunkSummary.model_validate(chunk) for chunk in chunks],
@@ -169,6 +170,8 @@ def submit_fact_decomp_review(
             item,
             list(facts),
             fact_calls=body.fact_calls,
+            duplicate_flags=body.duplicate_flags,
+            looks_good=body.looks_good,
             values=body.values,
         )
     except ValueError as exc:
@@ -252,6 +255,16 @@ def submit_model_eval_review(
             status_code=400,
             detail="claim_reviews must cover each model claim position exactly once in source order",
         )
+    for claim, judgment in zip(claims, body.claim_reviews, strict=True):
+        changed_label = (
+            judgment.label is not None and judgment.label != claim.proposed_label
+        )
+        if not (
+            judgment.looks_good or judgment.duplicate or judgment.issue or changed_label
+        ):
+            raise HTTPException(
+                status_code=400, detail="Each claim needs an explicit review decision"
+            )
     for claim in body.human_claims:
         try:
             claim.response_spans = _validate_submitted_spans(

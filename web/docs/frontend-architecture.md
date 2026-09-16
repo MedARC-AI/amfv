@@ -79,8 +79,8 @@ through bounded product messages rather than raw response bodies.
 
 The review view keeps original model text, source spans, and labels immutable.
 Original model labels are visible and preselected for new correction reviews.
-Reviewers can keep or change each label and explain an extraction issue.
-Saved reviews retain the reviewer’s judgments, including issue-only entries.
+Reviewers explicitly accept each claim with **Looks good**, change its label, or flag a problem. **Extraction issue** and **Duplicate** are independent toggle buttons; extraction issues require an explanation. Looks good clears both problem flags. Untouched claims cannot be submitted; reverting all changes returns a claim to Needs review. Importance stays independent of duplication.
+Saved reviews retain labels, extraction notes, duplicate flags, and explicit acceptance, including issue-only and duplicate-only entries.
 
 The **Hide model results** control hides model cards and source highlights.
 It preserves review state.
@@ -95,3 +95,13 @@ The optional `task_id` search value reloads a submitted task for read-only inspe
 Visibility and collapse controls remain available to inspect a saved review.
 On desktop, the source pane stays in place as claims scroll. Long source content
 scrolls within that pane; narrow screens retain a stacked layout.
+
+## Grading instructions and authored review
+
+The expandable **Grading instructions** guide appears above the claims and starts open.
+The browser remembers the reviewer’s open/closed preference. Importance definitions remain visible beside the model grading controls.
+
+Human-authored fact reviews also require an explicit per-fact decision: Looks good,
+a changed reviewer call, or Duplicate. The existing Malformed call identifies extraction problems.
+The overall rubric stays independent. Saved authored reviews restore their decisions,
+comments, confidence, and rubric values in a read-only view.

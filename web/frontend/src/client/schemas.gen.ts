@@ -1010,6 +1010,9 @@ export const AuthoredFactDecompReviewPayloadSchema = {
             title: 'Facts',
             type: 'array'
         },
+        guide: {
+            '$ref': '#/components/schemas/ImportanceGuide'
+        },
         item: {
             '$ref': '#/components/schemas/ReviewItem'
         },
@@ -1040,7 +1043,7 @@ export const AuthoredFactDecompReviewPayloadSchema = {
             type: 'integer'
         }
     },
-    required: ['dataset', 'item', 'task_id', 'item_revision', 'review_mode', 'facts', 'rubric_dimensions', 'allowed_actions'],
+    required: ['dataset', 'item', 'task_id', 'item_revision', 'review_mode', 'facts', 'guide', 'rubric_dimensions', 'allowed_actions'],
     title: 'AuthoredFactDecompReviewPayload',
     type: 'object'
 } as const;
@@ -1295,6 +1298,11 @@ export const ClaimReviewSchema = {
     additionalProperties: false,
     description: 'One explicit human judgment of an original model claim.',
     properties: {
+        duplicate: {
+            default: false,
+            title: 'Duplicate',
+            type: 'boolean'
+        },
         issue: {
             anyOf: [
                 {
@@ -1318,6 +1326,11 @@ export const ClaimReviewSchema = {
                 }
             ],
             title: 'Label'
+        },
+        looks_good: {
+            default: false,
+            title: 'Looks Good',
+            type: 'boolean'
         },
         position: {
             minimum: 0,
@@ -1871,6 +1884,14 @@ export const FactDecompReviewSubmitSchema = {
                 }
             ]
         },
+        duplicate_flags: {
+            items: {
+                type: 'boolean'
+            },
+            maxItems: 10000,
+            title: 'Duplicate Flags',
+            type: 'array'
+        },
         fact_calls: {
             items: {
                 type: 'string'
@@ -1882,6 +1903,14 @@ export const FactDecompReviewSubmitSchema = {
             title: 'Item Revision',
             type: 'integer'
         },
+        looks_good: {
+            items: {
+                type: 'boolean'
+            },
+            maxItems: 10000,
+            title: 'Looks Good',
+            type: 'array'
+        },
         values: {
             additionalProperties: {
                 type: 'string'
@@ -1890,7 +1919,7 @@ export const FactDecompReviewSubmitSchema = {
             type: 'object'
         }
     },
-    required: ['fact_calls', 'values', 'item_revision'],
+    required: ['duplicate_flags', 'looks_good', 'fact_calls', 'values', 'item_revision'],
     title: 'FactDecompReviewSubmit',
     type: 'object'
 } as const;

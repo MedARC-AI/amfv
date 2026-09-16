@@ -2,17 +2,24 @@
 
 from __future__ import annotations
 
-from typing import Literal, Self
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
+from app.fact_decomp_contract import (
+    IDENTIFIER_PATTERN,
+    MAX_CLAIMS,
+    MAX_RESPONSE_LENGTH,
+    SHA256_PATTERN,
+    GeneratorProvenance,
+    ModelClaim,
+)
 from app.models import EvalFact, EvalItem, ItemSource
 from app.schemas import (
     ClaimReview,
     HumanClaim,
     ImportanceGuide,
     ImportanceGuideLabel,
-    ModelClaimLabel,
     ResponseClaimSpan,
     ReviewModelClaim,
 )
@@ -28,96 +35,21 @@ __all__ = [
     "read_correction_metadata",
 ]
 
-MAX_CASE_ID_LENGTH = 128
-MAX_ARM_ID_LENGTH = 128
-MAX_CLAIMS = 10_000
-MAX_CLAIM_TEXT_LENGTH = 20_000
-MAX_SPANS_PER_CLAIM = 100
-MAX_RESPONSE_LENGTH = 1_000_000
-MAX_PROMPT_LENGTH = 100_000
 IMPORTANCE_RUBRIC_ID = "importance-v1"
-IDENTIFIER_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
-SHA256_PATTERN = r"^[0-9a-f]{64}$"
 
 
 class _StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
 
-class StoredCorrectionSpan(_StrictModel):
-    start: int = Field(ge=0)
-    end: int = Field(gt=0)
-    text: str = Field(min_length=1, max_length=MAX_CLAIM_TEXT_LENGTH)
-
-    @model_validator(mode="after")
-    def validate_span(self) -> Self:
-        if self.end <= self.start:
-            raise ValueError("span end must be greater than start")
-        if not self.text.strip():
-            raise ValueError("span text must not be blank")
-        return self
-
-
-class StoredCorrectionClaim(_StrictModel):
-    claim: str = Field(min_length=1, max_length=MAX_CLAIM_TEXT_LENGTH)
-    spans: list[StoredCorrectionSpan] = Field(
-        min_length=1, max_length=MAX_SPANS_PER_CLAIM
-    )
-    label: ModelClaimLabel
-
-    @field_validator("claim")
-    @classmethod
-    def validate_claim(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("claim must not be blank")
-        return value
-
-    @model_validator(mode="after")
-    def validate_span_order(self) -> Self:
-        previous_end = -1
-        for span in self.spans:
-            if span.start < previous_end:
-                raise ValueError(
-                    "spans must be source-ordered and nonoverlapping within a claim"
-                )
-            previous_end = span.end
-        return self
-
-
-class StoredCorrectionGenerator(_StrictModel):
-    model_id: str = Field(min_length=1, max_length=500)
-    model_revision: str | None = Field(default=None, min_length=1, max_length=500)
-    prompt_text: str = Field(min_length=1, max_length=MAX_PROMPT_LENGTH)
-    pydantic_ai_version: str = Field(min_length=1, max_length=100)
-    generation: dict[str, str | int | float] = Field(
-        default_factory=dict, max_length=16
-    )
-
-    @field_validator("model_id")
-    @classmethod
-    def validate_model_id(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("model_id must not be blank")
-        return value
-
-    @field_validator("prompt_text")
-    @classmethod
-    def validate_prompt_text(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("prompt_text must not be blank")
-        return value
-
-
 class FactDecompCorrectionMetadata(_StrictModel):
     schema_version: Literal[2]
     review_mode: Literal["MODEL_LABEL_CORRECTION"]
-    case_id: str = Field(pattern=IDENTIFIER_PATTERN, max_length=MAX_CASE_ID_LENGTH)
-    arm_id: str = Field(pattern=IDENTIFIER_PATTERN, max_length=MAX_ARM_ID_LENGTH)
+    case_id: str = Field(pattern=IDENTIFIER_PATTERN)
+    arm_id: str = Field(pattern=IDENTIFIER_PATTERN)
     canonical_row_sha256: str = Field(pattern=SHA256_PATTERN)
-    generator: StoredCorrectionGenerator
-    ordered_claim_annotations: list[StoredCorrectionClaim] = Field(
-        max_length=MAX_CLAIMS
-    )
+    generator: GeneratorProvenance
+    ordered_claim_annotations: list[ModelClaim] = Field(max_length=MAX_CLAIMS)
 
 
 class ModelCorrectionRating(_StrictModel):
@@ -131,15 +63,24 @@ class ModelCorrectionRating(_StrictModel):
     coverage_checked: Literal[True]
 
 
-def importance_guide() -> ImportanceGuide:
+def importance_guide(*, authored: bool = False) -> ImportanceGuide:
     """Return the backend-owned guide for extraction and importance review."""
-    return ImportanceGuide(
+    guide = ImportanceGuide(
         rubric_id=IMPORTANCE_RUBRIC_ID,
         instructions=[
-            "Judge each claim by its contribution to the passage's purpose. Use the question as context when one is present.",
-            "Flag changed meaning, lost context, unsuitable splitting or grouping, non-claims, and duplicates separately from importance.",
-            "Add a missing claim only when it is a worthwhile assertion in the source text.",
-            "Grade extraction and importance. Do not judge factual correctness.",
+            "Check whether the extracted claims faithfully represent the source, can be verified independently, and capture its important content. Use the question, when provided, to understand the source’s purpose.",
+            "Grade extraction quality and importance—not factual correctness. A false claim can still be correctly extracted and important.",
+            "Preserve meaning: each claim must represent an assertion made by the source without adding information, correcting errors, or changing certainty.",
+            "Stand on its own: a fact-checker must understand what to verify without seeing the original question, response, or other claims. Retain relevant subjects, populations, quantities, timeframes, qualifications, and attribution.",
+            "Use one assessable assertion: separate assertions that could receive different factual judgments. Keep conditions, comparisons, and causal relationships together when splitting would change their meaning.",
+            "Use Extraction issue and briefly explain changed meaning, missing context, unsuitable splitting or grouping, or text that does not express a factual assertion.",
+            "Grade importance by contribution to the source’s substantive points, conclusions, or recommended actions. Keep the proposed grade if you agree; change it if you disagree. Do not use Unimportant as a substitute for an extraction flag.",
+            "Mark Duplicate when a claim repeats information already captured by another claim without adding a meaningful distinction. Keep the first occurrence unflagged and mark later repetitions. No explanation is required.",
+            "Different wording can express the same claim. Shared subject matter or partial overlap alone does not establish duplication. Different conditions, populations, quantities, timeframes, or qualifications can make claims distinct. Contradictory claims are not duplicates.",
+            "Grade importance separately: a claim can be vital and duplicate.",
+            "Check the source for missing worthwhile factual assertions. Add those claims, select their exact supporting passages, and assign an importance grade. Do not add every factual detail, repetitions, or assertions drawn only from the question.",
+            "For each claim, select Looks good if its extraction and grade are acceptable and it is not a duplicate. Otherwise change its grade, mark Duplicate, or explain an Extraction issue. Untouched claims still need review. Reverting all changes requires a new decision.",
+            "Before submitting, confirm that you reviewed every extracted claim and checked the source for missing worthwhile claims.",
         ],
         labels=[
             ImportanceGuideLabel(
@@ -164,6 +105,17 @@ def importance_guide() -> ImportanceGuide:
             ),
         ],
     )
+
+    if authored:
+        guide.instructions = [
+            *guide.instructions[:5],
+            "Use Malformed for extraction problems. Use Should list or Should not list to judge whether each fact belongs in the decomposition.",
+            *guide.instructions[7:9],
+            "Mark Duplicate separately from the reviewer call. A claim may belong in the decomposition but repeat an earlier claim.",
+            "For each fact, select Looks good if its extraction and proposed call are acceptable and it is not a duplicate. Otherwise change its call or mark Duplicate. Reverting all changes requires a new decision.",
+            "Grade the whole decomposition for independent verifiability, removal of noise, and deduplication and ordering. Use Comments for missing assertions or other problems.",
+        ]
+    return guide
 
 
 class CorrectionMetadataError(ValueError):

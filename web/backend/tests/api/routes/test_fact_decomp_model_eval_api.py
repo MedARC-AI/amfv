@@ -93,8 +93,20 @@ def _valid_submission() -> dict:
         "item_revision": 1,
         "rubric_id": "importance-v1",
         "claim_reviews": [
-            {"position": 0, "label": "unimportant", "issue": None},
-            {"position": 1, "label": None, "issue": "The subject is ambiguous."},
+            {
+                "position": 0,
+                "label": "unimportant",
+                "issue": None,
+                "duplicate": False,
+                "looks_good": False,
+            },
+            {
+                "position": 1,
+                "label": None,
+                "issue": "The subject is ambiguous.",
+                "duplicate": False,
+                "looks_good": False,
+            },
         ],
         "human_claims": [
             {
@@ -399,3 +411,39 @@ def test_zero_claim_review_requires_coverage_and_saves(
         ).json()["existing_review"]["coverage_checked"]
         is True
     )
+
+
+def test_explicit_decisions_required_and_flags_round_trip(
+    client, normal_user_token_headers, db
+):
+    item, task = _imported_task(db)
+    url = f"{settings.API_V1_STR}/review/fact-decomp/{task.id}"
+    body = _valid_submission()
+    body["claim_reviews"] = [
+        {"position": 0, "label": "vital", "duplicate": False, "looks_good": False},
+        {
+            "position": 1,
+            "label": "semi-important",
+            "duplicate": False,
+            "looks_good": True,
+        },
+    ]
+    assert (
+        client.post(
+            f"{url}/model-eval", headers=normal_user_token_headers, json=body
+        ).status_code
+        == 400
+    )
+    body["claim_reviews"][0]["duplicate"] = True
+    body["claim_reviews"][0]["label"] = None
+    assert (
+        client.post(
+            f"{url}/model-eval", headers=normal_user_token_headers, json=body
+        ).status_code
+        == 200
+    )
+    saved = client.get(url, headers=normal_user_token_headers).json()[
+        "existing_review"
+    ]["claim_reviews"]
+    assert saved[0]["duplicate"] is True and saved[0]["label"] is None
+    assert saved[1]["looks_good"] is True and saved[1]["duplicate"] is False

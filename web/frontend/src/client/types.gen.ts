@@ -239,6 +239,7 @@ export type AuthoredFactDecompReviewPayload = {
     [key: string]: unknown;
 } | null);
     facts: Array<ReviewFact>;
+    guide: ImportanceGuide;
     item: ReviewItem;
     item_revision: number;
     kind?: "fact_decomp";
@@ -315,8 +316,10 @@ export type ChunkSummary = {
  * One explicit human judgment of an original model claim.
  */
 export type ClaimReview = {
+    duplicate?: boolean;
     issue?: (string | null);
     label?: ('vital' | 'semi-important' | 'unimportant' | null);
+    looks_good?: boolean;
     position: number;
 };
 
@@ -449,8 +452,10 @@ export type FactDecompReviewSubmissionResponse = {
 export type FactDecompReviewSubmit = {
     comments?: (string | null);
     confidence?: (JudgmentConfidence | null);
+    duplicate_flags: Array<(boolean)>;
     fact_calls: Array<(string)>;
     item_revision: number;
+    looks_good: Array<(boolean)>;
     values: {
         [key: string]: (string);
     };

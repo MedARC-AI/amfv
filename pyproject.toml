@@ -8,7 +8,7 @@ dependencies = []
 
 [dependency-groups]
 dev = [
-    "amfv-datasets",
+    "amfv-datasets[decomposition-eval]",
     "amfv-decomposer",
     "amfv-search",
     "amfv-utils",

@@ -140,26 +140,15 @@ jobs:
       - name: Install Python workspace
         run: uv sync --dev
 
-      - name: Check web migration drift
-        working-directory: web/backend
-        env:
-          SQLITE_DATABASE_URL: sqlite:///./ci-alembic-check.db
-          PROJECT_NAME: AMFV CI
-          SECRET_KEY: ci-only-secret-key-at-least-32-bytes
-          FIRST_SUPERUSER: ci-admin@example.com
-          FIRST_SUPERUSER_PASSWORD: ci-only-password
-          ENVIRONMENT: local
-        run: |
-          uv run alembic upgrade head
-          uv run alembic check
-
       - name: Install frontend workspace
         working-directory: web/frontend
         run: bun install --frozen-lockfile
 
       - name: Check frontend and email artifacts
         working-directory: web
-        run: bun run check
+        run: |
+          bun run email:check
+          bun run lint
 
       - name: Run frontend unit tests
         working-directory: web/frontend

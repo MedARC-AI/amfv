@@ -171,3 +171,18 @@ continue.
 
 The item endpoint is only for `FACT_DECOMP` artifacts. Continue to use
 `/api/v1/admin/documents/import` for source documents.
+
+### Explicit review decisions
+
+Correction `claim_reviews` entries include boolean `duplicate` and `looks_good` fields
+(default false). A submission must explicitly accept a claim, change its proposed
+importance label, explain an extraction issue, or mark it duplicate. An unchanged
+label alone is insufficient. `looks_good` cannot accompany either problem flag.
+A duplicate-only judgment may have a null importance label; false flags alone do
+not complete a review. These fields round-trip through saved reviews and exports.
+
+Authored review submissions require `duplicate_flags` and `looks_good` boolean
+arrays aligned with the ordered `fact_calls`. Each fact needs explicit acceptance,
+a changed call, or a duplicate flag. These arrays are stored and exported in ratings.
+No existing-review migration is required for this rollout. Generation artifacts and
+the extraction prompt are unchanged.

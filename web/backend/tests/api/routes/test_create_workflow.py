@@ -385,7 +385,7 @@ def test_fact_save_failure_before_commit_leaves_no_item_or_receipt(
         _ = session
         raise RuntimeError("forced failure before commit")
 
-    monkeypatch.setattr(create_routes, "_commit_fact_decomp_save", fail_before_commit)
+    monkeypatch.setattr(Session, "commit", fail_before_commit)
     failed = client.post(
         f"{settings.API_V1_STR}/create/fact-decomp/draft",
         headers=normal_user_token_headers,

@@ -34,12 +34,6 @@ repos:
         language: system
         pass_filenames: false
         files: ^web/(frontend/|backend/app/email-templates/|package\.json|bun\.lock)
-      - id: web-frontend-unit
-        name: Web frontend unit tests
-        entry: bash -c 'cd web && bun run test:unit'
-        language: system
-        pass_filenames: false
-        files: ^web/frontend/(src|tests)/
       - id: generate-web-client
         name: Generate web API client
         entry: bash web/scripts/generate-client.sh

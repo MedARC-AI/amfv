@@ -16,6 +16,7 @@ import {
   type CorrectionInputClaim,
   FactDecompositionCorrection,
 } from "@/components/annotation/FactDecompositionCorrection"
+import { GradingInstructions } from "@/components/annotation/GradingInstructions"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -91,6 +92,8 @@ function correctionClaims(
 function FactDecompositionReview() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+  const [duplicateFlags, setDuplicateFlags] = React.useState<boolean[]>([])
+  const [looksGood, setLooksGood] = React.useState<boolean[]>([])
   const [factCalls, setFactCalls] = React.useState<string[]>([])
   const [rubricValues, setRubricValues] = React.useState<
     Record<string, string>
@@ -145,10 +148,36 @@ function FactDecompositionReview() {
     }
     initializedTaskId.current = payload.task_id
     if (payload.review_mode === "AUTHORED_RUBRIC") {
-      setFactCalls(initialFactCalls(payload.facts))
-      setRubricValues(initialRubricValues(payload.rubric_dimensions))
+      const existing = payload.existing_review as {
+        ratings: {
+          fact_calls: string[]
+          duplicate_flags: boolean[]
+          looks_good: boolean[]
+          [key: string]: unknown
+        }
+        comment?: string
+        flags?: { confidence?: JudgmentConfidence }
+      } | null
+      const saved = existing?.ratings
+      setFactCalls(saved?.fact_calls ?? initialFactCalls(payload.facts))
+      setDuplicateFlags(
+        saved?.duplicate_flags ?? payload.facts.map(() => false),
+      )
+      setLooksGood(saved?.looks_good ?? payload.facts.map(() => false))
+      setRubricValues(
+        saved
+          ? Object.fromEntries(
+              payload.rubric_dimensions.map((d) => [
+                d.key,
+                String(saved[d.key]),
+              ]),
+            )
+          : initialRubricValues(payload.rubric_dimensions),
+      )
+      setComments(existing?.comment ?? "")
+      setConfidence(existing?.flags?.confidence ?? "EASY_CALL")
     }
-    setComments("")
+    if (payload.review_mode !== "AUTHORED_RUBRIC") setComments("")
     setCompletionMessage(null)
     setErrorMessage(null)
     setModelSubmitting(false)
@@ -180,6 +209,8 @@ function FactDecompositionReview() {
     }
     submitMutation.mutate({
       fact_calls: factCalls,
+      duplicate_flags: duplicateFlags,
+      looks_good: looksGood,
       values: rubricValues,
       comments: comments.trim() || null,
       confidence,
@@ -270,6 +301,15 @@ function FactDecompositionReview() {
     )
   }
 
+  const authoredLocked =
+    !!payload.existing_review ||
+    submitMutation.isPending ||
+    !!completionMessage ||
+    !isReviewActionAllowed(payload.allowed_actions, "save_review")
+  const authoredComplete = payload.facts.every(
+    (fact, i) =>
+      looksGood[i] || duplicateFlags[i] || factCalls[i] !== fact.polarity,
+  )
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -281,6 +321,7 @@ function FactDecompositionReview() {
         <Badge variant="outline">Task {payload.task_id}</Badge>
       </div>
 
+      <GradingInstructions guide={payload.guide} />
       <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
         <section className="space-y-5">
           <div className="space-y-3 rounded-md border p-4">
@@ -299,7 +340,13 @@ function FactDecompositionReview() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-xs text-muted-foreground">
-                      Fact {fact.position + 1}
+                      Fact {fact.position + 1} ·{" "}
+                      {looksGood[index] ||
+                      duplicateFlags[index] ||
+                      factCalls[index] !== fact.polarity
+                        ? "Reviewed"
+                        : "Needs review"}
+                      {duplicateFlags[index] ? " · Duplicate" : ""}
                     </div>
                     <p className="mt-1 whitespace-pre-wrap text-sm">
                       {fact.fact_text}
@@ -312,13 +359,17 @@ function FactDecompositionReview() {
                 <div className="mt-3 space-y-2">
                   <Label>Reviewer call</Label>
                   <Select
-                    onValueChange={(value) =>
+                    disabled={authoredLocked}
+                    onValueChange={(value) => {
+                      setLooksGood((current) =>
+                        current.map((v, i) => (i === index ? false : v)),
+                      )
                       setFactCalls((current) =>
                         current.map((call, callIndex) =>
                           callIndex === index ? value : call,
                         ),
                       )
-                    }
+                    }}
                     value={factCalls[index] ?? fact.polarity}
                   >
                     <SelectTrigger
@@ -335,6 +386,52 @@ function FactDecompositionReview() {
                       ))}
                     </SelectContent>
                   </Select>
+                  <fieldset
+                    className="flex flex-wrap gap-2"
+                    aria-label={`Fact ${fact.position + 1} review decision`}
+                  >
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={authoredLocked}
+                      variant={looksGood[index] ? "default" : "outline"}
+                      aria-pressed={!!looksGood[index]}
+                      onClick={() => {
+                        if (factCalls[index] === "MALFORMED") {
+                          setFactCalls((current) =>
+                            current.map((call, i) =>
+                              i === index ? fact.polarity : call,
+                            ),
+                          )
+                        }
+                        setLooksGood((current) =>
+                          current.map((v, i) => (i === index ? !v : v)),
+                        )
+                        setDuplicateFlags((current) =>
+                          current.map((v, i) => (i === index ? false : v)),
+                        )
+                      }}
+                    >
+                      Looks good
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={authoredLocked}
+                      variant={duplicateFlags[index] ? "default" : "outline"}
+                      aria-pressed={!!duplicateFlags[index]}
+                      onClick={() => {
+                        setDuplicateFlags((current) =>
+                          current.map((v, i) => (i === index ? !v : v)),
+                        )
+                        setLooksGood((current) =>
+                          current.map((v, i) => (i === index ? false : v)),
+                        )
+                      }}
+                    >
+                      Duplicate
+                    </Button>
+                  </fieldset>
                 </div>
               </div>
             ))}
@@ -358,96 +455,105 @@ function FactDecompositionReview() {
         </section>
 
         <aside className="space-y-5">
-          <section className="space-y-4">
-            <h2 className="text-base font-semibold tracking-normal">Rubric</h2>
-            {(payload.rubric_dimensions ?? []).map((dimension) => (
-              <div className="space-y-2" key={dimension.key}>
-                <Label>{dimension.label}</Label>
-                <Select
-                  onValueChange={(value) =>
-                    setRubricValues((current) => ({
-                      ...current,
-                      [dimension.key]: value,
-                    }))
-                  }
-                  value={
-                    rubricValues[dimension.key] ??
-                    dimension.options?.[0] ??
-                    "pass"
-                  }
-                >
-                  <SelectTrigger
-                    className="w-full"
-                    data-testid={`rubric-${dimension.key}`}
+          <fieldset disabled={authoredLocked} className="space-y-5">
+            <section className="space-y-4">
+              <h2 className="text-base font-semibold tracking-normal">
+                Rubric
+              </h2>
+              {(payload.rubric_dimensions ?? []).map((dimension) => (
+                <div className="space-y-2" key={dimension.key}>
+                  <Label>{dimension.label}</Label>
+                  <Select
+                    onValueChange={(value) =>
+                      setRubricValues((current) => ({
+                        ...current,
+                        [dimension.key]: value,
+                      }))
+                    }
+                    value={
+                      rubricValues[dimension.key] ??
+                      dimension.options?.[0] ??
+                      "pass"
+                    }
                   >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(dimension.options ?? []).map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {optionLabel(option)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                    <SelectTrigger
+                      className="w-full"
+                      data-testid={`rubric-${dimension.key}`}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(dimension.options ?? []).map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {optionLabel(option)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+            </section>
+
+            <div className="space-y-2">
+              <Label>Confidence</Label>
+              <Select
+                onValueChange={(value: JudgmentConfidence) =>
+                  setConfidence(value)
+                }
+                value={confidence}
+              >
+                <SelectTrigger
+                  className="w-full"
+                  data-testid="confidence-select"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {confidences.map((entry) => (
+                    <SelectItem key={entry.value} value={entry.value}>
+                      {entry.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="fact-review-comments">Comments</Label>
+              <textarea
+                className="border-input focus-visible:border-ring focus-visible:ring-ring/50 min-h-24 w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
+                id="fact-review-comments"
+                onChange={(event) => setComments(event.target.value)}
+                value={comments}
+              />
+            </div>
+
+            {errorMessage ? (
+              <div className="rounded-md border border-destructive/40 p-3 text-sm">
+                {errorMessage}
               </div>
-            ))}
-          </section>
+            ) : null}
 
-          <div className="space-y-2">
-            <Label>Confidence</Label>
-            <Select
-              onValueChange={(value: JudgmentConfidence) =>
-                setConfidence(value)
+            {completionMessage ? (
+              <div className="rounded-md border p-3 text-sm">
+                {completionMessage}
+              </div>
+            ) : null}
+
+            <Button
+              disabled={
+                authoredLocked ||
+                !authoredComplete ||
+                submitMutation.isPending ||
+                completionMessage !== null ||
+                !isReviewActionAllowed(payload.allowed_actions, "save_review")
               }
-              value={confidence}
+              onClick={submitReview}
+              type="button"
             >
-              <SelectTrigger className="w-full" data-testid="confidence-select">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {confidences.map((entry) => (
-                  <SelectItem key={entry.value} value={entry.value}>
-                    {entry.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="fact-review-comments">Comments</Label>
-            <textarea
-              className="border-input focus-visible:border-ring focus-visible:ring-ring/50 min-h-24 w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
-              id="fact-review-comments"
-              onChange={(event) => setComments(event.target.value)}
-              value={comments}
-            />
-          </div>
-
-          {errorMessage ? (
-            <div className="rounded-md border border-destructive/40 p-3 text-sm">
-              {errorMessage}
-            </div>
-          ) : null}
-
-          {completionMessage ? (
-            <div className="rounded-md border p-3 text-sm">
-              {completionMessage}
-            </div>
-          ) : null}
-
-          <Button
-            disabled={
-              submitMutation.isPending ||
-              completionMessage !== null ||
-              !isReviewActionAllowed(payload.allowed_actions, "save_review")
-            }
-            onClick={submitReview}
-            type="button"
-          >
-            {submitMutation.isPending ? "Submitting" : "Submit fact review"}
-          </Button>
+              {submitMutation.isPending ? "Submitting" : "Submit fact review"}
+            </Button>
+          </fieldset>
         </aside>
       </div>
     </div>

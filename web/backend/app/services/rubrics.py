@@ -39,6 +39,8 @@ def validate_fact_decomp_ratings(
     *,
     fact_calls: list[str],
     values: dict[str, str],
+    duplicate_flags: list[bool],
+    looks_good: list[bool],
 ) -> dict:
     if item.eval_type != EvalType.FACT_DECOMP:
         raise ValueError(
@@ -49,6 +51,17 @@ def validate_fact_decomp_ratings(
         raise ValueError(
             "FACT_DECOMP fact_calls must contain exactly one call per fact."
         )
+    if len(duplicate_flags) != len(ordered) or len(looks_good) != len(ordered):
+        raise ValueError("Duplicate and looks-good flags must cover every fact")
+    for fact, call, duplicate, accepted in zip(
+        ordered, fact_calls, duplicate_flags, looks_good, strict=True
+    ):
+        if accepted and (duplicate or call == "MALFORMED"):
+            raise ValueError(
+                "Looks good cannot be combined with duplicate or malformed"
+            )
+        if not (accepted or duplicate or call != fact.polarity.value):
+            raise ValueError("Each fact needs an explicit review decision")
     unknown_calls = {call for call in fact_calls if call not in FACT_CALL_OPTIONS}
     if unknown_calls:
         raise ValueError(f"Unknown fact call: {', '.join(sorted(unknown_calls))}")
@@ -56,6 +69,8 @@ def validate_fact_decomp_ratings(
     return {
         **values,
         "fact_calls": fact_calls,
+        "duplicate_flags": duplicate_flags,
+        "looks_good": looks_good,
         "fact_agreement": [
             _fact_agreement(call, fact.polarity.value)
             for fact, call in zip(ordered, fact_calls, strict=True)

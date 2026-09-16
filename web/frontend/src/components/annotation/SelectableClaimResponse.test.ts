@@ -1,23 +1,8 @@
 import { describe, expect, test } from "bun:test"
 
-import {
-  normalizeResponseSpans,
-  responseSpanFromCodeUnitRange,
-} from "./SelectableClaimResponse"
+import { normalizeResponseSpans } from "./SelectableClaimResponse"
 
 describe("selectable claim response spans", () => {
-  test("keeps code-point offsets after an emoji before the selection", () => {
-    const response = "Reasoning 😀 then the omitted claim"
-    const start = response.indexOf("the omitted")
-    const end = start + "the omitted claim".length
-
-    expect(responseSpanFromCodeUnitRange(response, start, end)).toEqual({
-      start: Array.from(response.slice(0, start)).length,
-      end: Array.from(response.slice(0, end)).length,
-      text: "the omitted claim",
-    })
-  })
-
   test("orders discontiguous spans and merges overlaps", () => {
     const response = "Alpha beta gamma"
 

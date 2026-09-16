@@ -1,11 +1,13 @@
-import { createHash } from "node:crypto"
+import { createHash, randomUUID } from "node:crypto"
 import { readFile } from "node:fs/promises"
 import { expect, type Page, test } from "@playwright/test"
 
-test("submits an authored fact-decomposition review", async ({ page }) => {
+test("submits an authored fact-decomposition review", async ({
+  page,
+}, testInfo) => {
   await page.goto("/review/fact-decomposition")
   await expect(
-    page.getByRole("heading", { name: "Fact Decomposition Review" }),
+    page.getByRole("heading", { name: "Ordered Facts" }),
   ).toBeVisible()
   await expect(
     page.getByText("Baker appears in the E2E source. Café appears too."),
@@ -16,10 +18,41 @@ test("submits an authored fact-decomposition review", async ({ page }) => {
   await page.getByRole("option", { name: "Pass" }).click()
   await page.getByTestId("rubric-deduplicated_ordered").click()
   await page.getByRole("option", { name: "Pass" }).click()
+  await expect(
+    page.getByRole("button", { name: "Submit fact review" }),
+  ).toBeDisabled()
+  for (const button of await page
+    .getByRole("button", { name: "Looks good", exact: true })
+    .all())
+    await button.click()
+  const firstDuplicate = page
+    .getByRole("button", { name: "Duplicate", exact: true })
+    .first()
+  await firstDuplicate.click()
+  await expect(
+    page.getByRole("button", { name: "Looks good", exact: true }).first(),
+  ).toHaveAttribute("aria-pressed", "false")
+  const taskText = await page.getByText(/^Task \d+$/).innerText()
+  await page.screenshot({
+    path: testInfo.outputPath("authored-duplicate.png"),
+    fullPage: true,
+  })
   await page.getByRole("button", { name: "Submit fact review" }).click()
   await expect(
     page.getByText(/Fact review submitted for item \d+\./),
   ).toBeVisible()
+  await page.goto(
+    `/review/fact-decomposition?task_id=${taskText.replace("Task ", "")}`,
+  )
+  await expect(
+    page.getByRole("button", { name: "Duplicate", exact: true }).first(),
+  ).toHaveAttribute("aria-pressed", "true")
+  await expect(
+    page.getByRole("button", { name: "Duplicate", exact: true }).first(),
+  ).toBeDisabled()
+  await expect(
+    page.getByRole("button", { name: "Submit fact review" }),
+  ).toBeDisabled()
 })
 
 async function selectSourceText(page: Page, target: string) {
@@ -69,30 +102,7 @@ async function selectSourceText(page: Page, target: string) {
   }, target)
 }
 
-test("grades extraction, reloads it, and downloads exact prompt history", async ({
-  page,
-}, testInfo) => {
-  await page.goto("/")
-  const accessToken = await page.evaluate(() =>
-    localStorage.getItem("access_token"),
-  )
-  expect(accessToken).not.toBeNull()
-  const authorization = { Authorization: `Bearer ${accessToken}` }
-  const apiBase = process.env.VITE_API_URL ?? "http://127.0.0.1:8000"
-  const datasetsResponse = await page.request.get(
-    `${apiBase}/api/v1/admin/datasets`,
-    { headers: authorization },
-  )
-  const datasets = (await datasetsResponse.json()) as Array<{
-    id: number
-    name: string
-  }>
-  const dataset = datasets.find(
-    (candidate) => candidate.name === "e2e-fact-decomposition",
-  )
-  expect(dataset).toBeDefined()
-
-  const caseId = "e2e-response-only"
+function modelRows(caseId: string) {
   const response =
     "Reasoning 😀 shows dehydration activates RAAS and efferent vasoconstriction preserves filtration pressure."
   const firstText = "dehydration activates RAAS"
@@ -147,27 +157,71 @@ test("grades extraction, reloads it, and downloads exact prompt history", async 
     },
   ])
   const secondRow = makeRow("e2e-arm-two", promptTwo, [])
-  const artifact = Buffer.from(
-    `${JSON.stringify(firstRow)}\n${JSON.stringify(secondRow)}\n`,
-  )
-  const importArtifact = (dryRun: boolean) =>
-    page.request.post(`${apiBase}/api/v1/admin/ingest`, {
-      headers: authorization,
-      multipart: {
-        dataset_id: String(dataset?.id),
-        dry_run: String(dryRun),
-        file: {
-          name: "fact-decomposition.jsonl",
-          mimeType: "application/x-ndjson",
-          buffer: artifact,
-        },
-      },
-    })
-  expect((await (await importArtifact(true)).json()).created).toBe(2)
-  expect((await (await importArtifact(false)).json()).created).toBe(2)
-  expect((await (await importArtifact(false)).json()).unchanged).toBe(2)
+  return [firstRow, secondRow]
+}
 
-  await page.goto("/review/fact-decomposition")
+async function importModelRows(
+  page: Page,
+  scenario: string,
+  rows: ReturnType<typeof modelRows>,
+) {
+  await page.goto("/")
+  const accessToken = await page.evaluate(() =>
+    localStorage.getItem("access_token"),
+  )
+  expect(accessToken).not.toBeNull()
+  const headers = { Authorization: `Bearer ${accessToken}` }
+  const apiBase = process.env.VITE_API_URL ?? "http://127.0.0.1:8000"
+  const displayName = `Fact review ${scenario} ${randomUUID()}`
+  const created = await page.request.post(`${apiBase}/api/v1/admin/datasets`, {
+    headers,
+    data: {
+      name: displayName,
+      display_name: displayName,
+      eval_type: "FACT_DECOMP",
+    },
+  })
+  expect(created.ok()).toBe(true)
+  const dataset = (await created.json()) as { id: number }
+  const imported = await page.request.post(`${apiBase}/api/v1/admin/ingest`, {
+    headers,
+    multipart: {
+      dataset_id: String(dataset.id),
+      file: {
+        name: "fact-decomposition.jsonl",
+        mimeType: "application/x-ndjson",
+        buffer: Buffer.from(
+          `${rows.map((row) => JSON.stringify(row)).join("\n")}\n`,
+        ),
+      },
+    },
+  })
+  expect(imported.ok()).toBe(true)
+  expect((await imported.json()).created).toBe(rows.length)
+  const claimed = await page.request.post(`${apiBase}/api/v1/review/claim`, {
+    headers,
+    data: {
+      dataset_id: dataset.id,
+      eval_type: "FACT_DECOMP",
+      mode: "ITEM_AUDIT",
+    },
+  })
+  expect(claimed.ok()).toBe(true)
+  const { task_id: taskId } = (await claimed.json()) as { task_id: number }
+  return { apiBase, headers, taskId, displayName }
+}
+
+test("grades model claims and saves human selections through a failed request and reload", async ({
+  page,
+}, testInfo) => {
+  const rows = modelRows("e2e-grading")
+  const { apiBase, headers, taskId } = await importModelRows(page, "grading", [
+    rows[0],
+  ])
+  const response = rows[0].assistant_response
+  const codePointStart = (text: string) =>
+    Array.from(response.slice(0, response.indexOf(text))).length
+  await page.goto(`/review/fact-decomposition?task_id=${taskId}`)
   await expect(
     page.getByRole("heading", { name: "Review extraction and importance" }),
   ).toBeVisible()
@@ -198,6 +252,16 @@ test("grades extraction, reloads it, and downloads exact prompt history", async 
   await expect(claimList.locator('[data-claim-position="0"]')).toHaveClass(
     /ring-2/,
   )
+  const instructions = page.getByRole("button", {
+    name: "Grading instructions",
+    exact: true,
+  })
+  await instructions.click()
+  const instructionsOpen = await instructions.getAttribute("aria-expanded")
+  await page.reload()
+  await expect(instructions).toHaveCount(1)
+  await expect(instructions).toHaveAttribute("aria-expanded", instructionsOpen!)
+  if (instructionsOpen === "true") await instructions.click()
   const firstLabels = page.getByRole("group", {
     name: "Claim 1 label",
     exact: true,
@@ -213,6 +277,31 @@ test("grades extraction, reloads it, and downloads exact prompt history", async 
     secondLabels.getByRole("button", { name: "Unimportant", exact: true }),
   ).toHaveAttribute("aria-pressed", "true")
 
+  const decisions = page.getByRole("group", { name: "Claim 1 review decision" })
+  await expect(page.locator('[data-claim-position="0"] summary')).toContainText(
+    "Needs review",
+  )
+  await decisions
+    .getByRole("button", { name: "Looks good", exact: true })
+    .click()
+  await expect(
+    decisions.getByRole("button", { name: "Looks good", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true")
+  await decisions
+    .getByRole("button", { name: "Duplicate", exact: true })
+    .click()
+  await expect(
+    decisions.getByRole("button", { name: "Looks good", exact: true }),
+  ).toHaveAttribute("aria-pressed", "false")
+  await decisions
+    .getByRole("button", { name: "Duplicate", exact: true })
+    .click()
+  await expect(page.locator('[data-claim-position="0"] summary')).toContainText(
+    "Needs review",
+  )
+  await decisions
+    .getByRole("button", { name: "Duplicate", exact: true })
+    .click()
   await firstLabels.getByRole("button", { name: "Unimportant" }).click()
   const firstClaim = page.locator('[data-claim-position="0"]')
   const secondClaim = page.locator('[data-claim-position="1"]')
@@ -228,14 +317,21 @@ test("grades extraction, reloads it, and downloads exact prompt history", async 
   await page.getByLabel("Hide model results").uncheck()
   await expect(firstClaim).toBeVisible()
   await expect(firstHighlight).toBeVisible()
-  await firstClaim.getByLabel("Flag extraction").check()
+  await firstClaim.screenshot({
+    path: testInfo.outputPath("duplicate-review-controls.png"),
+  })
+  await firstClaim
+    .getByRole("button", { name: "Extraction issue", exact: true })
+    .click()
   await firstClaim
     .getByLabel("Claim 1 extraction issue")
     .fill("This claim changes the stated causal relationship.")
   await secondLabels
     .getByRole("button", { name: "Unimportant", exact: true })
     .click()
-  await secondClaim.getByLabel("Flag extraction").check()
+  await secondClaim
+    .getByRole("button", { name: "Extraction issue", exact: true })
+    .click()
   await secondClaim
     .getByLabel("Claim 2 extraction issue")
     .fill("The source leaves the subject ambiguous.")
@@ -243,7 +339,10 @@ test("grades extraction, reloads it, and downloads exact prompt history", async 
     0,
   )
 
-  await selectSourceText(page, "RAAS and efferent vasoconstriction")
+  await selectSourceText(
+    page,
+    "shows dehydration activates RAAS and efferent vasoconstriction",
+  )
   await page.getByRole("button", { name: "Add missing claim" }).click()
   await page
     .getByLabel("New human claim text")
@@ -348,7 +447,56 @@ test("grades extraction, reloads it, and downloads exact prompt history", async 
     "The source leaves the subject ambiguous.",
   )
 
-  await page.goto("/review/fact-decomposition")
+  const savedResponse = await page.request.get(
+    `${apiBase}/api/v1/review/fact-decomp/${taskId}`,
+    { headers },
+  )
+  expect(savedResponse.ok()).toBe(true)
+  const saved = await savedResponse.json()
+  expect(saved.existing_review.claim_reviews).toEqual([
+    {
+      position: 0,
+      label: "unimportant",
+      issue: "This claim changes the stated causal relationship.",
+      duplicate: true,
+      looks_good: false,
+    },
+    {
+      position: 1,
+      label: null,
+      issue: "The source leaves the subject ambiguous.",
+      duplicate: false,
+      looks_good: false,
+    },
+  ])
+  expect(saved.existing_review.human_claims).toEqual([
+    {
+      claim_text: "RAAS and efferent vasoconstriction are connected.",
+      label: "vital",
+      response_spans: [
+        {
+          start: codePointStart(
+            "shows dehydration activates RAAS and efferent vasoconstriction",
+          ),
+          end:
+            codePointStart(
+              "shows dehydration activates RAAS and efferent vasoconstriction",
+            ) +
+            Array.from(
+              "shows dehydration activates RAAS and efferent vasoconstriction",
+            ).length,
+          text: "shows dehydration activates RAAS and efferent vasoconstriction",
+        },
+      ],
+    },
+  ])
+  expect(saved.existing_review.coverage_checked).toBe(true)
+})
+
+test("reviews a response with no model claims", async ({ page }) => {
+  const rows = modelRows("e2e-zero-claims")
+  const { taskId } = await importModelRows(page, "zero claims", [rows[1]])
+  await page.goto(`/review/fact-decomposition?task_id=${taskId}`)
   await expect(page.getByText("No model claims proposed.")).toBeVisible()
   await expect(page.getByRole("button", { name: "Save review" })).toBeDisabled()
   await page
@@ -356,11 +504,55 @@ test("grades extraction, reloads it, and downloads exact prompt history", async 
     .check()
   await page.getByRole("button", { name: "Save review" }).click()
   await expect(page.getByText("Review saved.")).toBeVisible()
+  await page.reload()
+  await expect(
+    page.getByLabel("I checked the text for missing worthwhile claims"),
+  ).toBeChecked()
+  await expect(page.getByRole("button", { name: "Save review" })).toBeDisabled()
+})
 
+test("downloads exact prompt history and saved corrections", async ({
+  page,
+}, testInfo) => {
+  const rows = modelRows("e2e-export")
+  const { apiBase, headers, taskId, displayName } = await importModelRows(
+    page,
+    "export",
+    rows,
+  )
+  const review = {
+    rubric_id: "importance-v1",
+    claim_reviews: [
+      {
+        position: 0,
+        label: "vital",
+        issue: null,
+        duplicate: false,
+        looks_good: true,
+      },
+      {
+        position: 1,
+        label: null,
+        issue: "Missing context.",
+        duplicate: false,
+        looks_good: false,
+      },
+    ],
+    human_claims: [],
+    coverage_checked: true,
+  }
+  const submitted = await page.request.post(
+    `${apiBase}/api/v1/review/fact-decomp/${taskId}/model-eval`,
+    {
+      headers,
+      data: { ...review, item_revision: 1 },
+    },
+  )
+  expect(submitted.ok()).toBe(true)
   await page.goto("/admin")
   await page.getByRole("tab", { name: "Export" }).click()
   await page.getByTestId("admin-export-dataset").click()
-  await page.getByRole("option", { name: "E2E Fact Decomposition" }).click()
+  await page.getByRole("option", { name: displayName }).click()
   await page.getByRole("button", { name: "Load export page" }).click()
   await expect(
     page.locator("pre").filter({ hasText: "First instructions." }),
@@ -377,59 +569,21 @@ test("grades extraction, reloads it, and downloads exact prompt history", async 
   await download.saveAs(exportPath)
   const exported = JSON.parse(await readFile(exportPath, "utf8")) as {
     items: Array<{
-      arm_id?: string
-      generator?: { prompt_text: string }
-      correction_reviews?: Array<{
-        claim_reviews: Array<{
-          position: number
-          label: string | null
-          issue: string | null
-        }>
-        human_claims: Array<{
-          claim_text: string
-          label: string
-          response_spans: Array<{ start: number; end: number; text: string }>
-        }>
-        coverage_checked: boolean
-      }>
+      arm_id: string
+      generator: { prompt_text: string }
+      correction_reviews: Array<typeof review>
     }>
   }
-  const history = Object.fromEntries(
-    exported.items
-      .filter((item) => item.arm_id)
-      .map((item) => [item.arm_id, item.generator?.prompt_text]),
+  expect(
+    Object.fromEntries(
+      exported.items.map((item) => [item.arm_id, item.generator.prompt_text]),
+    ),
+  ).toEqual(
+    Object.fromEntries(
+      rows.map((row) => [row.arm_id, row.generator.prompt_text]),
+    ),
   )
-  expect(history).toEqual({
-    "e2e-arm-one": promptOne,
-    "e2e-arm-two": promptTwo,
-  })
-  const reviewed = exported.items.find((item) => item.arm_id === "e2e-arm-one")
-  expect(reviewed?.correction_reviews?.[0].claim_reviews).toEqual([
-    {
-      position: 0,
-      label: "unimportant",
-      issue: "This claim changes the stated causal relationship.",
-    },
-    {
-      position: 1,
-      label: null,
-      issue: "The source leaves the subject ambiguous.",
-    },
-  ])
-  expect(reviewed?.correction_reviews?.[0].human_claims).toEqual([
-    {
-      claim_text: "RAAS and efferent vasoconstriction are connected.",
-      label: "vital",
-      response_spans: [
-        {
-          start: codePointStart("RAAS and efferent vasoconstriction"),
-          end:
-            codePointStart("RAAS and efferent vasoconstriction") +
-            Array.from("RAAS and efferent vasoconstriction").length,
-          text: "RAAS and efferent vasoconstriction",
-        },
-      ],
-    },
-  ])
-  expect(reviewed?.correction_reviews?.[0].coverage_checked).toBe(true)
+  const saved = exported.items.find((item) => item.arm_id === rows[0].arm_id)
+    ?.correction_reviews[0]
+  expect(saved).toMatchObject(review)
 })
