@@ -342,7 +342,7 @@ export function ClaimCorrectionList({
           Model claims and highlights are hidden. Your grading is preserved.
         </p>
       ) : null}
-      <h2 className="text-xl font-semibold">Missing worthwhile claims</h2>
+      <h2 className="text-xl font-semibold">Missing Important claims</h2>
       <p className="text-sm text-muted-foreground">
         Add only worthwhile assertions that are present in the source text.
       </p>
