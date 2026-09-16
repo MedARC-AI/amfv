@@ -13,9 +13,9 @@ Read TEXT as a whole. Select factual assertions that materially contribute to
 its substantive information, reasoning, conclusions, or recommended actions.
 These are assertions that could be checked against sources or evidence; they
 do not need to be true or supported by evidence available to you now.
-Retain distinct substantive points across the text. Skip incidental asides,
-routine background, subjective praise, and non-claim language. Do not enumerate
-or label every sentence or factual detail. Select independently of apparent truth.
+Prioritize distinct substantive points across the text. Skip subjective praise
+and non-claim language. Do not enumerate or label every sentence or factual
+detail. Select independently of apparent truth.
 
 2. Establish what each selected passage means.
 Start with the original sentence or clause. Identify the entities, the relationships
@@ -30,7 +30,14 @@ If an essential ambiguity remains, omit that assertion; retain independently
 clear assertions from the passage. Do not confuse expressed uncertainty or
 generality with an unresolved reference or competing grammatical interpretations.
 
-3. Choose useful verification units.
+3. Make each claim atomic and independently verifiable.
+Each claim must express one factual assertion that a fact-checker can evaluate
+using external evidence without seeing the original question, response, or
+neighboring claims. Include the context needed to preserve the assertion's
+meaning: identify its subjects, resolve references, and retain relevant
+conditions, qualifications, comparisons, and attribution. Use only context
+supplied by the input; do not invent missing information.
+
 Keep a clarified sentence or clause intact when it expresses one assessable
 relationship with its necessary context. Split independent assertions that
 could receive different factual judgments, provided each remains meaningful
@@ -54,6 +61,8 @@ Keep substantive negative assertions and factual reasons for rejecting an option
 
 4. Check faithfulness and remove repetition.
 Each output claim must follow from TEXT as clarified by the supplied context.
+Preserve the factual assertion made by the response. Do not replace it with
+a description of what the response says.
 Check that rewriting or splitting has not added a relationship, broadened a
 population, strengthened certainty, or dropped a necessary qualification.
 Remove incidental wording only when the selected assertion keeps its meaning.
@@ -64,6 +73,11 @@ Merge semantically equivalent repetitions at their first occurrence. Preserve
 meaningful differences in conditions, quantities, certainty, or polarity.
 Do not merge contradictory assertions or choose which one is correct.
 
+Before returning a claim, check: Can a fact-checker tell exactly what must be
+established or disproved from this claim alone? If not, revise it using the
+available context, or omit it if its meaning cannot be resolved. Apply this
+check before assigning importance.
+
 5. Label only the claims you return.
 Judge importance by contribution to the text's substantive points, conclusions,
 or recommended actions. Use a supplied question to clarify that purpose.
@@ -73,7 +87,10 @@ Do not use subject matter alone to assign a minimum importance label.
   claim remains vital even when it appears to be wrong.
 - semi-important: Useful substantive explanation, evidence, or context whose
   removal leaves the central point intact.
-Omit unimportant factual details. Do not output rejected items, exclusion reasons,
+- unimportant: An incidental factual detail whose removal has little effect on
+  the text's substantive points, conclusions, or recommended actions.
+Use unimportant when a returned claim is incidental; do not force it into a
+higher importance tier. Do not output rejected items, exclusion reasons,
 intermediate analyses, entity lists, graphs, or annotations for every sentence.
 
 For each returned claim, copy one or more exact quotations from TEXT into
@@ -83,6 +100,6 @@ order. Do not calculate character offsets. Return claims in first-occurrence ord
 
 Return only JSON with this structure:
 {"claims": [{"claim": "Self-contained assertion.", "source_texts": ["Exact quotation from TEXT."], "label": "vital"}]}
-Use only vital or semi-important for returned claims. Return {"claims": []}
+Use only vital, semi-important, or unimportant for returned claims. Return {"claims": []}
 when no claims meet the selection and clarity criteria. Do not force a
 particular claim count.

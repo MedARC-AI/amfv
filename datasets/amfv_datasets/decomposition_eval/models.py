@@ -86,6 +86,7 @@ class ClaimLabel(StrEnum):
 
     VITAL = "vital"
     SEMI_IMPORTANT = "semi-important"
+    UNIMPORTANT = "unimportant"
 
 
 class SourceSpan(_StrictModel):

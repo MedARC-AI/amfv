@@ -201,7 +201,7 @@ class ReviewFact(SQLModel):
     position: int
 
 
-ModelClaimLabel = Literal["vital", "semi-important"]
+ModelClaimLabel = Literal["vital", "semi-important", "unimportant"]
 ImportanceLabel = Literal["vital", "semi-important", "unimportant"]
 MAX_CLAIMS = 10_000
 MAX_CLAIM_TEXT_LENGTH = 20_000

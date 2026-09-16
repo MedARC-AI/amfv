@@ -416,7 +416,7 @@ export const AdminExportModelClaimSchema = {
             type: 'integer'
         },
         proposed_label: {
-            enum: ['vital', 'semi-important'],
+            enum: ['vital', 'semi-important', 'unimportant'],
             title: 'Proposed Label',
             type: 'string'
         },
@@ -3272,7 +3272,7 @@ export const ReviewModelClaimSchema = {
             type: 'integer'
         },
         proposed_label: {
-            enum: ['vital', 'semi-important'],
+            enum: ['vital', 'semi-important', 'unimportant'],
             title: 'Proposed Label',
             type: 'string'
         },

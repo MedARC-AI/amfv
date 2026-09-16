@@ -91,7 +91,11 @@ def test_model_schema_asks_for_quotes_and_not_offsets() -> None:
     """Keep deterministic character offsets outside the model contract."""
     schema = json.dumps(DecompositionPrediction.model_json_schema())
 
-    assert DecompositionPrediction.model_json_schema()["$defs"]["ClaimLabel"]["enum"] == ["vital", "semi-important"]
+    assert DecompositionPrediction.model_json_schema()["$defs"]["ClaimLabel"]["enum"] == [
+        "vital",
+        "semi-important",
+        "unimportant",
+    ]
     assert "source_texts" in schema
     assert '"start"' not in schema
     assert '"end"' not in schema

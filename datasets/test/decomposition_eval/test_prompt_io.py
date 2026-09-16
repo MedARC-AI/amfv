@@ -40,7 +40,7 @@ def test_prompt_bytes_and_case_envelope_are_exact(tmp_path: Path) -> None:
 
 def test_default_prompt_and_duplicate_case_validation(tmp_path: Path) -> None:
     """Load packaged instructions and require unique case identities."""
-    assert "Use only vital or semi-important" in load_prompt()
+    assert "Use only vital, semi-important, or unimportant" in load_prompt()
     with pytest.raises(FileNotFoundError):
         load_prompt(tmp_path / "missing.txt")
     blank = tmp_path / "blank.txt"

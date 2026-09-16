@@ -27,7 +27,8 @@ def _response(payload: dict[str, object]) -> ModelResponse:
     return ModelResponse(parts=[TextPart(content=json.dumps(payload))])
 
 
-def test_function_model_receives_exact_instructions_and_structured_output() -> None:
+@pytest.mark.parametrize("label", ["vital", "semi-important", "unimportant"])
+def test_function_model_receives_exact_instructions_and_structured_output(label: str) -> None:
     """Use exact instructions and parse the declared native output."""
     observed: dict[str, object] = {}
 
@@ -41,7 +42,7 @@ def test_function_model_receives_exact_instructions_and_structured_output() -> N
                     {
                         "claim": "Café helps.",
                         "source_texts": ["Café helps."],
-                        "label": "vital",
+                        "label": label,
                     }
                 ]
             },
@@ -58,7 +59,7 @@ def test_function_model_receives_exact_instructions_and_structured_output() -> N
     native_schema = observed["output_schema"].json_schema
     assert '"start"' not in json.dumps(native_schema)
     assert '"end"' not in json.dumps(native_schema)
-    assert result.claims[0].label.value == "vital"
+    assert result.claims[0].label.value == label
 
 
 def test_response_mismatch_asks_model_to_retry() -> None:

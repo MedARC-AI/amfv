@@ -93,11 +93,11 @@ export type AdminExportGenerator = {
 export type AdminExportModelClaim = {
     claim: string;
     position: number;
-    proposed_label: 'vital' | 'semi-important';
+    proposed_label: 'vital' | 'semi-important' | 'unimportant';
     spans: Array<ResponseClaimSpan>;
 };
 
-export type proposed_label = 'vital' | 'semi-important';
+export type proposed_label = 'vital' | 'semi-important' | 'unimportant';
 
 export type AdminExportModelCorrectionItem = {
     arm_id: string;
@@ -772,7 +772,7 @@ export type ReviewItem = {
 export type ReviewModelClaim = {
     claim_text: string;
     position: number;
-    proposed_label: 'vital' | 'semi-important';
+    proposed_label: 'vital' | 'semi-important' | 'unimportant';
     response_spans: Array<ResponseClaimSpan>;
 };
 

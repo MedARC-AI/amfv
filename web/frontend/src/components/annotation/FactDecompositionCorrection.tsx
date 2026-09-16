@@ -28,7 +28,7 @@ export type CorrectionInputClaim = {
   claim_text: string
   position: number
   response_spans: ClaimResponseSpan[]
-  proposed_label: "vital" | "semi-important"
+  proposed_label: "vital" | "semi-important" | "unimportant"
 }
 
 export type CorrectionSubmission = ModelCorrectionReview

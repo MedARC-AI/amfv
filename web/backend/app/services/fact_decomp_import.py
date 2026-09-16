@@ -71,7 +71,7 @@ class ImportClaim(_StrictModel):
 
     claim: str = Field(min_length=1, max_length=20_000)
     spans: list[ImportSpan] = Field(min_length=1, max_length=100)
-    label: Literal["vital", "semi-important"]
+    label: Literal["vital", "semi-important", "unimportant"]
 
     @model_validator(mode="after")
     def validate_claim(self) -> Self:

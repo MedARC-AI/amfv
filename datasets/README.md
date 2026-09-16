@@ -23,15 +23,16 @@ an optional `user_prompt`. Omitting the prompt supports response-only material
 such as documents and reasoning traces. Inputs use version 1. Generated
 `FACT_DECOMP` rows use version 2.
 Each ordered claim has nonblank text, one or more exact Python code-point spans
-in the assistant response, and one label: `vital` or `semi-important`. Zero
+in the assistant response, and one label: `vital`, `semi-important`, or `unimportant`. Zero
 claims is valid. Unknown fields are rejected.
 
 - `vital`: The claim is essential to a substantive point, conclusion, action, or correct interpretation.
 - `semi-important`: The claim gives useful explanation, evidence, or context while the central point remains intact without it.
+- `unimportant`: The claim is an incidental detail with little effect on the substantive points.
 
-The extractor omits incidental details. The same selection policy applies to
-Q/A inputs and standalone documents. Human review adds `unimportant` for model
-claims that did not need extraction.
+The extractor prioritizes substantive points without an exhaustive claim inventory.
+It can label returned incidental claims `unimportant`. The same labels apply
+to human review, Q/A inputs, and standalone documents.
 
 `external_id` is the SHA-256 digest of `case_id`, a null byte, and `arm_id`.
 Each row stores the exact instructions in `generator.prompt_text`. Use a new

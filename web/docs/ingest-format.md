@@ -112,12 +112,13 @@ can be a nonblank string, `null`, or omitted for response-only review.
 }
 ```
 
-Generated claim labels are `vital` or `semi-important`:
+Generated claim labels are `vital`, `semi-important`, or `unimportant`:
 
 - `vital`: The claim is essential to a substantive point, conclusion, action, or correct interpretation.
 - `semi-important`: The claim gives useful explanation, evidence, or context while the central point remains intact without it.
+- `unimportant`: The claim is an incidental detail with little effect on the substantive points.
 
-The producer omits unimportant details and permits zero selected claims. The
+The producer permits incidental claims labeled `unimportant` and zero selected claims. The
 same selection policy applies to Q/A inputs and standalone documents.
 
 Old artifact versions and labels are not accepted. Regenerate old experimental
@@ -144,8 +145,7 @@ Submit a review to `/api/v1/review/fact-decomp/{task_id}/model-eval`:
 ```
 
 `claim_reviews` contains each model position once in source order. Each entry
-has an importance label, a nonblank extraction issue, or both. Human labels
-also permit `unimportant`. Model claim text and source spans stay immutable.
+has an importance label, a nonblank extraction issue, or both. Human labels use the same three values. Model claim text and source spans stay immutable.
 
 Each human claim has text, an explicit importance label, and exact source spans.
 The human list is limited to 10,000 claims, with at most 20,000 characters and

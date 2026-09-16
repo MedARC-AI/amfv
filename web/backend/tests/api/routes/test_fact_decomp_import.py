@@ -237,7 +237,7 @@ def test_generated_import_review_and_export_preserve_exact_contract(
         user_prompt=query,
         assistant_response="First Alpha. Context. Unclear. Then Alpha.",
     )
-    labels = ["vital", "semi-important"]
+    labels = ["vital", "unimportant"]
     prediction = DecompositionPrediction.model_validate(
         {
             "claims": [

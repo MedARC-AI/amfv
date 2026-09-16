@@ -143,7 +143,7 @@ test("grades extraction, reloads it, and downloads exact prompt history", async 
           text: secondText,
         },
       ],
-      label: "semi-important",
+      label: "unimportant",
     },
   ])
   const secondRow = makeRow("e2e-arm-two", promptTwo, [])
@@ -210,7 +210,7 @@ test("grades extraction, reloads it, and downloads exact prompt history", async 
     firstLabels.getByRole("button", { name: "Vital", exact: true }),
   ).toHaveAttribute("aria-pressed", "true")
   await expect(
-    secondLabels.getByRole("button", { name: "Semi-important", exact: true }),
+    secondLabels.getByRole("button", { name: "Unimportant", exact: true }),
   ).toHaveAttribute("aria-pressed", "true")
 
   await firstLabels.getByRole("button", { name: "Unimportant" }).click()
@@ -233,7 +233,7 @@ test("grades extraction, reloads it, and downloads exact prompt history", async 
     .getByLabel("Claim 1 extraction issue")
     .fill("This claim changes the stated causal relationship.")
   await secondLabels
-    .getByRole("button", { name: "Semi-important", exact: true })
+    .getByRole("button", { name: "Unimportant", exact: true })
     .click()
   await secondClaim.getByLabel("Flag extraction").check()
   await secondClaim

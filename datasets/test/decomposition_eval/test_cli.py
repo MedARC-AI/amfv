@@ -80,7 +80,7 @@ def test_preview_uses_packaged_default_and_rejects_output_alias(tmp_path: Path) 
         str(output),
     ]
     main(arguments)
-    assert "Use only vital or semi-important" in output.read_text()
+    assert "Use only vital, semi-important, or unimportant" in output.read_text()
 
     resource_path = default_prompt_path()
     assert resource_path is not None
