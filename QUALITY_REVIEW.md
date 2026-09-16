@@ -176,3 +176,20 @@ Final checks:
 - The previous missing-Bun limitation is resolved by using the installed `/home/vscode/.bun/bin`. The original full Docker CI workflow was not executed locally; the actual browser harness and build were run. No visual redesign or retrieval changes were made.
 
 The shared storage contract now enforces the same closed generation settings accepted at import; valid imported metadata is preserved. Handwritten metadata that bypassed the importer is not treated as a supported alternate contract. Existing user changes were preserved. No commit was created.
+
+## Alembic consolidation progress
+
+- User requested one migration after the quality fixes were committed and pushed.
+- Captured the old seven-revision head in a disposable SQLite database before replacing the migration files. No application database was modified.
+- Generated a frozen initial migration from that head’s reflected schema, preserving columns, defaults, foreign keys, unique/check constraints, and partial indexes. The baseline does not import runtime models.
+- Removing tests for deleted historical transformations; retaining current invariants and replacing history traversal with a fresh-baseline check.
+- New revision: `0001_initial_schema`, for fresh databases. The user confirmed production is unused and will be deleted/recreated. No stamping, adoption test, or compatibility path is required; production data was not touched.
+
+Consolidation complete:
+
+- Replaced seven migrations with one frozen baseline. All 17 tables match the old head, including defaults, foreign keys, constraints, and partial indexes.
+- Removed historical migration tests. Retained fresh upgrade/model drift/downgrade/re-upgrade coverage and database receipt/assignment constraint assertions.
+- Backend suite: **215 passed** (34.04s). An existing concurrent-save barrier timed out in an earlier run; the isolated test and subsequent full suite passed without changes.
+- Real backend Playwright create/review suite: **12 passed** (19.3s).
+- Ruff lint/format, Python type checking, and `git diff --check`: passed. Alembic reports only `0001_initial_schema` as head.
+- Production will be recreated by the user; no database adoption logic or production operations were added.

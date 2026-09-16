@@ -45,7 +45,10 @@ with a shared `data/app.db` fixture.
 
 ## Migrations
 
-Alembic is configured for SQLite batch migrations. After changing models, create a migration from `backend/`:
+The initial revision, `0001_initial_schema`, creates the current schema in an empty database.
+It replaces the development migration history. This checkout does not upgrade databases from the removed revisions.
+
+Alembic uses SQLite batch migrations. After changing models, create a migration from `backend/`:
 
 ```bash
 uv run alembic revision --autogenerate -m "describe change"
