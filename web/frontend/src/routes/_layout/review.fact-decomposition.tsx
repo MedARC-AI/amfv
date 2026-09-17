@@ -417,8 +417,10 @@ function FactReviewEditor({ userId }: { userId: string }) {
       setRecovery("idle")
       setPending(null)
       invalidateSaved()
-      await queryClient.invalidateQueries({
+      // Refresh saved history when revisited without delaying the next example.
+      void queryClient.invalidateQueries({
         queryKey: ["review-fact-decomp", userId, command.taskId],
+        refetchType: "none",
       })
       if (isCurrent()) nextMutation.mutate(isCurrent)
     } catch (error) {

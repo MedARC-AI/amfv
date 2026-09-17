@@ -188,7 +188,7 @@ def _available_retrieval_items(
 def _first_available_fact_decomp_task(
     session: SessionDep, current_user: CurrentUser
 ) -> ReviewTask | None:
-    tasks = available_fact_decomp_tasks(session, current_user)
+    tasks = available_fact_decomp_tasks(session, current_user, first_only=True)
     return tasks[0] if tasks else None
 
 

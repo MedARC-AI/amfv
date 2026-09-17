@@ -330,3 +330,66 @@ def test_uniqueness_race_returns_duplicate_contract_without_extra_count(
     ).all()
     assert len(reviews) == 1
     assert reviews[0].ratings == {"winner": True}
+
+
+@pytest.mark.usefixtures("normal_user_token_headers")
+@pytest.mark.parametrize(
+    "invalid_prefix", [0, 105], ids=["valid-first", "skip-invalid-batch"]
+)
+def test_large_model_queue_uses_bounded_queries(
+    db: Session,
+    invalid_prefix: int,
+) -> None:
+    from sqlalchemy import event
+
+    from app.api.routes.review_common import available_fact_decomp_tasks
+    from app.models import EvalFact
+
+    reviewer = _reviewer(db)
+    original, original_task = _imported_task(db, claims=1)
+    dataset = db.get(Dataset, original_task.dataset_id)
+    assert dataset is not None
+    original_task.is_active = False
+    db.add(original_task)
+    task_ids = []
+    for index in range(250):
+        item = EvalItem(
+            dataset_id=dataset.id,
+            eval_type=EvalType.FACT_DECOMP,
+            source=ItemSource.LLM,
+            prompt_text=original.prompt_text,
+            item_metadata=original.item_metadata,
+            status=ItemStatus.ACTIVE,
+        )
+        db.add(item)
+        db.flush()
+        if index >= invalid_prefix:
+            db.add(
+                EvalFact(
+                    item_id=item.id,
+                    fact_text="Alpha is true.",
+                    position=0,
+                    polarity="SHOULD_LIST",
+                )
+            )
+        task = ReviewTask(dataset_id=dataset.id, item_a_id=item.id)
+        db.add(task)
+        db.flush()
+        task_ids.append(task.id)
+    db.commit()
+    queries: list[str] = []
+
+    def record_query(_connection, _cursor, statement, _parameters, _context, _many):
+        queries.append(statement)
+
+    event.listen(engine, "before_cursor_execute", record_query)
+    try:
+        tasks = available_fact_decomp_tasks(db, reviewer, first_only=True)
+        assert [task.id for task in tasks] == [task_ids[invalid_prefix]]
+        assert len(queries) <= 8
+        queries.clear()
+        tasks = available_fact_decomp_tasks(db, reviewer)
+        assert [task.id for task in tasks] == task_ids[invalid_prefix:]
+        assert len(queries) <= 10
+    finally:
+        event.remove(engine, "before_cursor_execute", record_query)

@@ -1,3 +1,5 @@
+from collections import defaultdict
+from collections.abc import Iterator
 from typing import Literal
 
 from fastapi import HTTPException
@@ -89,7 +91,7 @@ def next_fact_decomp_review_readonly(
     session: SessionDep,
     current_user: CurrentUser,
 ) -> NextReviewRecommendation:
-    tasks = available_fact_decomp_tasks(session, current_user)
+    tasks = available_fact_decomp_tasks(session, current_user, first_only=True)
     if not tasks:
         raise HTTPException(status_code=404, detail="No review tasks are available")
     dataset = session.get(Dataset, tasks[0].dataset_id)
@@ -98,7 +100,7 @@ def next_fact_decomp_review_readonly(
 
 
 def available_fact_decomp_tasks(
-    session: SessionDep, current_user: CurrentUser
+    session: SessionDep, current_user: CurrentUser, *, first_only: bool = False
 ) -> list[ReviewTask]:
     """Read eligible tasks across active fact datasets, preference first."""
     preferred = get_current_or_first_dataset_readonly(
@@ -116,11 +118,13 @@ def available_fact_decomp_tasks(
     )
     if preferred is not None:
         datasets.sort(key=lambda dataset: dataset.id != preferred.id)
-    return [
-        task
-        for dataset in datasets
-        for task in _eligible_fact_tasks(session, current_user, dataset)
-    ]
+    tasks: list[ReviewTask] = []
+    for dataset in datasets:
+        for task in _eligible_fact_tasks(session, current_user, dataset):
+            tasks.append(task)
+            if first_only:
+                return tasks
+    return tasks
 
 
 def fact_decomp_recommendation(
@@ -150,17 +154,27 @@ def fact_decomp_recommendation(
 def select_fact_decomp_task(
     session: SessionDep, current_user: CurrentUser, dataset: Dataset
 ) -> ReviewTask | None:
-    tasks = _eligible_fact_tasks(session, current_user, dataset)
-    return tasks[0] if tasks else None
+    return next(_eligible_fact_tasks(session, current_user, dataset), None)
 
 
 def _eligible_fact_tasks(
     session: SessionDep, current_user: CurrentUser, dataset: Dataset
-) -> list[ReviewTask]:
-    tasks = session.exec(
-        select(ReviewTask)
+) -> Iterator[ReviewTask]:
+    reviewed = (
+        select(FactDecompReview.id)
+        .where(
+            col(FactDecompReview.task_id) == col(ReviewTask.id),
+            col(FactDecompReview.user_id) == current_user.id,
+        )
+        .exists()
+    )
+    statement = (
+        select(ReviewTask, EvalItem)
         .join(EvalItem, col(ReviewTask.item_a_id) == col(EvalItem.id))
         .where(
+            ~reviewed,
+            (col(EvalItem.author_user_id).is_(None))
+            | (col(EvalItem.author_user_id) != current_user.id),
             col(ReviewTask.dataset_id) == dataset.id,
             col(ReviewTask.is_active) == True,  # noqa: E712
             col(EvalItem.dataset_id) == dataset.id,
@@ -173,34 +187,29 @@ def _eligible_fact_tasks(
             col(ReviewTask.priority_score).desc(),
             col(ReviewTask.id),
         )
-    ).all()
-    eligible: list[ReviewTask] = []
-    for task in tasks:
-        item = session.get(EvalItem, task.item_a_id)
-        if item is None or item.author_user_id == current_user.id:
-            continue
-        existing = session.exec(
-            select(FactDecompReview).where(
-                col(FactDecompReview.task_id) == task.id,
-                col(FactDecompReview.user_id) == current_user.id,
-            )
-        ).first()
-        if existing is not None:
-            continue
-        if is_model_correction_item(item):
-            facts = list(
-                session.exec(
-                    select(EvalFact)
-                    .where(col(EvalFact.item_id) == item.id)
-                    .order_by(col(EvalFact.position))
-                ).all()
-            )
-            try:
-                project_model_claims(item, facts)
-            except CorrectionMetadataError:
-                continue
-        eligible.append(task)
-    return eligible
+    )
+    # Bound ORM materialization and fact queries; next-task reads stop early.
+    batch_size = 100
+    offset = 0
+    while rows := session.exec(statement.limit(batch_size).offset(offset)).all():
+        correction_ids = [item.id for _, item in rows if is_model_correction_item(item)]
+        facts_by_item: dict[int, list[EvalFact]] = defaultdict(list)
+        if correction_ids:
+            for fact in session.exec(
+                select(EvalFact)
+                .where(col(EvalFact.item_id).in_(correction_ids))
+                .order_by(col(EvalFact.position))
+            ).all():
+                facts_by_item[fact.item_id].append(fact)
+        for task, item in rows:
+            if is_model_correction_item(item):
+                assert item.id is not None
+                try:
+                    project_model_claims(item, facts_by_item[item.id])
+                except CorrectionMetadataError:
+                    continue
+            yield task
+        offset += batch_size
 
 
 def read_assignment_for_user(

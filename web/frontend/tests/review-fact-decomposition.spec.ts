@@ -48,10 +48,20 @@ test("submits an authored fact-decomposition review", async ({
     path: testInfo.outputPath("authored-duplicate.png"),
     fullPage: true,
   })
+  const savedTaskReads: string[] = []
+  const savedTaskPath = `/api/v1/review/fact-decomp/${taskText.replace("Task ", "")}`
+  page.on("request", (request) => {
+    if (
+      request.method() === "GET" &&
+      new URL(request.url()).pathname === savedTaskPath
+    )
+      savedTaskReads.push(request.url())
+  })
   await page.getByRole("button", { name: "Save and next" }).click()
   await expect(
     page.getByRole("heading", { name: "All caught up" }),
   ).toBeVisible()
+  expect(savedTaskReads).toEqual([])
   await page.getByRole("button", { name: "Previous example" }).click()
   await page.goto(
     `/review/fact-decomposition?task_id=${taskText.replace("Task ", "")}`,
