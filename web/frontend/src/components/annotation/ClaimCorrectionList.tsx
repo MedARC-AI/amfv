@@ -111,7 +111,7 @@ function ClaimRow({
       className={cn(
         "rounded-xl border border-l-4 bg-card p-4",
         evalItemColor(group.id).card,
-        active && "ring-2 ring-primary/60",
+        active && "ring-2",
       )}
     >
       <summary className="cursor-pointer text-sm font-semibold">
@@ -139,7 +139,7 @@ function ClaimRow({
             type="button"
             onClick={onFocus}
             title="Highlight source passage"
-            className="block w-full whitespace-pre-wrap rounded-sm text-left text-sm leading-6 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+            className="block w-full whitespace-pre-wrap rounded-sm text-left text-sm font-medium leading-6 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
           >
             {original.claim_text}
           </button>

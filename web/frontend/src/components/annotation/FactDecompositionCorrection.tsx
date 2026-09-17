@@ -208,7 +208,7 @@ export function FactDecompositionCorrection({
 
   return (
     <div
-      className="flex flex-col gap-6"
+      className="flex flex-col gap-6 text-foreground [--foreground:#03030b] [--card-foreground:#03030b] [--muted-foreground:#343b52]"
       data-testid="fact-decomposition-correction"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">

@@ -171,7 +171,7 @@ export function SelectableClaimResponse({
     <section
       aria-label="Assistant response; select text to create a human claim"
       className={cn(
-        "relative select-text whitespace-pre-wrap break-words rounded-lg border bg-background p-4 font-mono text-sm leading-7",
+        "relative select-text whitespace-pre-wrap break-words rounded-lg border bg-background p-4 font-mono text-sm font-medium leading-7",
         className,
       )}
       data-testid="claim-response"
