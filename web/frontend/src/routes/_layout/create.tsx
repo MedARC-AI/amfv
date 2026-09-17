@@ -5,7 +5,7 @@ import {
   Outlet,
   useRouterState,
 } from "@tanstack/react-router"
-import { FileText, Loader2, SplitSquareVertical } from "lucide-react"
+import { Loader2, SplitSquareVertical } from "lucide-react"
 
 import { homeSummaryQueryOptions } from "@/lib/queries"
 
@@ -27,6 +27,17 @@ function Create() {
   const summaryQuery = useQuery({
     ...homeSummaryQueryOptions,
   })
+
+  if (pathname.replace(/\/$/, "") === "/create/retrieval") {
+    return (
+      <p>
+        Retrieval creation is temporarily unavailable.{" "}
+        <Link className="underline" to="/create/fact-decomposition">
+          Create fact decomposition
+        </Link>
+      </p>
+    )
+  }
 
   if (pathname !== "/create") {
     return <Outlet />
@@ -56,16 +67,7 @@ function Create() {
           </div>
         ))}
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <Link className="rounded-md border p-5" to="/create/retrieval">
-          <FileText className="text-muted-foreground size-5" />
-          <h2 className="mt-4 text-base font-semibold tracking-normal">
-            Retrieval
-          </h2>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Source-grounded retrieval item
-          </p>
-        </Link>
+      <div className="grid gap-4">
         <Link className="rounded-md border p-5" to="/create/fact-decomposition">
           <SplitSquareVertical className="text-muted-foreground size-5" />
           <h2 className="mt-4 text-base font-semibold tracking-normal">

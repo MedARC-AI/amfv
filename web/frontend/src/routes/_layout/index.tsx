@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { ClipboardCheck, Loader2, PenLine } from "lucide-react"
 
-import type { RecommendedTask } from "@/client"
 import { Button } from "@/components/ui/button"
 import { homeSummaryQueryOptions } from "@/lib/queries"
 
@@ -22,7 +21,10 @@ function Home() {
     ...homeSummaryQueryOptions,
   })
   const summary = summaryQuery.data
-  const recommendation = summary?.recommended_task
+  const recommendation =
+    summary?.recommended_task?.kind === "fact_decomp"
+      ? summary.recommended_task
+      : undefined
   const counts = summary?.outstanding_counts ?? {}
 
   return (
@@ -43,7 +45,8 @@ function Home() {
               <p className="text-muted-foreground mt-1 text-sm">
                 {summaryQuery.isLoading
                   ? "Loading queue"
-                  : recommendation?.reason || "No review tasks are available"}
+                  : recommendation?.reason ||
+                    "Review fact decomposition examples"}
               </p>
             </div>
             <ClipboardCheck className="text-muted-foreground size-5" />
@@ -59,7 +62,7 @@ function Home() {
               ) : (
                 <>
                   <h3 className="font-medium text-sm">
-                    {recommendation?.title || "Review queue clear"}
+                    {recommendation?.title || "Fact decomposition"}
                   </h3>
                   {recommendation ? (
                     <p className="text-muted-foreground mt-1 text-sm">
@@ -72,7 +75,7 @@ function Home() {
           )}
           <div className="mt-6">
             <Button asChild>
-              <Link to={reviewRoute(recommendation)}>Review</Link>
+              <Link to="/review/fact-decomposition">Review</Link>
             </Button>
           </div>
         </div>
@@ -84,7 +87,7 @@ function Home() {
                 Create
               </h2>
               <p className="text-muted-foreground mt-1 text-sm">
-                Retrieval and fact decomposition
+                Fact decomposition
               </p>
             </div>
             <PenLine className="text-muted-foreground size-5" />
@@ -101,11 +104,9 @@ function Home() {
         <h2 className="mb-3 text-base font-semibold tracking-normal">
           Outstanding
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2">
           {[
-            ["Retrieval Reviews", countValue(counts, "retrieval_reviews")],
             ["Fact Reviews", countValue(counts, "fact_decomp_reviews")],
-            ["Relevance Reviews", countValue(counts, "relevance_reviews")],
             ["Drafts", countValue(counts, "draft_items")],
           ].map(([label, value]) => (
             <div key={label} className="rounded-md border p-4">
@@ -117,25 +118,6 @@ function Home() {
       </section>
     </div>
   )
-}
-
-type ReviewRoute =
-  | "/review"
-  | "/review/retrieval"
-  | "/review/fact-decomposition"
-  | "/review/relevance"
-
-function reviewRoute(task: RecommendedTask | null | undefined): ReviewRoute {
-  if (!task) {
-    return "/review"
-  }
-  if (task.kind === "fact_decomp") {
-    return "/review/fact-decomposition"
-  }
-  if (task.kind === "relevance") {
-    return "/review/relevance"
-  }
-  return "/review/retrieval"
 }
 
 function countValue(counts: Record<string, number>, key: string): string {

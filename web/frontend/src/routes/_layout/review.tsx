@@ -5,7 +5,7 @@ import {
   Outlet,
   useRouterState,
 } from "@tanstack/react-router"
-import { FileSearch, ListChecks, Loader2, SearchCheck } from "lucide-react"
+import { ListChecks, Loader2 } from "lucide-react"
 
 import { homeSummaryQueryOptions } from "@/lib/queries"
 
@@ -28,6 +28,21 @@ function Review() {
     ...homeSummaryQueryOptions,
   })
 
+  if (
+    ["/review/retrieval", "/review/relevance"].includes(
+      pathname.replace(/\/$/, ""),
+    )
+  ) {
+    return (
+      <p>
+        Retrieval and relevance reviews are temporarily unavailable.{" "}
+        <Link className="underline" to="/review/fact-decomposition">
+          Review fact decomposition
+        </Link>
+      </p>
+    )
+  }
+
   if (pathname !== "/review") {
     return <Outlet />
   }
@@ -44,21 +59,7 @@ function Review() {
       {summaryQuery.isLoading ? (
         <Loader2 className="text-muted-foreground size-5 animate-spin" />
       ) : null}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Link className="rounded-md border p-5" to="/review/retrieval">
-          <div className="flex items-start justify-between gap-4">
-            <FileSearch className="text-muted-foreground size-5" />
-            <span className="font-semibold text-2xl">
-              {countValue(counts, "retrieval_reviews")}
-            </span>
-          </div>
-          <h2 className="mt-4 text-base font-semibold tracking-normal">
-            Retrieval
-          </h2>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Question, answer, and evidence review
-          </p>
-        </Link>
+      <div className="grid gap-4">
         <Link
           className="rounded-md border p-5"
           search={{ task_id: undefined }}
@@ -75,20 +76,6 @@ function Review() {
           </h2>
           <p className="text-muted-foreground mt-1 text-sm">
             Ordered fact and rubric review
-          </p>
-        </Link>
-        <Link className="rounded-md border p-5" to="/review/relevance">
-          <div className="flex items-start justify-between gap-4">
-            <SearchCheck className="text-muted-foreground size-5" />
-            <span className="font-semibold text-2xl">
-              {countValue(counts, "relevance_reviews")}
-            </span>
-          </div>
-          <h2 className="mt-4 text-base font-semibold tracking-normal">
-            Relevance
-          </h2>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Retrieved passage grading
           </p>
         </Link>
       </div>
