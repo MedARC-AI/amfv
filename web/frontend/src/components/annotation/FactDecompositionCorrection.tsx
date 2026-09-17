@@ -44,6 +44,7 @@ type FactDecompositionCorrectionProps = {
   submitting?: boolean
   errorMessage?: string | null
   completionMessage?: string | null
+  navigation?: React.ReactNode
   onSubmit: (submission: CorrectionSubmission) => void
 }
 
@@ -64,6 +65,7 @@ export function FactDecompositionCorrection({
   completionMessage = null,
   errorMessage = null,
   onSubmit,
+  navigation,
   query,
   response,
   submitting = false,
@@ -391,8 +393,9 @@ export function FactDecompositionCorrection({
             onClick={submit}
             type="button"
           >
-            <Send /> {submitting ? "Saving review" : "Save review"}
+            <Send /> {submitting ? "Saving review" : "Save and next"}
           </Button>
+          {navigation}
         </div>
       </div>
     </div>

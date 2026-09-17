@@ -19,7 +19,7 @@ test("submits an authored fact-decomposition review", async ({
   await page.getByTestId("rubric-deduplicated_ordered").click()
   await page.getByRole("option", { name: "Pass" }).click()
   await expect(
-    page.getByRole("button", { name: "Submit fact review" }),
+    page.getByRole("button", { name: "Save and next" }),
   ).toBeDisabled()
   for (const button of await page
     .getByRole("button", { name: "Looks good", exact: true })
@@ -41,10 +41,11 @@ test("submits an authored fact-decomposition review", async ({
     path: testInfo.outputPath("authored-duplicate.png"),
     fullPage: true,
   })
-  await page.getByRole("button", { name: "Submit fact review" }).click()
+  await page.getByRole("button", { name: "Save and next" }).click()
   await expect(
-    page.getByText(/Fact review submitted for item \d+\./),
+    page.getByRole("heading", { name: "All caught up" }),
   ).toBeVisible()
+  await page.getByRole("button", { name: "Previous example" }).click()
   await page.goto(
     `/review/fact-decomposition?task_id=${taskText.replace("Task ", "")}`,
   )
@@ -58,7 +59,7 @@ test("submits an authored fact-decomposition review", async ({
     page.getByRole("button", { name: "Duplicate", exact: true }).first(),
   ).toBeDisabled()
   await expect(
-    page.getByRole("button", { name: "Submit fact review" }),
+    page.getByRole("button", { name: "Save and next" }),
   ).toBeDisabled()
 })
 
@@ -378,7 +379,9 @@ test("grades model claims and saves human selections through a failed request an
     "RAAS and efferent vasoconstriction are connected.",
   )
   await missingClaim.getByLabel("Human claim 1 text").fill(" ")
-  await expect(page.getByRole("button", { name: "Save review" })).toBeDisabled()
+  await expect(
+    page.getByRole("button", { name: "Save and next" }),
+  ).toBeDisabled()
   await missingClaim
     .getByLabel("Human claim 1 text")
     .fill("RAAS and efferent vasoconstriction are connected.")
@@ -436,7 +439,7 @@ test("grades model claims and saves human selections through a failed request an
       await route.continue()
     }
   })
-  await page.getByRole("button", { name: "Save review" }).click()
+  await page.getByRole("button", { name: "Save and next" }).click()
   await expect(page.getByRole("alert")).toBeVisible()
   await expect(
     firstLabels.getByRole("button", { name: "Unimportant" }),
@@ -444,8 +447,11 @@ test("grades model claims and saves human selections through a failed request an
   await expect(secondClaim.getByLabel("Claim 2 extraction issue")).toHaveValue(
     "The source leaves the subject ambiguous.",
   )
-  await page.getByRole("button", { name: "Save review" }).click()
-  await expect(page.getByText("Review saved.")).toBeVisible()
+  await page.getByRole("button", { name: "Save and next" }).click()
+  await expect(
+    page.getByRole("heading", { name: "All caught up" }),
+  ).toBeVisible()
+  await page.getByRole("button", { name: "Previous example" }).click()
   await page.screenshot({
     path: testInfo.outputPath("fact-decomposition-grading.png"),
     fullPage: true,
@@ -521,17 +527,24 @@ test("reviews a response with no model claims", async ({ page }) => {
   const { taskId } = await importModelRows(page, "zero claims", [rows[1]])
   await page.goto(`/review/fact-decomposition?task_id=${taskId}`)
   await expect(page.getByText("No model claims proposed.")).toBeVisible()
-  await expect(page.getByRole("button", { name: "Save review" })).toBeDisabled()
+  await expect(
+    page.getByRole("button", { name: "Save and next" }),
+  ).toBeDisabled()
   await page
     .getByLabel("I checked the text for missing worthwhile claims")
     .check()
-  await page.getByRole("button", { name: "Save review" }).click()
-  await expect(page.getByText("Review saved.")).toBeVisible()
+  await page.getByRole("button", { name: "Save and next" }).click()
+  await expect(
+    page.getByRole("heading", { name: "All caught up" }),
+  ).toBeVisible()
+  await page.getByRole("button", { name: "Previous example" }).click()
   await page.reload()
   await expect(
     page.getByLabel("I checked the text for missing worthwhile claims"),
   ).toBeChecked()
-  await expect(page.getByRole("button", { name: "Save review" })).toBeDisabled()
+  await expect(
+    page.getByRole("button", { name: "Save and next" }),
+  ).toBeDisabled()
 })
 
 test("downloads exact prompt history and saved corrections", async ({
@@ -611,4 +624,120 @@ test("downloads exact prompt history and saved corrections", async ({
   const saved = exported.items.find((item) => item.arm_id === rows[0].arm_id)
     ?.correction_reviews[0]
   expect(saved).toMatchObject(review)
+})
+
+test("advances after saving and navigates previous examples without reopening stale recommendations", async ({
+  page,
+}, testInfo) => {
+  const { taskId } = await importModelRows(page, "navigation", [
+    modelRows("e2e-navigation-first")[1],
+    modelRows("e2e-navigation-second")[1],
+    modelRows("e2e-navigation-third")[1],
+  ])
+  await page.goto("/review/fact-decomposition")
+  await expect(page).toHaveURL(new RegExp(`task_id=${taskId}$`))
+  const firstUrl = page.url()
+  const coverage = page.getByLabel(
+    "I checked the text for missing worthwhile claims",
+  )
+  await coverage.check()
+
+  // Saving succeeds, but a failed queue request must leave a retryable saved review.
+  await page.route("**/review/next?**", (route) => route.abort("failed"))
+  await page.getByRole("button", { name: "Save and next" }).click()
+  await expect(page.getByText("Review saved.")).toBeVisible()
+  await expect(page.getByRole("alert")).toBeVisible()
+  await expect(page).toHaveURL(firstUrl)
+  await expect(
+    page.getByRole("button", { name: "Save and next" }),
+  ).toBeDisabled()
+  await page.unroute("**/review/next?**")
+  await page.getByRole("button", { name: "Next example", exact: true }).click()
+  await expect(page).not.toHaveURL(firstUrl)
+  const secondUrl = page.url()
+  await expect(coverage).not.toBeChecked()
+  await expect(coverage).toBeEnabled()
+
+  await page.goBack()
+  await expect(page).toHaveURL(firstUrl)
+  await expect(coverage).toBeChecked()
+  await expect(coverage).toBeDisabled()
+  await page.getByRole("button", { name: "Next example", exact: true }).click()
+  await expect(page).toHaveURL(secondUrl)
+  await coverage.check()
+  await page.getByRole("button", { name: "Save and next" }).click()
+  await expect(page).not.toHaveURL(secondUrl)
+  const thirdUrl = page.url()
+  await expect(coverage).not.toBeChecked()
+  await expect(coverage).toBeEnabled()
+  await coverage.check()
+  await page.getByRole("button", { name: "Save and next" }).click()
+  await expect(
+    page.getByRole("heading", { name: "All caught up" }),
+  ).toBeVisible()
+  await page.screenshot({
+    path: testInfo.outputPath("review-all-caught-up.png"),
+    fullPage: true,
+  })
+  await page.getByRole("button", { name: "Previous example" }).click()
+  await expect(page).toHaveURL(thirdUrl)
+  await page.getByRole("button", { name: "Previous example" }).click()
+  await expect(page).toHaveURL(secondUrl)
+  await expect(coverage).toBeChecked()
+  await expect(coverage).toBeDisabled()
+  await page.getByRole("button", { name: "Previous example" }).click()
+  await expect(page).toHaveURL(firstUrl)
+  await page.screenshot({
+    path: testInfo.outputPath("review-previous-example.png"),
+    fullPage: true,
+  })
+  await page.getByRole("button", { name: "Next example", exact: true }).click()
+  await expect(page).toHaveURL(secondUrl)
+
+  // Keep the SPA query cache alive, then re-enter while the queue response is delayed.
+  await page.getByRole("link", { name: "Home", exact: true }).click()
+  await page.route("**/review/next?**", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    await route.continue()
+  })
+  await page.getByRole("link", { name: "Review", exact: true }).first().click()
+  await page.getByRole("link", { name: /Fact Decomposition/ }).click()
+  await expect(
+    page.getByRole("heading", { name: "All caught up" }),
+  ).toBeVisible()
+  await expect(page).not.toHaveURL(/task_id=/)
+})
+
+test("waits for a fresh recommendation when returning from home after saving", async ({
+  page,
+}) => {
+  const { taskId } = await importModelRows(page, "home navigation", [
+    modelRows("e2e-home-first")[1],
+    modelRows("e2e-home-second")[1],
+  ])
+  await page.goto("/review/fact-decomposition")
+  await expect(page).toHaveURL(new RegExp(`task_id=${taskId}$`))
+  const firstUrl = page.url()
+  await page
+    .getByLabel("I checked the text for missing worthwhile claims")
+    .check()
+  await page.route("**/review/next?**", (route) => route.abort("failed"))
+  await page.getByRole("button", { name: "Save and next" }).click()
+  await expect(page.getByRole("alert")).toBeVisible()
+  await page.getByRole("link", { name: "Home", exact: true }).click()
+  await page.unroute("**/review/next?**")
+  await page.route("**/review/next?**", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    await route.continue()
+  })
+  await page.getByRole("link", { name: "Review", exact: true }).first().click()
+  await page.getByRole("link", { name: /Fact Decomposition/ }).click()
+  await expect(
+    page.getByLabel("I checked the text for missing worthwhile claims"),
+  ).toBeEnabled()
+  await expect(page).toHaveURL(/task_id=\d+$/)
+  await expect(page).not.toHaveURL(firstUrl)
+  await expect(
+    page.getByLabel("I checked the text for missing worthwhile claims"),
+  ).not.toBeChecked()
 })

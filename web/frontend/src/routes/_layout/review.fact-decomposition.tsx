@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Loader2 } from "lucide-react"
 import * as React from "react"
@@ -27,14 +27,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import useAuth from "@/hooks/useAuth"
+import { homeSummaryQueryKey } from "@/lib/queries"
 import { isReviewActionAllowed } from "@/reviewCapabilities"
-import { apiErrorMessage } from "@/utils"
+import { apiErrorMessage, hasApiErrorStatus } from "@/utils"
 
 export const Route = createFileRoute("/_layout/review/fact-decomposition")({
   component: FactDecompositionReview,
-  validateSearch: (search: Record<string, unknown>) => {
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { task_id?: number; complete?: boolean } => {
     const value = Number(search.task_id)
-    return { task_id: Number.isInteger(value) && value > 0 ? value : undefined }
+    return {
+      task_id: Number.isInteger(value) && value > 0 ? value : undefined,
+      complete:
+        search.complete === true || search.complete === "true"
+          ? true
+          : undefined,
+    }
   },
   head: () => ({
     meta: [
@@ -89,7 +99,26 @@ function correctionClaims(
   }))
 }
 
+async function readNextFactReview() {
+  try {
+    return await ReviewService.readNextReviewTask({
+      evalType: "FACT_DECOMP",
+      mode: "ITEM_AUDIT",
+    })
+  } catch (error) {
+    if (hasApiErrorStatus(error, 404)) return null
+    throw error
+  }
+}
+
 function FactDecompositionReview() {
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
+  const [visited, setVisited] = React.useState<number[]>(
+    () =>
+      queryClient.getQueryData<number[]>(["fact-review-history", user?.id]) ??
+      [],
+  )
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
   const [multipleFactsFlags, setMultipleFactsFlags] = React.useState<boolean[]>(
@@ -113,16 +142,24 @@ function FactDecompositionReview() {
 
   const nextQuery = useQuery({
     queryKey: ["review-next", "fact-decomp"],
-    queryFn: () =>
-      ReviewService.readNextReviewTask({
-        evalType: "FACT_DECOMP",
-        mode: "ITEM_AUDIT",
-      }),
+    queryFn: readNextFactReview,
     retry: false,
-    enabled: search.task_id === undefined,
+    enabled: search.task_id === undefined && !search.complete,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
   })
 
-  const taskId = search.task_id ?? nextQuery.data?.task_id ?? null
+  // Wait for a fresh queue response before pinning a recommendation in the URL.
+  const waitingForNext =
+    search.task_id === undefined &&
+    !search.complete &&
+    (!nextQuery.isFetchedAfterMount || nextQuery.isFetching)
+  const taskId =
+    search.task_id ??
+    (search.complete || waitingForNext || nextQuery.isError
+      ? null
+      : nextQuery.data?.task_id) ??
+    null
 
   const payloadQuery = useQuery({
     queryKey: ["review-fact-decomp", taskId],
@@ -139,11 +176,26 @@ function FactDecompositionReview() {
   React.useEffect(() => {
     if (
       search.task_id === undefined &&
-      payload?.review_mode === "MODEL_LABEL_CORRECTION"
+      !waitingForNext &&
+      !search.complete &&
+      payload
     ) {
       void navigate({ replace: true, search: { task_id: payload.task_id } })
     }
-  }, [navigate, payload, search.task_id])
+  }, [navigate, payload, search.task_id, search.complete, waitingForNext])
+
+  React.useEffect(() => {
+    if (!payload) return
+    setVisited((current) =>
+      current.includes(payload.task_id)
+        ? current
+        : [...current, payload.task_id],
+    )
+  }, [payload])
+
+  React.useEffect(() => {
+    queryClient.setQueryData(["fact-review-history", user?.id], visited)
+  }, [queryClient, visited, user?.id])
 
   React.useEffect(() => {
     if (!payload || initializedTaskId.current === payload.task_id) {
@@ -190,20 +242,86 @@ function FactDecompositionReview() {
     setModelSubmitting(false)
   }, [payload])
 
+  const nextMutation = useMutation({
+    mutationFn: readNextFactReview,
+    onSuccess: async (next) => {
+      queryClient.setQueryData(["review-next", "fact-decomp"], next)
+      setErrorMessage(null)
+      await navigate({
+        search: {
+          task_id: next?.task_id ?? undefined,
+          complete: next?.task_id == null ? true : undefined,
+        },
+      })
+    },
+    onError: (error) => setErrorMessage(apiErrorMessage(error)),
+  })
+
+  const advanceAfterSave = async () => {
+    setCompletionMessage("Review saved.")
+    setErrorMessage(null)
+    void queryClient.invalidateQueries({ queryKey: homeSummaryQueryKey })
+    await queryClient.invalidateQueries({
+      queryKey: ["review-fact-decomp", taskId],
+    })
+    await queryClient.invalidateQueries({
+      queryKey: ["review-next", "fact-decomp"],
+      refetchType: "none",
+    })
+    nextMutation.mutate()
+  }
+
   const submitMutation = useMutation({
     mutationFn: (requestBody: FactDecompReviewSubmit) =>
       ReviewService.submitFactDecompReview({
         taskId: payload?.task_id as number,
         requestBody,
       }),
-    onSuccess: (response) => {
-      setCompletionMessage(
-        `Fact review submitted for item ${response.item_id}.`,
-      )
-      setErrorMessage(null)
-    },
+    onSuccess: advanceAfterSave,
     onError: (error) => setErrorMessage(apiErrorMessage(error)),
   })
+
+  const saved = !!completionMessage || !!payload?.existing_review
+  const busy =
+    modelSubmitting || submitMutation.isPending || nextMutation.isPending
+  const position = taskId === null ? visited.length : visited.indexOf(taskId)
+  const previousId = visited[position - 1]
+  const followingId = visited[position + 1]
+  const navigation = (
+    <nav aria-label="Example navigation" className="flex flex-wrap gap-2">
+      <Button
+        type="button"
+        variant="outline"
+        disabled={previousId === undefined || busy}
+        onClick={() => {
+          if (
+            payload &&
+            !saved &&
+            !window.confirm("Leave this example? Unsaved changes will be lost.")
+          )
+            return
+          void navigate({ search: { task_id: previousId } })
+        }}
+      >
+        Previous example
+      </Button>
+      {saved && taskId !== null ? (
+        <Button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            if (followingId !== undefined) {
+              void navigate({ search: { task_id: followingId } })
+            } else {
+              nextMutation.mutate()
+            }
+          }}
+        >
+          {nextMutation.isPending ? "Loading next example" : "Next example"}
+        </Button>
+      ) : null}
+    </nav>
+  )
 
   const submitReview = () => {
     if (
@@ -226,10 +344,7 @@ function FactDecompositionReview() {
     })
   }
 
-  if (
-    (search.task_id === undefined && nextQuery.isLoading) ||
-    payloadQuery.isLoading
-  ) {
+  if (waitingForNext || payloadQuery.isLoading) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="size-4 animate-spin" />
@@ -238,7 +353,7 @@ function FactDecompositionReview() {
     )
   }
 
-  if (search.task_id === undefined && nextQuery.isError) {
+  if (search.task_id === undefined && !search.complete && nextQuery.isError) {
     return (
       <div className="flex flex-col gap-3">
         <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
@@ -252,8 +367,10 @@ function FactDecompositionReview() {
     return (
       <div className="flex flex-col gap-3">
         <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-          No fact-decomposition review tasks are available.
+          <h2 className="font-semibold">All caught up</h2>
+          <p>No fact-decomposition review tasks are available.</p>
         </div>
+        {navigation}
       </div>
     )
   }
@@ -284,6 +401,7 @@ function FactDecompositionReview() {
         guide={payload.guide}
         existingReview={payload.existing_review}
         completionMessage={completionMessage}
+        navigation={navigation}
         errorMessage={errorMessage}
         onSubmit={(submission) => {
           setErrorMessage(null)
@@ -296,9 +414,7 @@ function FactDecompositionReview() {
             taskId: taskId as number,
             requestBody,
           })
-            .then(() => {
-              setCompletionMessage("Review saved.")
-            })
+            .then(advanceAfterSave)
             .catch((error: unknown) => setErrorMessage(apiErrorMessage(error)))
             .finally(() => setModelSubmitting(false))
         }}
@@ -332,6 +448,7 @@ function FactDecompositionReview() {
         <Badge variant="outline">Task {payload.task_id}</Badge>
       </div>
 
+      {navigation}
       <GradingInstructions guide={payload.guide} />
       <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
         <section className="space-y-5">
@@ -587,7 +704,7 @@ function FactDecompositionReview() {
               onClick={submitReview}
               type="button"
             >
-              {submitMutation.isPending ? "Submitting" : "Submit fact review"}
+              {submitMutation.isPending ? "Saving review" : "Save and next"}
             </Button>
           </fieldset>
         </aside>
