@@ -40,11 +40,14 @@ type FactDecompositionCorrectionProps = {
   claims: CorrectionInputClaim[]
   guide: ImportanceGuide
   existingReview?: ModelCorrectionReview | null
+  saveLabel?: string
   canSubmit: boolean
   submitting?: boolean
   errorMessage?: string | null
   completionMessage?: string | null
   navigation?: React.ReactNode
+  onDirtyChange?: (dirty: boolean) => void
+  onSnapshotChange?: (snapshot: string) => void
   onSubmit: (submission: CorrectionSubmission) => void
 }
 
@@ -59,12 +62,15 @@ function completedHumanClaims(groups: ClaimGroup[]): HumanClaim[] | null {
 
 export function FactDecompositionCorrection({
   canSubmit,
+  saveLabel = "Save and next",
   existingReview,
   claims,
   guide,
   completionMessage = null,
   errorMessage = null,
   onSubmit,
+  onDirtyChange,
+  onSnapshotChange,
   navigation,
   query,
   response,
@@ -103,6 +109,23 @@ export function FactDecompositionCorrection({
   const [activePosition, setActivePosition] = React.useState<number | null>(
     null,
   )
+  const editableValue = JSON.stringify({
+    groups,
+    coverageChecked,
+    draft,
+    stagedSpans,
+  })
+  React.useEffect(() => {
+    onSnapshotChange?.(editableValue)
+  }, [editableValue, onSnapshotChange])
+  const baseline = React.useRef(editableValue)
+  React.useEffect(() => {
+    onDirtyChange?.(
+      !existingReview &&
+        !completionMessage &&
+        editableValue !== baseline.current,
+    )
+  }, [editableValue, existingReview, completionMessage, onDirtyChange])
   const nextDraftId = React.useRef(
     Math.max(-1, ...groups.map((group) => group.id)) + 1,
   )
@@ -393,7 +416,7 @@ export function FactDecompositionCorrection({
             onClick={submit}
             type="button"
           >
-            <Send /> {submitting ? "Saving review" : "Save and next"}
+            <Send /> {submitting ? "Saving review" : saveLabel}
           </Button>
           {navigation}
         </div>

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, SessionDep
@@ -105,7 +106,7 @@ def read_fact_decomp_review(
             task_id=task.id,
             documents=documents,
             chunks=[ChunkSummary.model_validate(chunk) for chunk in chunks],
-            allowed_actions=["save_model_eval"],
+            allowed_actions=[] if existing else ["save_model_eval"],
             item_revision=item.revision,
             existing_review=_existing_model_review(existing),
             review_mode=MODEL_REVIEW_MODE,
@@ -123,7 +124,7 @@ def read_fact_decomp_review(
         rubric_dimensions=fact_decomp_rubric(),
         documents=documents,
         chunks=[ChunkSummary.model_validate(chunk) for chunk in chunks],
-        allowed_actions=["save_review"],
+        allowed_actions=[] if existing else ["save_review"],
         item_revision=item.revision,
         existing_review=existing.model_dump(mode="json") if existing else None,
         review_mode=AUTHORED_REVIEW_MODE,
@@ -194,7 +195,21 @@ def submit_fact_decomp_review(
     task.labels_count += 1
     session.add(review)
     session.add(task)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError as exc:
+        session.rollback()
+        existing = session.exec(
+            select(FactDecompReview).where(
+                col(FactDecompReview.task_id) == task_id,
+                col(FactDecompReview.user_id) == current_user.id,
+            )
+        ).first()
+        if existing is None:
+            raise
+        raise HTTPException(
+            status_code=409, detail="Review task already submitted"
+        ) from exc
     session.refresh(review)
     session.refresh(task)
     assert task.id is not None
@@ -300,7 +315,21 @@ def submit_model_eval_review(
     task.labels_count += 1
     session.add(review)
     session.add(task)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError as exc:
+        session.rollback()
+        existing = session.exec(
+            select(FactDecompReview).where(
+                col(FactDecompReview.task_id) == task_id,
+                col(FactDecompReview.user_id) == current_user.id,
+            )
+        ).first()
+        if existing is None:
+            raise
+        raise HTTPException(
+            status_code=409, detail="Review task already submitted"
+        ) from exc
     session.refresh(review)
     session.refresh(task)
     assert item.id is not None

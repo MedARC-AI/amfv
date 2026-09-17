@@ -285,6 +285,95 @@ def test_concurrent_fact_saves_with_the_same_revision_have_one_winner(
     assert item.revision == initial.item_revision + 1
 
 
+@pytest.mark.parametrize("command", ["draft", "submit"])
+def test_fact_write_rejects_deactivation_after_read_and_preserves_replay(
+    client: TestClient,
+    normal_user_token_headers: dict[str, str],
+    db: Session,
+    monkeypatch: pytest.MonkeyPatch,
+    command: str,
+) -> None:
+    dataset = _fact_dataset(db)
+    original_body = _fact_command(_fact_payload(dataset, "Original active draft."))
+    first = client.post(
+        f"{settings.API_V1_STR}/create/fact-decomp/draft",
+        headers=normal_user_token_headers,
+        json=original_body,
+    )
+    assert first.status_code == 200
+    original = first.json()
+    item_id = original["id"]
+    original_facts = [
+        fact.model_dump()
+        for fact in db.exec(
+            select(EvalFact).where(col(EvalFact.item_id) == item_id)
+        ).all()
+    ]
+    claim = create_routes._claim_fact_draft_update
+
+    def deactivate_before_claim(session, body, current_user, **kwargs):
+        # The route already read/validated this item as active. Deactivation
+        # must still prevent the atomic update, including a Submit transition.
+        item = session.get(EvalItem, body.item_id)
+        assert item is not None
+        item.is_active = False
+        session.add(item)
+        session.commit()
+        return claim(session, body, current_user, **kwargs)
+
+    monkeypatch.setattr(
+        create_routes, "_claim_fact_draft_update", deactivate_before_claim
+    )
+    request_id = f"inactive-write-{uuid4()}"
+    rejected = client.post(
+        f"{settings.API_V1_STR}/create/fact-decomp/{command}",
+        headers=normal_user_token_headers,
+        json=_fact_command(
+            {
+                **_fact_payload(dataset, "Must not replace the inactive draft."),
+                "item_id": item_id,
+                "expected_item_revision": original["item_revision"],
+            },
+            request_id=request_id,
+        ),
+    )
+    assert rejected.status_code == 409
+    assert rejected.json()["detail"]["code"] == "item_not_editable"
+    db.expire_all()
+    item = db.get(EvalItem, item_id)
+    assert item is not None
+    assert item.is_active is False
+    assert item.status == ItemStatus.DRAFT
+    assert item.revision == original["item_revision"]
+    assert item.prompt_text == original["prompt_text"]
+    assert [
+        fact.model_dump()
+        for fact in db.exec(
+            select(EvalFact).where(col(EvalFact.item_id) == item_id)
+        ).all()
+    ] == original_facts
+    assert (
+        db.exec(
+            select(FactDecompSaveReceipt).where(
+                col(FactDecompSaveReceipt.request_id) == request_id
+            )
+        ).first()
+        is None
+    )
+
+    # An old receipt still proves the earlier commit; replay must not write again.
+    replay = client.post(
+        f"{settings.API_V1_STR}/create/fact-decomp/draft",
+        headers=normal_user_token_headers,
+        json=original_body,
+    )
+    assert replay.status_code == 200
+    assert replay.json() == original
+    db.expire_all()
+    assert db.get(EvalItem, item_id).revision == original["item_revision"]
+    assert db.get(EvalItem, item_id).is_active is False
+
+
 def test_fact_save_receipts_recover_first_and_later_commits_and_reject_reuse(
     client: TestClient,
     normal_user_token_headers: dict[str, str],

@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Loader2 } from "lucide-react"
 import * as React from "react"
@@ -10,6 +10,7 @@ import {
   type FactDecompCreateResponse,
   type FactDecompSaveCommand,
   type FactDraft,
+  type OwnedFactDecompItemDetail,
   type ValidationPreview,
 } from "@/client"
 import {
@@ -28,19 +29,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { downloadLocalCopy } from "@/editorDownload"
 import {
   type FactSaveCommandKind,
   factSaveReceiptMatchesCommand,
 } from "@/factSaveRecovery"
+import useAuth from "@/hooks/useAuth"
+import { useEditorExit } from "@/hooks/useEditorExit"
+import { useEditorLifetime } from "@/hooks/useEditorLifetime"
+import { homeSummaryQueryKey } from "@/lib/queries"
 import {
   apiErrorMessage,
   hasApiErrorStatus,
   isAuthoritativeClientError,
-  ProductMessageError,
 } from "@/utils"
 
 export const Route = createFileRoute("/_layout/create/fact-decomposition")({
   component: FactDecompositionCreate,
+  validateSearch: (search: Record<string, unknown>): { item_id?: number } => {
+    const id = Number(search.item_id)
+    return { item_id: Number.isSafeInteger(id) && id > 0 ? id : undefined }
+  },
   head: () => ({
     meta: [
       {
@@ -58,24 +67,11 @@ type DraftIdentity = {
   status: FactDecompCreateResponse["status"]
 }
 
-type FactMutationResult = {
-  reconciled: boolean
-  response: FactDecompCreateResponse
-}
-
-class UncertainFactSaveError extends ProductMessageError {}
-
 function newFactSaveRequestId(): string {
   return (
     globalThis.crypto?.randomUUID?.() ??
     `fact-save-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
   )
-}
-
-function uncertainFactSaveMessage(command: FactSaveCommandKind): string {
-  return command === "draft"
-    ? "Draft save outcome is unknown. It was not retried automatically; do not assume the draft was saved."
-    : "Submission outcome is unknown. It was not retried automatically; do not assume the item was submitted."
 }
 
 function newFact(polarity: FactDraft["polarity"]): FactDraft {
@@ -132,50 +128,174 @@ function factEvidenceTraySpans(
 }
 
 function FactDecompositionCreate() {
+  const { user } = useAuth()
+  return user ? (
+    <FactCreateEditor key={user.id} userId={user.id} />
+  ) : (
+    <p>Loading your account…</p>
+  )
+}
+
+type PendingSave = { kind: FactSaveCommandKind; command: FactDecompSaveCommand }
+
+function editorValue(
+  datasetId: number | null,
+  documentId: number | null,
+  source: string,
+  facts: FactDraft[],
+) {
+  return JSON.stringify({
+    datasetId,
+    documentId,
+    source,
+    facts: normalizeFacts(facts),
+  })
+}
+
+function FactCreateEditor({ userId }: { userId: string }) {
+  const queryClient = useQueryClient()
+  const search = Route.useSearch()
+  const navigate = Route.useNavigate()
+  const { capture, invalidate } = useEditorLifetime(search.item_id)
   const [datasetId, setDatasetId] = React.useState<number | null>(null)
   const [activeDocumentId, setActiveDocumentId] = React.useState<number | null>(
     null,
   )
   const [sourceText, setSourceText] = React.useState("")
-  const [facts, setFacts] = React.useState<FactDraft[]>(() => initialFacts())
+  const [facts, setFacts] = React.useState<FactDraft[]>(initialFacts)
   const [selectedFactIndex, setSelectedFactIndex] = React.useState<
     number | null
-  >(null)
+  >(0)
   const [validation, setValidation] = React.useState<ValidationPreview | null>(
     null,
   )
   const [resultMessage, setResultMessage] = React.useState<string | null>(null)
   const [draftIdentity, setDraftIdentity] =
     React.useState<DraftIdentity | null>(null)
-  const [writeOutcomeUnknown, setWriteOutcomeUnknown] = React.useState(false)
-
-  const selectedFact =
-    (selectedFactIndex !== null ? facts[selectedFactIndex] : undefined) ??
-    facts[0]
-
+  const [baseline, setBaseline] = React.useState(() =>
+    editorValue(null, null, "", initialFacts()),
+  )
+  const [permission, setPermission] =
+    React.useState<OwnedFactDecompItemDetail | null>(null)
+  const [pending, setPending] = React.useState<PendingSave | null>(null)
+  const [saveState, setSaveState] = React.useState<
+    "idle" | "saving" | "uncertain" | "conflict"
+  >("idle")
+  const reloadOperation = React.useRef<{ itemId: number } | null>(null)
+  const [reloading, setReloading] = React.useState(false)
   React.useEffect(() => {
-    if (selectedFactIndex === null && facts[0]) {
-      setSelectedFactIndex(0)
-    } else if (
-      selectedFactIndex !== null &&
-      selectedFactIndex >= facts.length
-    ) {
-      setSelectedFactIndex(facts.length > 0 ? facts.length - 1 : null)
+    if (reloadOperation.current?.itemId !== search.item_id) {
+      reloadOperation.current = null
+      setReloading(false)
     }
-  }, [facts, selectedFactIndex])
+  }, [search.item_id])
+  const currentValue = editorValue(
+    datasetId,
+    activeDocumentId,
+    sourceText,
+    facts,
+  )
+  const contentVersion = React.useRef({ value: currentValue, version: 0 })
+  if (contentVersion.current.value !== currentValue) {
+    contentVersion.current = {
+      value: currentValue,
+      version: contentVersion.current.version + 1,
+    }
+  }
+  const dirty = currentValue !== baseline
+  const uncertain = saveState === "saving" || saveState === "uncertain"
+  const locked =
+    reloading ||
+    saveState !== "idle" ||
+    permission?.can_edit === false ||
+    (draftIdentity !== null && draftIdentity.status !== "DRAFT")
+  const displayingCurrentDraft =
+    search.item_id === undefined || draftIdentity?.id === search.item_id
+  const { dialog, confirmAction } = useEditorExit(
+    displayingCurrentDraft && dirty,
+    displayingCurrentDraft && uncertain,
+  )
+  const selectedFact = facts[selectedFactIndex ?? 0]
+
+  const detailQuery = useQuery({
+    queryKey: ["fact-draft", userId, search.item_id],
+    queryFn: () =>
+      CreateService.readOwnedFactDecompItem({
+        itemId: search.item_id as number,
+      }),
+    enabled: search.item_id !== undefined,
+    retry: false,
+    refetchOnMount: "always",
+  })
+  const hydrate = React.useCallback((detail: OwnedFactDecompItemDetail) => {
+    setDatasetId(detail.dataset_id)
+    setActiveDocumentId(detail.document_id)
+    setSourceText(detail.source_text)
+    setFacts(normalizeFacts(detail.facts))
+    setSelectedFactIndex(detail.facts.length ? 0 : null)
+    setDraftIdentity({
+      id: detail.id,
+      revision: detail.item_revision,
+      status: detail.status,
+    })
+    setPermission(detail)
+    setBaseline(
+      editorValue(
+        detail.dataset_id,
+        detail.document_id,
+        detail.source_text,
+        detail.facts,
+      ),
+    )
+    setSaveState("idle")
+    setPending(null)
+    setValidation(null)
+    setResultMessage(null)
+  }, [])
+  React.useEffect(() => {
+    const detail = detailQuery.data
+    if (
+      !detail ||
+      detail.id !== search.item_id ||
+      detailQuery.isFetching ||
+      reloading
+    )
+      return
+    if (draftIdentity?.id !== detail.id) hydrate(detail)
+    else if (detail.item_revision < draftIdentity.revision) return
+    else if (
+      draftIdentity.revision !== detail.item_revision ||
+      permission?.can_edit !== detail.can_edit
+    ) {
+      if (dirty || pending) {
+        setSaveState("conflict")
+        setResultMessage(
+          "The saved item changed in another tab. Download your local copy or reload the saved version.",
+        )
+      } else hydrate(detail)
+    }
+  }, [
+    detailQuery.data,
+    detailQuery.isFetching,
+    reloading,
+    search.item_id,
+    draftIdentity,
+    permission,
+    dirty,
+    pending,
+    hydrate,
+  ])
 
   const optionsQuery = useQuery({
-    queryKey: ["create-options"],
+    queryKey: ["create-options", userId],
     queryFn: CreateService.readCreateOptions,
   })
-
   const factDatasets =
     optionsQuery.data?.filter(
       (dataset) => dataset.eval_type === "FACT_DECOMP",
     ) ?? []
-
   const documentsQuery = useQuery({
-    queryKey: ["create-source-documents", datasetId, "FACT_DECOMP"],
+    queryKey: ["create-source-documents", userId, datasetId, "FACT_DECOMP"],
     queryFn: () =>
       CreateService.readSourceDocuments({
         datasetId: datasetId as number,
@@ -183,24 +303,36 @@ function FactDecompositionCreate() {
       }),
     enabled: datasetId !== null,
   })
-
   const activeDocumentQuery = useQuery({
-    queryKey: ["create-source-document-detail", datasetId, activeDocumentId],
+    queryKey: [
+      "create-source-document-detail",
+      userId,
+      datasetId,
+      activeDocumentId,
+    ],
     queryFn: () =>
       CreateService.readSourceDocumentDetail({
         datasetId: datasetId as number,
         documentId: activeDocumentId as number,
         evalType: "FACT_DECOMP",
       }),
-    enabled: datasetId !== null && activeDocumentId !== null,
+    enabled:
+      datasetId !== null &&
+      activeDocumentId !== null &&
+      permission?.can_edit !== false,
   })
-
-  const updateFacts = (nextFacts: FactDraft[]) => {
-    setFacts(normalizeFacts(nextFacts))
+  const clearMessage = () => {
     setValidation(null)
     setResultMessage(null)
   }
-
+  const updateFacts = (nextFacts: FactDraft[]) => {
+    if (locked) return
+    setFacts(normalizeFacts(nextFacts))
+    setSelectedFactIndex((index) =>
+      nextFacts.length ? Math.min(index ?? 0, nextFacts.length - 1) : null,
+    )
+    clearMessage()
+  }
   const requestBody = (): CreateFactDecompDraftSubmit => ({
     dataset_id: datasetId ?? 0,
     document_id: activeDocumentId,
@@ -209,156 +341,189 @@ function FactDecompositionCreate() {
     source_text: sourceText,
     facts: normalizeFacts(facts),
   })
-
-  const saveCommand = (): FactDecompSaveCommand => ({
-    ...requestBody(),
-    request_id: newFactSaveRequestId(),
-  })
-
-  const reconcileFactSave = async (
-    command: FactDecompSaveCommand,
-    commandKind: FactSaveCommandKind,
-  ): Promise<FactDecompCreateResponse> => {
-    try {
-      const receipt = await CreateService.readFactDecompSaveReceipt({
-        requestId: command.request_id,
-      })
-      if (!factSaveReceiptMatchesCommand(receipt, command, commandKind)) {
-        throw new UncertainFactSaveError(uncertainFactSaveMessage(commandKind))
-      }
-      return receipt.response
-    } catch (error) {
-      if (error instanceof UncertainFactSaveError) {
-        throw error
-      }
-      if (hasApiErrorStatus(error, 404)) {
-        throw new UncertainFactSaveError(uncertainFactSaveMessage(commandKind))
-      }
-      throw new UncertainFactSaveError(uncertainFactSaveMessage(commandKind))
-    }
-  }
-
   const validateMutation = useMutation({
-    mutationFn: () =>
-      CreateService.previewFactDecompCreation({
-        requestBody: requestBody(),
-      }),
-    onSuccess: setValidation,
-    onError: (error) => setResultMessage(apiErrorMessage(error)),
-  })
-
-  const draftMutation = useMutation({
-    mutationFn: async (): Promise<FactMutationResult> => {
-      const command = saveCommand()
-      try {
-        const response = await CreateService.createFactDecompDraft({
-          requestBody: command,
-        })
-        return { response, reconciled: false }
-      } catch (error) {
-        if (isAuthoritativeClientError(error)) {
-          throw error
-        }
-        const response = await reconcileFactSave(command, "draft")
-        return { response, reconciled: true }
-      }
+    mutationFn: ({
+      body,
+    }: {
+      body: CreateFactDecompDraftSubmit
+      isCurrent: () => boolean
+    }) => CreateService.previewFactDecompCreation({ requestBody: body }),
+    onSuccess: (result, { isCurrent }) => {
+      if (isCurrent()) setValidation(result)
     },
-    onSuccess: ({ response, reconciled }) => {
-      setWriteOutcomeUnknown(false)
+    onError: (error, { isCurrent }) => {
+      if (isCurrent()) setResultMessage(apiErrorMessage(error))
+    },
+  })
+  const applySaved = async (
+    captured: PendingSave,
+    response: FactDecompCreateResponse,
+    recovered: boolean,
+    isCurrent: () => boolean,
+  ) => {
+    if (!isCurrent()) return
+    // A receipt establishes a commit, not that this revision is still current.
+    const latest = await CreateService.readOwnedFactDecompItem({
+      itemId: response.id,
+    })
+    if (!isCurrent()) return
+    if (
+      latest.item_revision !== response.item_revision ||
+      latest.status !== response.status
+    ) {
+      setSaveState("conflict")
+      setResultMessage(
+        "This save committed, but another tab has since changed the item. Download your local copy or reload the latest saved version.",
+      )
       setDraftIdentity({
         id: response.id,
         revision: response.item_revision,
         status: response.status,
       })
-      setValidation(response.validation)
-      setResultMessage(
-        reconciled
-          ? `Draft ${response.id} was recovered at revision ${response.item_revision}.`
-          : `Draft saved as item ${response.id} (revision ${response.item_revision}).`,
-      )
-    },
-    onError: (error) => {
-      if (error instanceof UncertainFactSaveError) {
-        setWriteOutcomeUnknown(true)
-      }
-      setResultMessage(apiErrorMessage(error))
-    },
-  })
-
-  const submitMutation = useMutation({
-    mutationFn: async (): Promise<FactMutationResult> => {
-      if (!draftIdentity) {
-        throw new ProductMessageError(
-          "Save this draft before submitting it for moderation.",
-        )
-      }
-      const command = saveCommand()
-      try {
-        const response = await CreateService.submitFactDecompDraft({
-          requestBody: command,
-        })
-        return { response, reconciled: false }
-      } catch (error) {
-        if (isAuthoritativeClientError(error)) {
-          throw error
-        }
-        const response = await reconcileFactSave(command, "submit")
-        return { response, reconciled: true }
-      }
-    },
-    onSuccess: ({ response, reconciled }) => {
-      setWriteOutcomeUnknown(false)
-      setDraftIdentity({
-        id: response.id,
-        revision: response.item_revision,
-        status: response.status,
+      await navigate({
+        replace: true,
+        search: { item_id: response.id },
+        ignoreBlocker: true,
       })
-      setValidation(response.validation)
-      setResultMessage(
-        reconciled
-          ? `Submission of item ${response.id} was recovered.`
-          : `Submitted item ${response.id}.`,
-      )
-    },
-    onError: (error) => {
-      if (error instanceof UncertainFactSaveError) {
-        setWriteOutcomeUnknown(true)
-      }
-      setResultMessage(apiErrorMessage(error))
-    },
-  })
-
-  const resetDataset = (nextDatasetId: number) => {
-    setDatasetId(nextDatasetId)
-    setActiveDocumentId(null)
-    setSourceText("")
-    setFacts(initialFacts())
-    setSelectedFactIndex(null)
-    setValidation(null)
-    setResultMessage(null)
-    setDraftIdentity(null)
-    setWriteOutcomeUnknown(false)
-  }
-
-  const selectDocument = (value: string) => {
-    setActiveDocumentId(value === noDocumentValue ? null : Number(value))
-    setFacts((currentFacts) =>
-      currentFacts.map((fact) => ({ ...fact, provenance_spans: [] })),
-    )
-    setValidation(null)
-    setResultMessage(null)
-  }
-
-  const useDocumentText = () => {
-    setSourceText(activeDocumentQuery.data?.content ?? "")
-    setValidation(null)
-    setResultMessage(null)
-  }
-
-  const addProvenanceSpan = (span: EvidenceSpan) => {
-    if (selectedFactIndex === null || !selectedFact) {
       return
     }
+    await queryClient.cancelQueries({
+      queryKey: ["fact-draft", userId, response.id],
+      exact: true,
+    })
+    if (!isCurrent()) return
+    hydrate(latest)
+    queryClient.setQueryData(["fact-draft", userId, response.id], latest)
+    setValidation(response.validation)
+    setResultMessage(
+      captured.kind === "draft"
+        ? recovered
+          ? `Draft ${response.id} was recovered at revision ${response.item_revision}.`
+          : `Draft saved as item ${response.id} (revision ${response.item_revision}).`
+        : recovered
+          ? `Submission of item ${response.id} was recovered.`
+          : `Submitted item ${response.id}.`,
+    )
+    void queryClient.invalidateQueries({ queryKey: homeSummaryQueryKey })
+    void queryClient.invalidateQueries({ queryKey: ["fact-drafts", userId] })
+    await navigate({
+      replace: true,
+      search: { item_id: response.id },
+      ignoreBlocker: true,
+    })
+  }
+  const reconcile = async (captured: PendingSave, isCurrent = capture()) => {
+    if (!isCurrent()) return
+    setSaveState("saving")
+    try {
+      const receipt = await CreateService.readFactDecompSaveReceipt({
+        requestId: captured.command.request_id,
+      })
+      if (!isCurrent()) return
+      if (
+        !factSaveReceiptMatchesCommand(receipt, captured.command, captured.kind)
+      ) {
+        setSaveState("conflict")
+        setResultMessage(
+          "The save receipt does not match this command. Download your local copy; this response cannot confirm your save.",
+        )
+        return
+      }
+      await applySaved(captured, receipt.response, true, isCurrent)
+    } catch {
+      if (!isCurrent()) return
+      setSaveState("uncertain")
+      setResultMessage(
+        "Save outcome is unknown. Check save status, retry the same save, or download your local copy. A missing receipt does not prove that the save failed.",
+      )
+    }
+  }
+  const send = async (captured: PendingSave) => {
+    const isCurrent = capture()
+    setPending(captured)
+    setSaveState("saving")
+    setResultMessage(null)
+    let response: FactDecompCreateResponse
+    try {
+      response = await (captured.kind === "draft"
+        ? CreateService.createFactDecompDraft
+        : CreateService.submitFactDecompDraft)({
+        requestBody: captured.command,
+      })
+    } catch (error) {
+      if (!isCurrent()) return
+      if (hasApiErrorStatus(error, 409)) {
+        setSaveState("conflict")
+        setResultMessage(
+          `${apiErrorMessage(error)} Download your local copy or reload the saved version.`,
+        )
+      } else if (isAuthoritativeClientError(error)) {
+        setSaveState("idle")
+        setPending(null)
+        setResultMessage(apiErrorMessage(error))
+      } else await reconcile(captured, isCurrent)
+      return
+    }
+    try {
+      await applySaved(captured, response, false, isCurrent)
+    } catch {
+      await reconcile(captured, isCurrent)
+    }
+  }
+  const save = (kind: FactSaveCommandKind) => {
+    if (locked) return
+    void send({
+      kind,
+      command: { ...requestBody(), request_id: newFactSaveRequestId() },
+    })
+  }
+  const resetDataset = React.useCallback(
+    (nextDatasetId: number | null) => {
+      invalidate()
+      reloadOperation.current = null
+      setReloading(false)
+      setDatasetId(nextDatasetId)
+      setActiveDocumentId(null)
+      setSourceText("")
+      setFacts(initialFacts())
+      setSelectedFactIndex(0)
+      setValidation(null)
+      setResultMessage(null)
+      setDraftIdentity(null)
+      setPermission(null)
+      setPending(null)
+      setSaveState("idle")
+      setBaseline(editorValue(nextDatasetId, null, "", initialFacts()))
+    },
+    [invalidate],
+  )
+  const previousItemId = React.useRef(search.item_id)
+  React.useEffect(() => {
+    if (search.item_id === undefined && previousItemId.current !== undefined)
+      resetDataset(null)
+    previousItemId.current = search.item_id
+  }, [search.item_id, resetDataset])
+  const selectDocument = (value: string) => {
+    if (locked) return
+    confirmAction(() => {
+      setActiveDocumentId(value === noDocumentValue ? null : Number(value))
+      setFacts((current) =>
+        current.map((fact) => ({ ...fact, provenance_spans: [] })),
+      )
+      clearMessage()
+    })
+  }
+  const useDocumentText = () => {
+    if (locked) return
+    const replace = () => {
+      setSourceText(activeDocumentQuery.data?.content ?? "")
+      clearMessage()
+    }
+    if (sourceText) confirmAction(replace)
+    else replace()
+  }
+  const addProvenanceSpan = (span: EvidenceSpan) => {
+    if (locked || selectedFactIndex === null || !selectedFact) return
     updateFacts(
       facts.map((fact, index) =>
         index === selectedFactIndex
@@ -373,15 +538,11 @@ function FactDecompositionCreate() {
       ),
     )
   }
-
   const selectedChunkSpans = facts.flatMap(
     (fact) => fact.provenance_spans ?? [],
   )
-
   const updateSelectedFactSpans = (nextSpans: EvidenceSpan[]) => {
-    if (selectedFactIndex === null || !selectedFact) {
-      return
-    }
+    if (locked || selectedFactIndex === null || !selectedFact) return
     updateFacts(
       facts.map((fact, index) =>
         index === selectedFactIndex
@@ -390,22 +551,133 @@ function FactDecompositionCreate() {
       ),
     )
   }
-
   const isBusy =
-    validateMutation.isPending ||
-    draftMutation.isPending ||
-    submitMutation.isPending
-  const isSubmitted = draftIdentity?.status === "SUBMITTED"
-
+    (validateMutation.isPending && validateMutation.variables?.isCurrent()) ||
+    saveState === "saving"
+  const reloadSaved = () => {
+    if (reloadOperation.current) return
+    confirmAction(() => {
+      if (reloadOperation.current) return
+      const id = draftIdentity?.id ?? search.item_id
+      if (!id) return
+      const operation = { itemId: id }
+      reloadOperation.current = operation
+      setReloading(true)
+      const isCurrent = capture()
+      const version = contentVersion.current.version
+      void (async () => {
+        try {
+          await queryClient.cancelQueries({
+            queryKey: ["fact-draft", userId, id],
+            exact: true,
+          })
+          const detail = await CreateService.readOwnedFactDecompItem({
+            itemId: id,
+          })
+          if (
+            !isCurrent() ||
+            reloadOperation.current !== operation ||
+            contentVersion.current.version !== version
+          )
+            return
+          if (detail.item_revision < (draftIdentity?.revision ?? 0)) return
+          queryClient.setQueryData(["fact-draft", userId, id], detail)
+          hydrate(detail)
+        } catch (error) {
+          if (isCurrent() && contentVersion.current.version === version)
+            setResultMessage(apiErrorMessage(error))
+        } finally {
+          if (reloadOperation.current === operation) {
+            reloadOperation.current = null
+            setReloading(false)
+          }
+        }
+      })()
+    })
+  }
+  if (search.item_id !== undefined && draftIdentity?.id !== search.item_id) {
+    return detailQuery.isError ? (
+      <div>
+        <p>{apiErrorMessage(detailQuery.error)}</p>
+        <Button onClick={() => void detailQuery.refetch()}>
+          Retry loading draft
+        </Button>
+        {dialog}
+      </div>
+    ) : (
+      <div>
+        <p>Loading saved draft…</p>
+        {dialog}
+      </div>
+    )
+  }
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid gap-6 lg:grid-cols-[20rem_1fr]">
-        <aside className="space-y-5">
+      {dialog}
+      {draftIdentity ? (
+        <div>
+          Item {draftIdentity.id} · Revision {draftIdentity.revision} ·{" "}
+          {draftIdentity.status} · {permission?.dataset_name}
+        </div>
+      ) : null}
+      {permission?.can_edit === false ? (
+        <p>
+          This saved item is read-only (
+          {permission.read_only_reason?.replace(/_/g, " ")}).
+        </p>
+      ) : null}
+      <Button
+        variant="outline"
+        className="self-start"
+        onClick={() =>
+          confirmAction(() => {
+            if (search.item_id === undefined) resetDataset(null)
+            else void navigate({ search: {}, ignoreBlocker: true })
+          })
+        }
+      >
+        Create new draft
+      </Button>
+      {saveState === "uncertain" || saveState === "conflict" ? (
+        <div className="flex flex-wrap gap-2">
+          {saveState === "uncertain" && pending ? (
+            <>
+              <Button onClick={() => void reconcile(pending)}>
+                Check save status
+              </Button>
+              <Button onClick={() => void send(pending)}>
+                Retry same save
+              </Button>
+            </>
+          ) : null}
+          {draftIdentity && saveState === "conflict" ? (
+            <Button disabled={reloading} onClick={reloadSaved}>
+              Reload saved version
+            </Button>
+          ) : null}
+          <Button
+            variant="outline"
+            onClick={() =>
+              downloadLocalCopy("fact-draft.json", {
+                ...requestBody(),
+                pending,
+              })
+            }
+          >
+            Download local copy
+          </Button>
+        </div>
+      ) : null}
+      <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
+        <aside className="min-w-0 space-y-5">
           <div className="space-y-2">
             <Label>Dataset</Label>
             <Select
-              onValueChange={(value) => resetDataset(Number(value))}
-              value={datasetId?.toString()}
+              disabled={locked || draftIdentity !== null}
+              onValueChange={(value) =>
+                confirmAction(() => resetDataset(Number(value)))
+              }
+              value={datasetId?.toString() ?? ""}
             >
               <SelectTrigger className="w-full" data-testid="dataset-select">
                 <SelectValue placeholder="Select fact dataset" />
@@ -423,7 +695,7 @@ function FactDecompositionCreate() {
           <div className="space-y-2">
             <Label>Source document</Label>
             <Select
-              disabled={datasetId === null}
+              disabled={locked || datasetId === null}
               onValueChange={selectDocument}
               value={activeDocumentId?.toString() ?? noDocumentValue}
             >
@@ -448,7 +720,7 @@ function FactDecompositionCreate() {
             <Select
               disabled={facts.length === 0}
               onValueChange={(value) => setSelectedFactIndex(Number(value))}
-              value={selectedFactIndex?.toString()}
+              value={selectedFactIndex?.toString() ?? ""}
             >
               <SelectTrigger className="w-full" data-testid="fact-select">
                 <SelectValue placeholder="Select fact for provenance" />
@@ -464,12 +736,12 @@ function FactDecompositionCreate() {
           </div>
         </aside>
 
-        <section className="space-y-6">
+        <section className="min-w-0 space-y-6">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <Label htmlFor="source-text">Source text</Label>
               <Button
-                disabled={!activeDocumentQuery.data}
+                disabled={locked || !activeDocumentQuery.data}
                 onClick={useDocumentText}
                 size="sm"
                 type="button"
@@ -480,6 +752,7 @@ function FactDecompositionCreate() {
             </div>
             <textarea
               className="border-input focus-visible:border-ring focus-visible:ring-ring/50 min-h-36 w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
+              disabled={locked}
               id="source-text"
               onChange={(event) => {
                 setSourceText(event.target.value)
@@ -491,6 +764,7 @@ function FactDecompositionCreate() {
           </div>
 
           <FactListEditor
+            disabled={locked}
             facts={facts}
             onChange={updateFacts}
             onSelectedFactIndexChange={setSelectedFactIndex}
@@ -509,6 +783,7 @@ function FactDecompositionCreate() {
               </div>
               {(activeDocumentQuery.data.chunks ?? []).map((chunk) => (
                 <SelectableChunk
+                  readOnly={locked}
                   chunk={chunk}
                   key={chunk.id}
                   onSelect={(span) => {
@@ -529,6 +804,7 @@ function FactDecompositionCreate() {
           )}
 
           <EvidenceTray
+            disabled={locked}
             emptyLabel="Highlight source text to attach provenance to the selected fact"
             onMove={(id, direction) => {
               const index = Number(id)
@@ -564,21 +840,24 @@ function FactDecompositionCreate() {
 
           <div className="flex flex-wrap gap-2">
             <Button
-              disabled={datasetId === null || isBusy}
-              onClick={() => validateMutation.mutate()}
+              disabled={datasetId === null || isBusy || locked}
+              onClick={() => {
+                const isCurrent = capture()
+                const version = contentVersion.current.version
+                validateMutation.mutate({
+                  body: requestBody(),
+                  isCurrent: () =>
+                    isCurrent() && contentVersion.current.version === version,
+                })
+              }}
               type="button"
               variant="outline"
             >
               Validate
             </Button>
             <Button
-              disabled={
-                datasetId === null ||
-                isBusy ||
-                isSubmitted ||
-                writeOutcomeUnknown
-              }
-              onClick={() => draftMutation.mutate()}
+              disabled={datasetId === null || isBusy || locked}
+              onClick={() => save("draft")}
               type="button"
               variant="outline"
             >
@@ -586,13 +865,9 @@ function FactDecompositionCreate() {
             </Button>
             <Button
               disabled={
-                datasetId === null ||
-                isBusy ||
-                isSubmitted ||
-                writeOutcomeUnknown ||
-                draftIdentity === null
+                datasetId === null || isBusy || locked || draftIdentity === null
               }
-              onClick={() => submitMutation.mutate()}
+              onClick={() => save("submit")}
               type="button"
             >
               Submit

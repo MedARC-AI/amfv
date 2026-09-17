@@ -613,6 +613,38 @@ export type kind = 'retrieval_audit' | 'fact_decomp' | 'relevance';
 
 export type reservation_state = 'existing' | 'created' | 'selected';
 
+export type OwnedFactDecompItemDetail = {
+    can_edit: boolean;
+    dataset_id: number;
+    dataset_name: string;
+    document_id: (number | null);
+    eval_type: EvalType;
+    facts: Array<FactDraft>;
+    id: number;
+    item_revision: number;
+    read_only_reason: ('item_not_draft' | 'item_inactive' | 'dataset_inactive' | 'document_inactive' | null);
+    source_text: string;
+    status: ItemStatus;
+    updated_at: string;
+};
+
+export type OwnedFactDecompItemList = {
+    items: Array<OwnedFactDecompItemSummary>;
+    limit: number;
+    offset: number;
+    total: number;
+};
+
+export type OwnedFactDecompItemSummary = {
+    dataset_id: number;
+    dataset_name: string;
+    id: number;
+    item_revision: number;
+    source_preview: string;
+    status: ItemStatus;
+    updated_at: string;
+};
+
 export type PooledCandidate = {
     chunk_id: number;
     created_at?: string;
@@ -1072,6 +1104,20 @@ export type CreateCreateFactDecompDraftData = {
 };
 
 export type CreateCreateFactDecompDraftResponse = (FactDecompCreateResponse);
+
+export type CreateListOwnedFactDecompItemsData = {
+    limit?: number;
+    offset?: number;
+    status?: ItemStatus;
+};
+
+export type CreateListOwnedFactDecompItemsResponse = (OwnedFactDecompItemList);
+
+export type CreateReadOwnedFactDecompItemData = {
+    itemId: number;
+};
+
+export type CreateReadOwnedFactDecompItemResponse = (OwnedFactDecompItemDetail);
 
 export type CreatePreviewFactDecompCreationData = {
     requestBody: CreateFactDecompDraftSubmit;

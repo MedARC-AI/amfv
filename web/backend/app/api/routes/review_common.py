@@ -10,6 +10,7 @@ from app.models import (
     Chunk,
     Dataset,
     Document,
+    EvalFact,
     EvalItem,
     EvalType,
     FactDecompReview,
@@ -32,6 +33,11 @@ from app.schemas import (
 from app.services.assignment import (
     get_current_or_first_dataset_readonly,
     incomplete_loadable_assignments,
+)
+from app.services.fact_decomp_review import (
+    CorrectionMetadataError,
+    is_model_correction_item,
+    project_model_claims,
 )
 from app.services.rubrics import FACT_DECOMP_DIMENSIONS
 
@@ -83,17 +89,38 @@ def next_fact_decomp_review_readonly(
     session: SessionDep,
     current_user: CurrentUser,
 ) -> NextReviewRecommendation:
-    dataset = get_current_or_first_dataset_readonly(
-        session,
-        current_user,
-        eval_type=EvalType.FACT_DECOMP,
+    tasks = available_fact_decomp_tasks(session, current_user)
+    if not tasks:
+        raise HTTPException(status_code=404, detail="No review tasks are available")
+    dataset = session.get(Dataset, tasks[0].dataset_id)
+    assert dataset is not None
+    return fact_decomp_recommendation(session, dataset, tasks[0])
+
+
+def available_fact_decomp_tasks(
+    session: SessionDep, current_user: CurrentUser
+) -> list[ReviewTask]:
+    """Read eligible tasks across active fact datasets, preference first."""
+    preferred = get_current_or_first_dataset_readonly(
+        session, current_user, eval_type=EvalType.FACT_DECOMP
     )
-    if dataset is None:
-        raise HTTPException(status_code=404, detail="No review tasks are available")
-    task = select_fact_decomp_task(session, current_user, dataset)
-    if task is None:
-        raise HTTPException(status_code=404, detail="No review tasks are available")
-    return fact_decomp_recommendation(session, dataset, task)
+    datasets = list(
+        session.exec(
+            select(Dataset)
+            .where(
+                col(Dataset.is_active) == True,  # noqa: E712
+                col(Dataset.eval_type) == EvalType.FACT_DECOMP,
+            )
+            .order_by(col(Dataset.display_name), col(Dataset.id))
+        ).all()
+    )
+    if preferred is not None:
+        datasets.sort(key=lambda dataset: dataset.id != preferred.id)
+    return [
+        task
+        for dataset in datasets
+        for task in _eligible_fact_tasks(session, current_user, dataset)
+    ]
 
 
 def fact_decomp_recommendation(
@@ -123,6 +150,13 @@ def fact_decomp_recommendation(
 def select_fact_decomp_task(
     session: SessionDep, current_user: CurrentUser, dataset: Dataset
 ) -> ReviewTask | None:
+    tasks = _eligible_fact_tasks(session, current_user, dataset)
+    return tasks[0] if tasks else None
+
+
+def _eligible_fact_tasks(
+    session: SessionDep, current_user: CurrentUser, dataset: Dataset
+) -> list[ReviewTask]:
     tasks = session.exec(
         select(ReviewTask)
         .join(EvalItem, col(ReviewTask.item_a_id) == col(EvalItem.id))
@@ -140,6 +174,7 @@ def select_fact_decomp_task(
             col(ReviewTask.id),
         )
     ).all()
+    eligible: list[ReviewTask] = []
     for task in tasks:
         item = session.get(EvalItem, task.item_a_id)
         if item is None or item.author_user_id == current_user.id:
@@ -152,8 +187,20 @@ def select_fact_decomp_task(
         ).first()
         if existing is not None:
             continue
-        return task
-    return None
+        if is_model_correction_item(item):
+            facts = list(
+                session.exec(
+                    select(EvalFact)
+                    .where(col(EvalFact.item_id) == item.id)
+                    .order_by(col(EvalFact.position))
+                ).all()
+            )
+            try:
+                project_model_claims(item, facts)
+            except CorrectionMetadataError:
+                continue
+        eligible.append(task)
+    return eligible
 
 
 def read_assignment_for_user(

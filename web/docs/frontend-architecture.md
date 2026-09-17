@@ -105,3 +105,67 @@ Human-authored fact reviews also require an explicit per-fact decision: Looks go
 a changed reviewer call, or Duplicate. The existing Malformed call identifies extraction problems.
 The overall rubric stays independent. Saved authored reviews restore their decisions,
 comments, confidence, and rubric values in a read-only view.
+
+## Fact draft resume and recovery
+
+My Work lists the current author's fact drafts in pages of 20 items.
+The editor URL contains `item_id` after the first save.
+Owned item reads restore the current source, ordered facts, polarity, and provenance.
+Provenance follows persisted fact positions, including duplicate fact text and Unicode offsets.
+Submitted items and items with inactive sources remain readable, with server-owned edit permissions.
+
+The editor loads each saved revision without replacing unsaved edits during a background read.
+Background reads cannot restore an older revision over a newer displayed revision.
+A confirmed save cancels pending detail queries before it updates the cache.
+Explicit reloads run one at a time and lock content controls until completion.
+Validation results apply only to the editor and content version that requested them.
+A saved item keeps its dataset.
+**Create new draft** starts a separate item after exit confirmation.
+If another tab changes the revision, the editor retains local content and offers a download or an explicit reload.
+
+Save draft and Submit share one captured command and four states: idle, saving, uncertain, and conflict.
+Content controls lock during saving and uncertainty.
+Recovery checks the existing receipt against the complete command, then reads the current item.
+A receipt proves that a revision committed, but a later revision can supersede it.
+**Retry same save** sends the original request ID, endpoint, and payload.
+A missing receipt does not prove that the command failed.
+The JSON download contains local content and command identity, without credentials.
+
+## Unfinished edits and review recovery
+
+Fact authoring and both fact review modes use the installed router blocker.
+The dialog offers **Stay** and **Discard and leave** for route exits and destructive editor actions.
+Native browser warnings protect refresh and tab closure after user interaction.
+Intentional logout waits for the same confirmation before it clears the token and query cache.
+Expired authorization ends the session.
+These controls do not provide autosave or crash recovery.
+
+Dirty state covers all editable fields, including unfinished human claims and staged spans.
+Display controls do not count as edits.
+Successful review saves clear the edit baseline before queue navigation.
+Reconnect reads preserve unfinished review content. A newly discovered saved review offers a local-copy download and requires confirmation before loading.
+The local copy includes unfinished model claims and staged spans. Failed background reads keep the editor mounted.
+A displayed saved review cannot revert to an earlier unsaved payload.
+If a response fails, a fresh task read determines whether the review exists.
+A saved review opens read-only and offers Next.
+If its values differ from the attempted submission, the UI explains the difference and preserves a downloadable local copy.
+An unavailable recovery read keeps the submission locked until another status check succeeds.
+
+## Fact queue scope and history
+
+Readonly queue discovery and Home counts share backend eligibility rules.
+The preferred active fact dataset comes first.
+Other active fact datasets follow in display-name and ID order.
+Explicit dataset claims retain their existing scope.
+Queue reads do not create assignments or change preferences.
+
+The empty state comes from a fresh queue response, not the old `complete` URL flag.
+**Check for new examples** requests the queue again.
+A network error remains an error.
+The review view displays the dataset name after a dataset transition.
+
+Session storage contains at most 100 recent task IDs per user and browser tab.
+It contains no review content and grants no access to a task.
+If storage fails, navigation works in memory and the UI explains that reload history is unavailable.
+Unavailable historical tasks offer navigation to other history entries and the queue.
+Fact task, queue, and draft query keys include the resolved user identity.

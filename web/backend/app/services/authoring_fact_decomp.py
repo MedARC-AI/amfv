@@ -5,7 +5,8 @@ import json
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import update
+from pydantic import ValidationError
+from sqlalchemy import func, update
 from sqlmodel import Session, col, select
 
 from app.models import (
@@ -22,9 +23,13 @@ from app.models import (
 )
 from app.schemas import (
     CreateFactDecompDraftSubmit,
+    EvidenceSpan,
     FactDecompCreateResponse,
     FactDecompSaveReceiptResponse,
     FactDraft,
+    OwnedFactDecompItemDetail,
+    OwnedFactDecompItemList,
+    OwnedFactDecompItemSummary,
     ValidationPreview,
 )
 from app.services.authoring_common import (
@@ -43,12 +48,172 @@ __all__ = [
     "fact_decomp_save_receipt_response",
     "fact_models",
     "fact_provenance_dicts",
+    "list_owned_fact_items",
     "preview_fact_decomp_validation",
     "read_fact_decomp_save_receipt",
     "read_owned_fact_item",
+    "read_owned_fact_item_detail",
     "reconcile_fact_decomp_save",
     "validate_fact_provenance",
 ]
+
+
+def list_owned_fact_items(
+    session: Session,
+    author_user_id: Any,
+    *,
+    status: ItemStatus,
+    offset: int,
+    limit: int,
+) -> OwnedFactDecompItemList:
+    """List one author's fact items in latest-update order."""
+
+    scope = (
+        select(EvalItem, Dataset.display_name)
+        .join(Dataset, col(EvalItem.dataset_id) == col(Dataset.id))
+        .where(
+            col(EvalItem.author_user_id) == author_user_id,
+            col(EvalItem.eval_type) == EvalType.FACT_DECOMP,
+            col(EvalItem.status) == status,
+        )
+    )
+    total = session.exec(
+        select(func.count())
+        .select_from(EvalItem)
+        .where(
+            col(EvalItem.author_user_id) == author_user_id,
+            col(EvalItem.eval_type) == EvalType.FACT_DECOMP,
+            col(EvalItem.status) == status,
+        )
+    ).one()
+    rows = session.exec(
+        scope.order_by(col(EvalItem.updated_at).desc(), col(EvalItem.id).desc())
+        .offset(offset)
+        .limit(limit)
+    ).all()
+    return OwnedFactDecompItemList(
+        items=[
+            OwnedFactDecompItemSummary(
+                id=item.id,
+                dataset_id=item.dataset_id,
+                dataset_name=dataset_name,
+                source_preview=item.prompt_text[:160],
+                status=item.status,
+                item_revision=item.revision,
+                updated_at=item.updated_at,
+            )
+            for item, dataset_name in rows
+            if item.id is not None
+        ],
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
+
+
+def read_owned_fact_item_detail(
+    session: Session, author_user_id: Any, item_id: int
+) -> OwnedFactDecompItemDetail:
+    """Read a current owned fact item with position-scoped provenance."""
+
+    item = session.get(EvalItem, item_id)
+    if (
+        item is None
+        or item.author_user_id != author_user_id
+        or item.eval_type != EvalType.FACT_DECOMP
+    ):
+        raise HTTPException(status_code=404, detail="Fact-decomposition item not found")
+    dataset = session.get(Dataset, item.dataset_id)
+    if dataset is None:
+        raise HTTPException(
+            status_code=500, detail="Saved fact item could not be loaded."
+        )
+    document = (
+        session.get(Document, item.document_id)
+        if item.document_id is not None
+        else None
+    )
+    facts = session.exec(
+        select(EvalFact)
+        .where(col(EvalFact.item_id) == item_id)
+        .order_by(col(EvalFact.position), col(EvalFact.id))
+    ).all()
+    positions = {fact.position for fact in facts}
+    metadata = item.item_metadata
+    if metadata is None:
+        if item.evidence_spans:
+            raise HTTPException(
+                status_code=500, detail="Saved fact provenance could not be loaded."
+            )
+        provenance: object = []
+    elif isinstance(metadata, dict):
+        if "fact_provenance" not in metadata and item.evidence_spans:
+            raise HTTPException(
+                status_code=500, detail="Saved fact provenance could not be loaded."
+            )
+        provenance = metadata.get("fact_provenance", [])
+    else:
+        raise HTTPException(
+            status_code=500, detail="Saved fact provenance could not be loaded."
+        )
+    if not isinstance(provenance, list):
+        raise HTTPException(
+            status_code=500, detail="Saved fact provenance could not be loaded."
+        )
+    spans_by_position: dict[int, list[EvidenceSpan]] = {
+        position: [] for position in positions
+    }
+    try:
+        for mapping in provenance:
+            if not isinstance(mapping, dict):
+                raise ValueError("invalid mapping")
+            position = mapping.get("fact_position")
+            if type(position) is not int or position not in positions:
+                raise ValueError("invalid position")
+            span = EvidenceSpan.model_validate(
+                {key: value for key, value in mapping.items() if key != "fact_position"}
+            )
+            spans_by_position[position].append(span)
+    except (ValueError, ValidationError) as exc:
+        raise HTTPException(
+            status_code=500, detail="Saved fact provenance could not be loaded."
+        ) from exc
+
+    reason = None
+    if item.status != ItemStatus.DRAFT:
+        reason = "item_not_draft"
+    elif not item.is_active:
+        reason = "item_inactive"
+    elif not dataset.is_active:
+        reason = "dataset_inactive"
+    elif item.document_id is not None and (
+        document is None
+        or not document.is_active
+        or document.dataset_id != item.dataset_id
+    ):
+        reason = "document_inactive"
+    assert item.id is not None
+    return OwnedFactDecompItemDetail(
+        id=item.id,
+        dataset_id=item.dataset_id,
+        dataset_name=dataset.display_name,
+        eval_type=item.eval_type,
+        status=item.status,
+        item_revision=item.revision,
+        updated_at=item.updated_at,
+        source_text=item.prompt_text,
+        document_id=item.document_id,
+        facts=[
+            FactDraft(
+                fact_text=fact.fact_text,
+                polarity=fact.polarity,
+                provenance_spans=spans_by_position[fact.position],
+            )
+            for fact in facts
+        ],
+        can_edit=reason is None,
+        read_only_reason=reason,
+    )
 
 
 def canonical_fact_save_hash(
@@ -173,6 +338,7 @@ def claim_fact_draft_update(
             col(EvalItem.eval_type) == EvalType.FACT_DECOMP,
             col(EvalItem.dataset_id) == body.dataset_id,
             col(EvalItem.status) == ItemStatus.DRAFT,
+            col(EvalItem.is_active).is_(True),
             col(EvalItem.revision) == body.expected_item_revision,
         )
         .values(
@@ -202,10 +368,10 @@ def claim_fact_draft_update(
         raise HTTPException(
             status_code=404, detail="Fact-decomposition draft not found"
         )
-    if current.status != ItemStatus.DRAFT:
+    if current.status != ItemStatus.DRAFT or not current.is_active:
         raise_authoring_conflict(
             code="item_not_editable",
-            message="Only a draft can be saved or submitted.",
+            message="Only an active draft can be saved or submitted.",
             item_id=body.item_id,
             expected_item_revision=body.expected_item_revision,
             actual_item_revision=current.revision,

@@ -18,6 +18,7 @@ type FactListEditorProps = {
   onChange: (facts: FactDraft[]) => void
   selectedFactIndex?: number | null
   onSelectedFactIndexChange?: (index: number | null) => void
+  disabled?: boolean
   className?: string
 }
 
@@ -67,6 +68,7 @@ export function FactListEditor({
   onSelectedFactIndexChange,
   selectedFactIndex,
   className,
+  disabled = false,
 }: FactListEditorProps) {
   const orderedFacts = facts
 
@@ -108,6 +110,7 @@ export function FactListEditor({
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm font-medium">Facts</div>
         <Button
+          disabled={disabled}
           onClick={() => onChange([...orderedFacts, newFact()])}
           size="sm"
           type="button"
@@ -130,6 +133,7 @@ export function FactListEditor({
                 <div className="space-y-2">
                   <Label htmlFor={`fact-${index}-text`}>Fact {index + 1}</Label>
                   <Input
+                    disabled={disabled}
                     id={`fact-${index}-text`}
                     onChange={(event) =>
                       updateFact(index, {
@@ -142,6 +146,7 @@ export function FactListEditor({
                 <div className="space-y-2">
                   <Label htmlFor={`fact-${index}-polarity`}>Polarity</Label>
                   <Select
+                    disabled={disabled}
                     onValueChange={(polarity: FactPolarity) =>
                       updateFact(index, { polarity })
                     }
@@ -162,7 +167,7 @@ export function FactListEditor({
                 <div className="flex items-end gap-1">
                   <Button
                     aria-label="Move fact up"
-                    disabled={index === 0}
+                    disabled={disabled || index === 0}
                     onClick={() => moveFact(index, "up")}
                     size="icon-sm"
                     type="button"
@@ -172,7 +177,7 @@ export function FactListEditor({
                   </Button>
                   <Button
                     aria-label="Move fact down"
-                    disabled={index === orderedFacts.length - 1}
+                    disabled={disabled || index === orderedFacts.length - 1}
                     onClick={() => moveFact(index, "down")}
                     size="icon-sm"
                     type="button"
@@ -182,6 +187,7 @@ export function FactListEditor({
                   </Button>
                   <Button
                     aria-label="Remove fact"
+                    disabled={disabled}
                     onClick={() => removeFact(index)}
                     size="icon-sm"
                     type="button"

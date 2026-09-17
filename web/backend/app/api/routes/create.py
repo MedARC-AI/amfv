@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import delete
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, select
@@ -33,6 +33,8 @@ from app.schemas import (
     FactDecompCreateResponse,
     FactDecompSaveCommand,
     FactDecompSaveReceiptResponse,
+    OwnedFactDecompItemDetail,
+    OwnedFactDecompItemList,
     RetrievalCreateResponse,
     RetrievalSubmissionBatchResponse,
     RetrievalSubmissionBatchSubmit,
@@ -293,6 +295,28 @@ def read_fact_decomp_save_receipt(
         raise HTTPException(status_code=404, detail="Fact save receipt not found")
     return authoring_fact_decomp.fact_decomp_save_receipt_response(
         receipt, replayed=True
+    )
+
+
+@router.get("/fact-decomp/items", response_model=OwnedFactDecompItemList)
+def list_owned_fact_decomp_items(
+    session: SessionDep,
+    current_user: CurrentUser,
+    status: ItemStatus = ItemStatus.DRAFT,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+) -> OwnedFactDecompItemList:
+    return authoring_fact_decomp.list_owned_fact_items(
+        session, current_user.id, status=status, offset=offset, limit=limit
+    )
+
+
+@router.get("/fact-decomp/items/{item_id}", response_model=OwnedFactDecompItemDetail)
+def read_owned_fact_decomp_item(
+    session: SessionDep, current_user: CurrentUser, item_id: int
+) -> OwnedFactDecompItemDetail:
+    return authoring_fact_decomp.read_owned_fact_item_detail(
+        session, current_user.id, item_id
     )
 
 

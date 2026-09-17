@@ -2546,6 +2546,142 @@ export const NextReviewRecommendationSchema = {
     type: 'object'
 } as const;
 
+export const OwnedFactDecompItemDetailSchema = {
+    properties: {
+        can_edit: {
+            title: 'Can Edit',
+            type: 'boolean'
+        },
+        dataset_id: {
+            title: 'Dataset Id',
+            type: 'integer'
+        },
+        dataset_name: {
+            title: 'Dataset Name',
+            type: 'string'
+        },
+        document_id: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Document Id'
+        },
+        eval_type: {
+            '$ref': '#/components/schemas/EvalType'
+        },
+        facts: {
+            items: {
+                '$ref': '#/components/schemas/FactDraft'
+            },
+            title: 'Facts',
+            type: 'array'
+        },
+        id: {
+            title: 'Id',
+            type: 'integer'
+        },
+        item_revision: {
+            title: 'Item Revision',
+            type: 'integer'
+        },
+        read_only_reason: {
+            anyOf: [
+                {
+                    enum: ['item_not_draft', 'item_inactive', 'dataset_inactive', 'document_inactive'],
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Read Only Reason'
+        },
+        source_text: {
+            title: 'Source Text',
+            type: 'string'
+        },
+        status: {
+            '$ref': '#/components/schemas/ItemStatus'
+        },
+        updated_at: {
+            format: 'date-time',
+            title: 'Updated At',
+            type: 'string'
+        }
+    },
+    required: ['id', 'dataset_id', 'dataset_name', 'eval_type', 'status', 'item_revision', 'updated_at', 'source_text', 'document_id', 'facts', 'can_edit', 'read_only_reason'],
+    title: 'OwnedFactDecompItemDetail',
+    type: 'object'
+} as const;
+
+export const OwnedFactDecompItemListSchema = {
+    properties: {
+        items: {
+            items: {
+                '$ref': '#/components/schemas/OwnedFactDecompItemSummary'
+            },
+            title: 'Items',
+            type: 'array'
+        },
+        limit: {
+            title: 'Limit',
+            type: 'integer'
+        },
+        offset: {
+            title: 'Offset',
+            type: 'integer'
+        },
+        total: {
+            title: 'Total',
+            type: 'integer'
+        }
+    },
+    required: ['items', 'total', 'offset', 'limit'],
+    title: 'OwnedFactDecompItemList',
+    type: 'object'
+} as const;
+
+export const OwnedFactDecompItemSummarySchema = {
+    properties: {
+        dataset_id: {
+            title: 'Dataset Id',
+            type: 'integer'
+        },
+        dataset_name: {
+            title: 'Dataset Name',
+            type: 'string'
+        },
+        id: {
+            title: 'Id',
+            type: 'integer'
+        },
+        item_revision: {
+            title: 'Item Revision',
+            type: 'integer'
+        },
+        source_preview: {
+            title: 'Source Preview',
+            type: 'string'
+        },
+        status: {
+            '$ref': '#/components/schemas/ItemStatus'
+        },
+        updated_at: {
+            format: 'date-time',
+            title: 'Updated At',
+            type: 'string'
+        }
+    },
+    required: ['id', 'dataset_id', 'dataset_name', 'source_preview', 'status', 'item_revision', 'updated_at'],
+    title: 'OwnedFactDecompItemSummary',
+    type: 'object'
+} as const;
+
 export const PooledCandidateSchema = {
     properties: {
         chunk_id: {

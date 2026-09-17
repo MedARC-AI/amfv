@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from sqlmodel import col, func, select
 
 from app.api.deps import CurrentUser, SessionDep
+from app.api.routes.review_common import available_fact_decomp_tasks
 from app.models import (
     Assignment,
     AssignmentMode,
@@ -155,7 +156,7 @@ def _retrieval_review_count(session: SessionDep, current_user: CurrentUser) -> i
 
 
 def _fact_decomp_review_count(session: SessionDep, current_user: CurrentUser) -> int:
-    return len(_available_fact_decomp_tasks(session, current_user))
+    return len(available_fact_decomp_tasks(session, current_user))
 
 
 def _relevance_review_count(session: SessionDep, current_user: CurrentUser) -> int:
@@ -187,49 +188,8 @@ def _available_retrieval_items(
 def _first_available_fact_decomp_task(
     session: SessionDep, current_user: CurrentUser
 ) -> ReviewTask | None:
-    tasks = _available_fact_decomp_tasks(session, current_user)
+    tasks = available_fact_decomp_tasks(session, current_user)
     return tasks[0] if tasks else None
-
-
-def _available_fact_decomp_tasks(
-    session: SessionDep, current_user: CurrentUser
-) -> list[ReviewTask]:
-    dataset = get_current_or_first_dataset_readonly(
-        session, current_user, eval_type=EvalType.FACT_DECOMP
-    )
-    if dataset is None:
-        return []
-    tasks = session.exec(
-        select(ReviewTask)
-        .join(EvalItem, col(ReviewTask.item_a_id) == col(EvalItem.id))
-        .where(
-            col(ReviewTask.dataset_id) == dataset.id,
-            col(ReviewTask.is_active) == True,  # noqa: E712
-            col(EvalItem.dataset_id) == col(ReviewTask.dataset_id),
-            col(EvalItem.eval_type) == EvalType.FACT_DECOMP,
-            col(EvalItem.status) == ItemStatus.ACTIVE,
-            col(EvalItem.is_active) == True,  # noqa: E712
-        )
-        .order_by(
-            col(ReviewTask.labels_count),
-            col(ReviewTask.priority_score).desc(),
-            col(ReviewTask.id),
-        )
-    ).all()
-    available: list[ReviewTask] = []
-    for task in tasks:
-        item = session.get(EvalItem, task.item_a_id)
-        if item is None or item.author_user_id == current_user.id:
-            continue
-        if session.exec(
-            select(FactDecompReview).where(
-                col(FactDecompReview.task_id) == task.id,
-                col(FactDecompReview.user_id) == current_user.id,
-            )
-        ).first():
-            continue
-        available.append(task)
-    return available
 
 
 def _first_available_relevance_candidate(

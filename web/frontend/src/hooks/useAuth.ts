@@ -8,13 +8,10 @@ import {
   LoginService,
 } from "@/client"
 import { clearAccessToken, isLoggedIn, setAccessToken } from "@/lib/auth"
-import {
-  currentUserQueryKey,
-  currentUserQueryOptions,
-  homeSummaryQueryKey,
-} from "@/lib/queries"
+import { currentUserQueryKey, currentUserQueryOptions } from "@/lib/queries"
 import { handleError, hasApiErrorStatus, ProductMessageError } from "@/utils"
 import useCustomToast from "./useCustomToast"
+import { requestEditorExit } from "./useEditorExit"
 
 const useAuth = () => {
   const navigate = useNavigate()
@@ -30,6 +27,7 @@ const useAuth = () => {
     mutationFn: (data: InviteSignupRequest) =>
       AuthService.inviteSignup({ requestBody: data }),
     onSuccess: (response) => {
+      queryClient.clear()
       setAccessToken(response.access_token)
       queryClient.invalidateQueries({ queryKey: currentUserQueryKey })
       navigate({ to: "/" })
@@ -45,6 +43,7 @@ const useAuth = () => {
       const response = await LoginService.loginAccessToken({
         formData: data,
       })
+      queryClient.clear()
       setAccessToken(response.access_token)
     } catch (error) {
       if (hasApiErrorStatus(error, 400)) {
@@ -63,12 +62,12 @@ const useAuth = () => {
     onError: handleError.bind(showErrorToast),
   })
 
-  const logout = () => {
-    clearAccessToken()
-    queryClient.removeQueries({ queryKey: currentUserQueryKey })
-    queryClient.removeQueries({ queryKey: homeSummaryQueryKey })
-    navigate({ to: "/login" })
-  }
+  const logout = () =>
+    requestEditorExit(() => {
+      clearAccessToken()
+      queryClient.clear()
+      void navigate({ to: "/login", ignoreBlocker: true })
+    })
 
   return {
     signUpMutation,

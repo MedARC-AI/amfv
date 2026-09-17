@@ -17,6 +17,7 @@ type EvidenceTrayProps = {
   onLocate?: (span: EvidenceTraySpan) => void
   onRemove: (id: string) => void
   onMove: (id: string, direction: "up" | "down") => void
+  disabled?: boolean
   className?: string
 }
 
@@ -28,6 +29,7 @@ export function EvidenceTray({
   onRemove,
   onMove,
   className,
+  disabled = false,
 }: EvidenceTrayProps) {
   return (
     <section className={cn("space-y-3", className)}>
@@ -66,7 +68,7 @@ export function EvidenceTray({
                 ) : null}
                 <Button
                   aria-label="Move evidence up"
-                  disabled={index === 0}
+                  disabled={disabled || index === 0}
                   onClick={() => onMove(span.id, "up")}
                   size="icon-sm"
                   type="button"
@@ -76,7 +78,7 @@ export function EvidenceTray({
                 </Button>
                 <Button
                   aria-label="Move evidence down"
-                  disabled={index === spans.length - 1}
+                  disabled={disabled || index === spans.length - 1}
                   onClick={() => onMove(span.id, "down")}
                   size="icon-sm"
                   type="button"
@@ -86,6 +88,7 @@ export function EvidenceTray({
                 </Button>
                 <Button
                   aria-label="Remove evidence"
+                  disabled={disabled}
                   onClick={() => onRemove(span.id)}
                   size="icon-sm"
                   type="button"

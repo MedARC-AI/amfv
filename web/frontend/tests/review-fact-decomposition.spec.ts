@@ -1,6 +1,13 @@
 import { createHash, randomUUID } from "node:crypto"
 import { readFile } from "node:fs/promises"
 import { expect, type Page, test } from "@playwright/test"
+import { factFixture } from "./utils/factFixtures"
+
+const createdDatasets: number[] = []
+test.afterEach(() => {
+  if (createdDatasets.length)
+    factFixture({ action: "deactivate", datasets: createdDatasets.splice(0) })
+})
 
 test("submits an authored fact-decomposition review", async ({
   page,
@@ -191,6 +198,7 @@ async function importModelRows(
   })
   expect(created.ok()).toBe(true)
   const dataset = (await created.json()) as { id: number }
+  createdDatasets.push(dataset.id)
   const imported = await page.request.post(`${apiBase}/api/v1/admin/ingest`, {
     headers,
     multipart: {
@@ -447,7 +455,7 @@ test("grades model claims and saves human selections through a failed request an
   await expect(secondClaim.getByLabel("Claim 2 extraction issue")).toHaveValue(
     "The source leaves the subject ambiguous.",
   )
-  await page.getByRole("button", { name: "Save and next" }).click()
+  await page.getByRole("button", { name: "Retry save" }).click()
   await expect(
     page.getByRole("heading", { name: "All caught up" }),
   ).toBeVisible()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated, Any, Literal
 from urllib.parse import urlparse
 
@@ -642,6 +643,43 @@ class FactDecompCreateResponse(SQLModel):
     facts: list[FactDraft] = Field(default_factory=list)
     item_revision: int
     validation: ValidationPreview
+
+
+class OwnedFactDecompItemSummary(SQLModel):
+    id: int
+    dataset_id: int
+    dataset_name: str
+    source_preview: str
+    status: ItemStatus
+    item_revision: int
+    updated_at: datetime
+
+
+class OwnedFactDecompItemList(SQLModel):
+    items: list[OwnedFactDecompItemSummary]
+    total: int
+    offset: int
+    limit: int
+
+
+class OwnedFactDecompItemDetail(SQLModel):
+    id: int
+    dataset_id: int
+    dataset_name: str
+    eval_type: EvalType
+    status: ItemStatus
+    item_revision: int
+    updated_at: datetime
+    source_text: str
+    document_id: int | None
+    facts: list[FactDraft]
+    can_edit: bool
+    read_only_reason: (
+        Literal[
+            "item_not_draft", "item_inactive", "dataset_inactive", "document_inactive"
+        ]
+        | None
+    )
 
 
 class FactDecompSaveReceiptResponse(SQLModel):

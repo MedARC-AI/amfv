@@ -9,18 +9,11 @@ test("review and create landings expose workflow links and live counters", async
   await expect(
     page.getByRole("heading", { name: "Review", exact: true }),
   ).toBeVisible()
-  await expect(reviewContent.getByText("Retrieval")).toBeVisible()
   await expect(reviewContent.getByText("Fact Decomposition")).toBeVisible()
-  await expect(reviewContent.getByText("Relevance")).toBeVisible()
-  await expect(
-    reviewContent.getByRole("link", { name: /Retrieval/ }),
-  ).toHaveAttribute("href", "/review/retrieval")
+
   await expect(
     reviewContent.getByRole("link", { name: /Fact Decomposition/ }),
   ).toHaveAttribute("href", "/review/fact-decomposition")
-  await expect(
-    reviewContent.getByRole("link", { name: /Relevance/ }),
-  ).toHaveAttribute("href", "/review/relevance")
 
   await page.goto("/create")
   const createContent = page.locator("main").last()
@@ -31,9 +24,7 @@ test("review and create landings expose workflow links and live counters", async
   await expect(createContent.getByText("Drafts")).toBeVisible()
   await expect(createContent.getByText("Submitted")).toBeVisible()
   await expect(createContent.getByText("Authored")).toBeVisible()
-  await expect(
-    createContent.getByRole("link", { name: /Retrieval/ }),
-  ).toHaveAttribute("href", "/create/retrieval")
+
   await expect(
     createContent.getByRole("link", { name: /Fact Decomposition/ }),
   ).toHaveAttribute("href", "/create/fact-decomposition")

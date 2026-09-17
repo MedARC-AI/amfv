@@ -1,34 +1,20 @@
 import { expect, test } from "@playwright/test"
 
-test("submits a relevance review for a retrieved passage", async ({ page }) => {
+test("review-relevance is unavailable and links to fact decomposition", async ({
+  page,
+}) => {
   await page.goto("/review/relevance")
-
   await expect(
-    page.getByRole("heading", { name: "Relevance Review" }),
+    page.getByText(
+      "Retrieval and relevance reviews are temporarily unavailable.",
+      { exact: false },
+    ),
   ).toBeVisible()
-  const claimReview = page.getByRole("button", {
-    name: "Claim relevance review",
+  const link = page.getByRole("link", {
+    name: "Review fact decomposition",
+    exact: true,
   })
-  await expect(claimReview).toBeVisible()
-  await claimReview.click()
-  await expect(
-    page.getByText("Which selected answer appears in the E2E document?"),
-  ).toBeVisible()
-  await expect(page.getByText("The selected answer is Baker.")).toBeVisible()
-  await expect(
-    page.getByRole("button", { name: "Submit relevance" }),
-  ).toBeEnabled()
-
-  await page.getByTestId("grade-select").click()
-  await page.getByRole("option", { name: "Highly relevant" }).click()
-  await page.getByTestId("confidence-select").click()
-  await page.getByRole("option", { name: "Easy call" }).click()
-  await page.getByRole("button", { name: "Submit relevance" }).click()
-
-  await expect(
-    page.getByText(/Relevance review submitted for item \d+\./),
-  ).toBeVisible()
-  await expect(
-    page.getByRole("button", { name: "Submit relevance" }),
-  ).toBeDisabled()
+  await expect(link).toHaveAttribute("href", "/review/fact-decomposition")
+  await link.click()
+  await expect(page).toHaveURL(/fact-decomposition/)
 })

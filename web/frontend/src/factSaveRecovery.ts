@@ -5,7 +5,7 @@ import type {
 
 export type FactSaveCommandKind = "draft" | "submit"
 
-function valuesMatch(left: unknown, right: unknown): boolean {
+export function valuesMatch(left: unknown, right: unknown): boolean {
   if (Object.is(left, right)) {
     return true
   }

@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Loader2 } from "lucide-react"
 import * as React from "react"
 
 import {
+  type AuthoredFactDecompReviewPayload,
   type FactDecompReviewSubmit,
   type JudgmentConfidence,
   type ModelEvalReviewSubmit,
@@ -27,23 +27,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { downloadLocalCopy } from "@/editorDownload"
+import { valuesMatch } from "@/factSaveRecovery"
 import useAuth from "@/hooks/useAuth"
+import { useEditorExit } from "@/hooks/useEditorExit"
+import { useEditorLifetime } from "@/hooks/useEditorLifetime"
+import { useFactReviewHistory } from "@/hooks/useFactReviewHistory"
 import { homeSummaryQueryKey } from "@/lib/queries"
 import { isReviewActionAllowed } from "@/reviewCapabilities"
-import { apiErrorMessage, hasApiErrorStatus } from "@/utils"
+import {
+  apiErrorMessage,
+  hasApiErrorStatus,
+  isAuthoritativeClientError,
+} from "@/utils"
 
 export const Route = createFileRoute("/_layout/review/fact-decomposition")({
   component: FactDecompositionReview,
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): { task_id?: number; complete?: boolean } => {
+  validateSearch: (search: Record<string, unknown>): { task_id?: number } => {
     const value = Number(search.task_id)
     return {
       task_id: Number.isInteger(value) && value > 0 ? value : undefined,
-      complete:
-        search.complete === true || search.complete === "true"
-          ? true
-          : undefined,
     }
   },
   head: () => ({
@@ -112,13 +115,55 @@ async function readNextFactReview() {
 }
 
 function FactDecompositionReview() {
-  const queryClient = useQueryClient()
   const { user } = useAuth()
-  const [visited, setVisited] = React.useState<number[]>(
-    () =>
-      queryClient.getQueryData<number[]>(["fact-review-history", user?.id]) ??
-      [],
+  return user ? (
+    <FactReviewEditor key={user.id} userId={user.id} />
+  ) : (
+    <p>Loading your account…</p>
   )
+}
+
+type PendingReview = {
+  taskId: number
+  userId: string
+  mode: "AUTHORED_RUBRIC" | "MODEL_LABEL_CORRECTION"
+  body: FactDecompReviewSubmit | ModelEvalReviewSubmit
+}
+
+function savedReviewMatches(
+  payload: AuthoredFactDecompReviewPayload | ModelFactDecompReviewPayload,
+  pending: PendingReview,
+) {
+  if (!payload.existing_review || payload.review_mode !== pending.mode)
+    return false
+  if (payload.review_mode === "MODEL_LABEL_CORRECTION") {
+    const { item_revision: _revision, ...submission } =
+      pending.body as ModelEvalReviewSubmit
+    return valuesMatch(payload.existing_review, submission)
+  }
+  const saved = payload.existing_review as Record<string, unknown>
+  const body = pending.body as FactDecompReviewSubmit
+  const expectedRatings = {
+    ...body.values,
+    fact_calls: body.fact_calls,
+    duplicate_flags: body.duplicate_flags,
+    multiple_facts_flags: body.multiple_facts_flags,
+    looks_good: body.looks_good,
+  }
+  const ratings = saved.ratings as Record<string, unknown>
+  return (
+    Object.entries(expectedRatings).every(([key, value]) =>
+      valuesMatch(ratings[key], value),
+    ) &&
+    saved.item_revision === body.item_revision &&
+    (saved.comment ?? null) === (body.comments ?? null) &&
+    valuesMatch(saved.flags, { confidence: body.confidence ?? null })
+  )
+}
+
+function FactReviewEditor({ userId }: { userId: string }) {
+  const queryClient = useQueryClient()
+  const { visited, historyUnavailable, visit } = useFactReviewHistory(userId)
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
   const [multipleFactsFlags, setMultipleFactsFlags] = React.useState<boolean[]>(
@@ -137,298 +182,465 @@ function FactDecompositionReview() {
     string | null
   >(null)
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
-  const [modelSubmitting, setModelSubmitting] = React.useState(false)
-  const initializedTaskId = React.useRef<number | null>(null)
-
+  const [modelDirty, setModelDirty] = React.useState(false)
+  const [pending, setPending] = React.useState<PendingReview | null>(null)
+  const [recovery, setRecovery] = React.useState<
+    "idle" | "saving" | "uncertain" | "retry" | "different"
+  >("idle")
+  const [baseline, setBaseline] = React.useState("")
+  const initializedTask = React.useRef("")
+  const nextKey = ["review-next", "fact-decomp", userId]
   const nextQuery = useQuery({
-    queryKey: ["review-next", "fact-decomp"],
+    queryKey: nextKey,
     queryFn: readNextFactReview,
     retry: false,
-    enabled: search.task_id === undefined && !search.complete,
+    enabled: search.task_id === undefined,
     refetchOnMount: "always",
     refetchOnWindowFocus: false,
   })
-
-  // Wait for a fresh queue response before pinning a recommendation in the URL.
   const waitingForNext =
     search.task_id === undefined &&
-    !search.complete &&
     (!nextQuery.isFetchedAfterMount || nextQuery.isFetching)
   const taskId =
     search.task_id ??
-    (search.complete || waitingForNext || nextQuery.isError
-      ? null
-      : nextQuery.data?.task_id) ??
+    (waitingForNext || nextQuery.isError ? null : nextQuery.data?.task_id) ??
     null
-
+  const { capture } = useEditorLifetime(taskId)
+  const payloadKey = ["review-fact-decomp", userId, taskId]
   const payloadQuery = useQuery({
-    queryKey: ["review-fact-decomp", taskId],
+    queryKey: payloadKey,
     queryFn: () =>
-      ReviewService.readFactDecompReview({
-        taskId: taskId as number,
-      }),
+      ReviewService.readFactDecompReview({ taskId: taskId as number }),
     enabled: taskId !== null,
     retry: false,
+    refetchOnWindowFocus: false,
   })
-
-  const payload = payloadQuery.data
+  const [displayedPayload, setDisplayedPayload] = React.useState<
+    AuthoredFactDecompReviewPayload | ModelFactDecompReviewPayload
+  >()
+  const payload =
+    displayedPayload?.task_id === taskId ? displayedPayload : payloadQuery.data
+  const modelSnapshot = React.useRef<string>("{}")
+  const captureModelSnapshot = React.useCallback((snapshot: string) => {
+    modelSnapshot.current = snapshot
+  }, [])
+  const saved = !!completionMessage || !!payload?.existing_review
+  const authoredValue = JSON.stringify({
+    factCalls,
+    duplicateFlags,
+    multipleFactsFlags,
+    looksGood,
+    rubricValues,
+    comments,
+    confidence,
+  })
+  const dirty =
+    initializedTask.current.split(":")[0] === String(taskId) &&
+    !saved &&
+    (payload?.review_mode === "MODEL_LABEL_CORRECTION"
+      ? modelDirty
+      : !!baseline && authoredValue !== baseline)
+  const uncertain =
+    pending?.taskId === taskId &&
+    (recovery === "saving" || recovery === "uncertain")
+  const { dialog, confirmAction } = useEditorExit(dirty, uncertain)
+  const backgroundConflict =
+    !!payloadQuery.data?.existing_review && !payload?.existing_review && dirty
+  React.useEffect(() => {
+    const fresh = payloadQuery.data
+    if (!fresh || fresh === displayedPayload) return
+    if (
+      displayedPayload?.task_id === fresh.task_id &&
+      (dirty || (displayedPayload.existing_review && !fresh.existing_review))
+    )
+      return
+    setDisplayedPayload(fresh)
+  }, [payloadQuery.data, displayedPayload, dirty])
 
   React.useEffect(() => {
-    if (
-      search.task_id === undefined &&
-      !waitingForNext &&
-      !search.complete &&
-      payload
-    ) {
-      void navigate({ replace: true, search: { task_id: payload.task_id } })
+    if (search.task_id === undefined && !waitingForNext && payload) {
+      void navigate({
+        replace: true,
+        search: { task_id: payload.task_id },
+        ignoreBlocker: true,
+      })
     }
-  }, [navigate, payload, search.task_id, search.complete, waitingForNext])
-
+  }, [navigate, payload, search.task_id, waitingForNext])
+  React.useEffect(() => {
+    if (payload) visit(payload.task_id)
+  }, [payload, visit])
   React.useEffect(() => {
     if (!payload) return
-    setVisited((current) =>
-      current.includes(payload.task_id)
-        ? current
-        : [...current, payload.task_id],
-    )
-  }, [payload])
-
-  React.useEffect(() => {
-    queryClient.setQueryData(["fact-review-history", user?.id], visited)
-  }, [queryClient, visited, user?.id])
-
-  React.useEffect(() => {
-    if (!payload || initializedTaskId.current === payload.task_id) {
-      return
+    const key = `${payload.task_id}:${!!payload.existing_review}`
+    if (initializedTask.current === key) return
+    const changedTask =
+      initializedTask.current.split(":")[0] !== String(payload.task_id)
+    initializedTask.current = key
+    if (changedTask) {
+      setPending(null)
+      setRecovery("idle")
+      setErrorMessage(null)
+      setCompletionMessage(null)
+      setModelDirty(false)
     }
-    initializedTaskId.current = payload.task_id
     if (payload.review_mode === "AUTHORED_RUBRIC") {
       const existing = payload.existing_review as {
         ratings: {
           fact_calls: string[]
-          multiple_facts_flags?: boolean[]
           duplicate_flags: boolean[]
+          multiple_facts_flags?: boolean[]
           looks_good: boolean[]
           [key: string]: unknown
         }
         comment?: string
         flags?: { confidence?: JudgmentConfidence }
       } | null
-      const saved = existing?.ratings
-      setFactCalls(saved?.fact_calls ?? initialFactCalls(payload.facts))
-      setDuplicateFlags(
-        saved?.duplicate_flags ?? payload.facts.map(() => false),
-      )
-      setMultipleFactsFlags(
-        saved?.multiple_facts_flags ?? payload.facts.map(() => false),
-      )
-      setLooksGood(saved?.looks_good ?? payload.facts.map(() => false))
-      setRubricValues(
-        saved
+      const ratings = existing?.ratings
+      const values = {
+        factCalls: ratings?.fact_calls ?? initialFactCalls(payload.facts),
+        duplicateFlags:
+          ratings?.duplicate_flags ?? payload.facts.map(() => false),
+        multipleFactsFlags:
+          ratings?.multiple_facts_flags ?? payload.facts.map(() => false),
+        looksGood: ratings?.looks_good ?? payload.facts.map(() => false),
+        rubricValues: ratings
           ? Object.fromEntries(
               payload.rubric_dimensions.map((d) => [
                 d.key,
-                String(saved[d.key]),
+                String(ratings[d.key]),
               ]),
             )
           : initialRubricValues(payload.rubric_dimensions),
-      )
-      setComments(existing?.comment ?? "")
-      setConfidence(existing?.flags?.confidence ?? "EASY_CALL")
+        comments: existing?.comment ?? "",
+        confidence: existing?.flags?.confidence ?? "EASY_CALL",
+      }
+      setFactCalls(values.factCalls)
+      setDuplicateFlags(values.duplicateFlags)
+      setMultipleFactsFlags(values.multipleFactsFlags)
+      setLooksGood(values.looksGood)
+      setRubricValues(values.rubricValues)
+      setComments(values.comments)
+      setConfidence(values.confidence)
+      setBaseline(JSON.stringify(values))
     }
-    if (payload.review_mode !== "AUTHORED_RUBRIC") setComments("")
-    setCompletionMessage(null)
-    setErrorMessage(null)
-    setModelSubmitting(false)
   }, [payload])
 
   const nextMutation = useMutation({
-    mutationFn: readNextFactReview,
-    onSuccess: async (next) => {
-      queryClient.setQueryData(["review-next", "fact-decomp"], next)
+    mutationFn: async (isCurrent: () => boolean) => ({
+      next: await readNextFactReview(),
+      isCurrent,
+    }),
+    onSuccess: async ({ next, isCurrent }) => {
+      if (!isCurrent()) return
+      queryClient.setQueryData(nextKey, next)
       setErrorMessage(null)
       await navigate({
-        search: {
-          task_id: next?.task_id ?? undefined,
-          complete: next?.task_id == null ? true : undefined,
-        },
+        search: { task_id: next?.task_id ?? undefined },
+        ignoreBlocker: true,
       })
     },
-    onError: (error) => setErrorMessage(apiErrorMessage(error)),
+    onError: (error, isCurrent) => {
+      if (isCurrent()) setErrorMessage(apiErrorMessage(error))
+    },
   })
-
-  const advanceAfterSave = async () => {
-    setCompletionMessage("Review saved.")
-    setErrorMessage(null)
+  const invalidateSaved = () => {
     void queryClient.invalidateQueries({ queryKey: homeSummaryQueryKey })
-    await queryClient.invalidateQueries({
-      queryKey: ["review-fact-decomp", taskId],
-    })
-    await queryClient.invalidateQueries({
-      queryKey: ["review-next", "fact-decomp"],
+    void queryClient.invalidateQueries({
+      queryKey: nextKey,
       refetchType: "none",
     })
-    nextMutation.mutate()
   }
-
-  const submitMutation = useMutation({
-    mutationFn: (requestBody: FactDecompReviewSubmit) =>
-      ReviewService.submitFactDecompReview({
-        taskId: payload?.task_id as number,
-        requestBody,
-      }),
-    onSuccess: advanceAfterSave,
-    onError: (error) => setErrorMessage(apiErrorMessage(error)),
-  })
-
-  const saved = !!completionMessage || !!payload?.existing_review
-  const busy =
-    modelSubmitting || submitMutation.isPending || nextMutation.isPending
+  const reconcile = async (command: PendingReview, isCurrent = capture()) => {
+    if (!isCurrent()) return
+    setRecovery("saving")
+    try {
+      const fresh = await ReviewService.readFactDecompReview({
+        taskId: command.taskId,
+      })
+      if (!isCurrent()) return
+      if (fresh.existing_review) {
+        const same = savedReviewMatches(fresh, command)
+        await queryClient.cancelQueries({
+          queryKey: ["review-fact-decomp", userId, command.taskId],
+          exact: true,
+        })
+        if (!isCurrent()) return
+        setDisplayedPayload(fresh)
+        queryClient.setQueryData(
+          ["review-fact-decomp", userId, command.taskId],
+          fresh,
+        )
+        setModelDirty(false)
+        setCompletionMessage(
+          same
+            ? "Saved review recovered."
+            : "A different saved review already exists. Showing the saved version; download your local submission below.",
+        )
+        setRecovery(same ? "idle" : "different")
+        if (same) setPending(null)
+        setErrorMessage(null)
+        invalidateSaved()
+      } else {
+        setRecovery("retry")
+        setErrorMessage(
+          "No saved review was found. Your edits are retained. Retry save when ready.",
+        )
+      }
+    } catch {
+      if (!isCurrent()) return
+      setRecovery("uncertain")
+      setErrorMessage(
+        "Save outcome is unknown. Check save status or download your local copy before leaving.",
+      )
+    }
+  }
+  const submit = async (command: PendingReview) => {
+    const isCurrent = capture()
+    setPending(command)
+    setRecovery("saving")
+    setErrorMessage(null)
+    try {
+      if (command.mode === "MODEL_LABEL_CORRECTION") {
+        await ReviewService.submitModelEvalReview({
+          taskId: command.taskId,
+          requestBody: command.body as ModelEvalReviewSubmit,
+        })
+      } else {
+        await ReviewService.submitFactDecompReview({
+          taskId: command.taskId,
+          requestBody: command.body as FactDecompReviewSubmit,
+        })
+      }
+      if (!isCurrent()) return
+      setCompletionMessage("Review saved.")
+      setModelDirty(false)
+      setRecovery("idle")
+      setPending(null)
+      invalidateSaved()
+      await queryClient.invalidateQueries({
+        queryKey: ["review-fact-decomp", userId, command.taskId],
+      })
+      if (isCurrent()) nextMutation.mutate(isCurrent)
+    } catch (error) {
+      if (!isCurrent()) return
+      if (isAuthoritativeClientError(error) && !hasApiErrorStatus(error, 409)) {
+        setRecovery("idle")
+        setPending(null)
+        setErrorMessage(apiErrorMessage(error))
+      } else await reconcile(command, isCurrent)
+    }
+  }
+  const busy = uncertain || nextMutation.isPending
   const position = taskId === null ? visited.length : visited.indexOf(taskId)
   const previousId = visited[position - 1]
   const followingId = visited[position + 1]
   const navigation = (
-    <nav aria-label="Example navigation" className="flex flex-wrap gap-2">
-      <Button
-        type="button"
-        variant="outline"
-        disabled={previousId === undefined || busy}
-        onClick={() => {
-          if (
-            payload &&
-            !saved &&
-            !window.confirm("Leave this example? Unsaved changes will be lost.")
-          )
-            return
-          void navigate({ search: { task_id: previousId } })
-        }}
-      >
-        Previous example
-      </Button>
-      {saved && taskId !== null ? (
+    <>
+      {dialog}
+      {historyUnavailable ? (
+        <p>
+          Reload history is unavailable in this browser. Navigation still works
+          in this tab.
+        </p>
+      ) : null}
+      <nav aria-label="Example navigation" className="flex flex-wrap gap-2">
         <Button
           type="button"
-          disabled={busy}
-          onClick={() => {
-            if (followingId !== undefined) {
-              void navigate({ search: { task_id: followingId } })
-            } else {
-              nextMutation.mutate()
-            }
-          }}
+          variant="outline"
+          disabled={previousId === undefined}
+          onClick={() => void navigate({ search: { task_id: previousId } })}
         >
-          {nextMutation.isPending ? "Loading next example" : "Next example"}
+          Previous example
         </Button>
+        {(saved && taskId !== null) || (payloadQuery.isError && !payload) ? (
+          <Button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              if (followingId !== undefined)
+                void navigate({ search: { task_id: followingId } })
+              else nextMutation.mutate(capture())
+            }}
+          >
+            {nextMutation.isPending ? "Loading next example" : "Next example"}
+          </Button>
+        ) : null}
+      </nav>
+      {payloadQuery.isError && payload ? (
+        <p>
+          The latest review could not be checked. Your local edits are retained.
+        </p>
       ) : null}
-    </nav>
-  )
+      {backgroundConflict ? (
+        <div className="space-y-2" role="alert">
+          <p>
+            A review was saved in another tab. Your unfinished edits are
+            retained. Download your local copy before loading the saved review.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() =>
+                downloadLocalCopy(`review-${taskId}-unfinished.json`, {
+                  taskId,
+                  userId,
+                  mode: payload?.review_mode,
+                  local: JSON.parse(
+                    payload?.review_mode === "MODEL_LABEL_CORRECTION"
+                      ? modelSnapshot.current
+                      : authoredValue,
+                  ),
+                })
+              }
+            >
+              Download local copy
+            </Button>
+            <Button
+              onClick={() =>
+                confirmAction(() => {
+                  const fresh = payloadQuery.data
+                  if (fresh?.task_id === taskId) {
+                    setDisplayedPayload(fresh)
+                    setModelDirty(false)
+                  }
+                })
+              }
+            >
+              Load saved review
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      {pending && recovery !== "saving" ? (
+        <div className="flex flex-wrap gap-2">
+          {recovery === "uncertain" ? (
+            <Button onClick={() => void reconcile(pending)}>
+              Check save status
+            </Button>
+          ) : null}
 
+          <Button
+            variant="outline"
+            onClick={() =>
+              downloadLocalCopy(`review-${pending.taskId}.json`, pending)
+            }
+          >
+            Download local copy
+          </Button>
+        </div>
+      ) : null}
+    </>
+  )
   const submitReview = () => {
     if (
       !payload ||
       payload.review_mode !== "AUTHORED_RUBRIC" ||
-      completionMessage ||
+      saved ||
+      backgroundConflict ||
+      busy ||
       !isReviewActionAllowed(payload.allowed_actions, "save_review")
-    ) {
+    )
       return
-    }
-    submitMutation.mutate({
-      fact_calls: factCalls,
-      duplicate_flags: duplicateFlags,
-      multiple_facts_flags: multipleFactsFlags,
-      looks_good: looksGood,
-      values: rubricValues,
-      comments: comments.trim() || null,
-      confidence,
-      item_revision: payload.item_revision,
+    void submit({
+      taskId: payload.task_id,
+      userId,
+      mode: payload.review_mode,
+      body: {
+        fact_calls: factCalls,
+        duplicate_flags: duplicateFlags,
+        multiple_facts_flags: multipleFactsFlags,
+        looks_good: looksGood,
+        values: rubricValues,
+        comments: comments.trim() || null,
+        confidence,
+        item_revision: payload.item_revision,
+      },
     })
   }
-
-  if (waitingForNext || payloadQuery.isLoading) {
+  if (waitingForNext || payloadQuery.isLoading)
     return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" />
-        Loading fact-decomposition review
+      <div>
+        <p>Loading fact-decomposition review…</p>
+        {dialog}
       </div>
     )
-  }
-
-  if (search.task_id === undefined && !search.complete && nextQuery.isError) {
+  if (search.task_id === undefined && nextQuery.isError)
     return (
-      <div className="flex flex-col gap-3">
-        <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-          {apiErrorMessage(nextQuery.error)}
-        </div>
-      </div>
-    )
-  }
-
-  if (taskId === null) {
-    return (
-      <div className="flex flex-col gap-3">
-        <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-          <h2 className="font-semibold">All caught up</h2>
-          <p>No fact-decomposition review tasks are available.</p>
-        </div>
+      <div>
+        <p>{apiErrorMessage(nextQuery.error)}</p>
+        <Button onClick={() => void nextQuery.refetch()}>Retry queue</Button>
         {navigation}
       </div>
     )
-  }
-
-  if (payloadQuery.isError) {
+  if (taskId === null)
     return (
-      <div className="flex flex-col gap-3">
-        <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-          {apiErrorMessage(payloadQuery.error)}
-        </div>
+      <div className="space-y-3">
+        <h2 className="font-semibold">All caught up</h2>
+        <p>
+          No eligible fact-decomposition tasks remain across active datasets.
+        </p>
+        <Button
+          disabled={nextQuery.isFetching}
+          onClick={() => void nextQuery.refetch()}
+        >
+          Check for new examples
+        </Button>
+        {navigation}
       </div>
     )
-  }
-
-  if (!payload) {
-    return null
-  }
-
-  if (payload.review_mode === "MODEL_LABEL_CORRECTION") {
+  if (payloadQuery.isError && !payload)
     return (
-      <FactDecompositionCorrection
-        key={payload.task_id}
-        canSubmit={isReviewActionAllowed(
-          payload.allowed_actions,
-          "save_model_eval",
-        )}
-        claims={correctionClaims(payload)}
-        guide={payload.guide}
-        existingReview={payload.existing_review}
-        completionMessage={completionMessage}
-        navigation={navigation}
-        errorMessage={errorMessage}
-        onSubmit={(submission) => {
-          setErrorMessage(null)
-          setModelSubmitting(true)
-          const requestBody: ModelEvalReviewSubmit = {
-            ...submission,
-            item_revision: payload.item_revision,
-          }
-          ReviewService.submitModelEvalReview({
-            taskId: taskId as number,
-            requestBody,
-          })
-            .then(advanceAfterSave)
-            .catch((error: unknown) => setErrorMessage(apiErrorMessage(error)))
-            .finally(() => setModelSubmitting(false))
-        }}
-        query={payload.user_prompt}
-        response={payload.assistant_response}
-        submitting={modelSubmitting}
-      />
+      <div className="space-y-3">
+        <p>
+          This example is unavailable. {apiErrorMessage(payloadQuery.error)}
+        </p>
+        {navigation}
+        <Button onClick={() => void navigate({ search: {} })}>
+          Back to queue
+        </Button>
+      </div>
     )
-  }
-
+  if (!payload) return null
+  if (payload.review_mode === "MODEL_LABEL_CORRECTION")
+    return (
+      <div className="space-y-3">
+        <p className="text-muted-foreground text-sm">
+          {payload.dataset.display_name} · Task {payload.task_id}
+        </p>
+        <FactDecompositionCorrection
+          saveLabel={recovery === "retry" ? "Retry save" : "Save and next"}
+          key={`${payload.task_id}:${!!payload.existing_review}`}
+          canSubmit={
+            !backgroundConflict &&
+            isReviewActionAllowed(payload.allowed_actions, "save_model_eval")
+          }
+          claims={correctionClaims(payload)}
+          guide={payload.guide}
+          existingReview={payload.existing_review}
+          completionMessage={completionMessage}
+          navigation={navigation}
+          errorMessage={errorMessage}
+          onDirtyChange={setModelDirty}
+          onSnapshotChange={captureModelSnapshot}
+          onSubmit={(submission) => {
+            if (!busy && !backgroundConflict)
+              void submit({
+                taskId: payload.task_id,
+                userId,
+                mode: payload.review_mode,
+                body: { ...submission, item_revision: payload.item_revision },
+              })
+          }}
+          query={payload.user_prompt}
+          response={payload.assistant_response}
+          submitting={uncertain}
+        />
+      </div>
+    )
   const authoredLocked =
-    !!payload.existing_review ||
-    submitMutation.isPending ||
-    !!completionMessage ||
+    backgroundConflict ||
+    saved ||
+    uncertain ||
     !isReviewActionAllowed(payload.allowed_actions, "save_review")
   const authoredComplete = payload.facts.every(
     (fact, i) =>
@@ -617,6 +829,7 @@ function FactDecompositionReview() {
                 <div className="space-y-2" key={dimension.key}>
                   <Label>{dimension.label}</Label>
                   <Select
+                    disabled={authoredLocked}
                     onValueChange={(value) =>
                       setRubricValues((current) => ({
                         ...current,
@@ -650,6 +863,7 @@ function FactDecompositionReview() {
             <div className="space-y-2">
               <Label>Confidence</Label>
               <Select
+                disabled={authoredLocked}
                 onValueChange={(value: JudgmentConfidence) =>
                   setConfidence(value)
                 }
@@ -697,14 +911,18 @@ function FactDecompositionReview() {
               disabled={
                 authoredLocked ||
                 !authoredComplete ||
-                submitMutation.isPending ||
+                uncertain ||
                 completionMessage !== null ||
                 !isReviewActionAllowed(payload.allowed_actions, "save_review")
               }
               onClick={submitReview}
               type="button"
             >
-              {submitMutation.isPending ? "Saving review" : "Save and next"}
+              {uncertain
+                ? "Saving review"
+                : recovery === "retry"
+                  ? "Retry save"
+                  : "Save and next"}
             </Button>
           </fieldset>
         </aside>
