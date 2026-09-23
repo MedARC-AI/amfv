@@ -187,6 +187,34 @@ export function FactDecompositionCorrection({
     setGroups((current) => [...current, { id, claim: draft }])
     setDraft(null)
   }
+  const handleSplitConfirm = (
+    groupId: number,
+    atoms: import("./ClaimCorrectionList").SplitAtomDraft[],
+  ) => {
+    const group = groups.find((g) => g.id === groupId)
+    if (!group?.original) return
+    const position = group.original.position
+    const newGroups: import("./ClaimCorrectionList").ClaimGroup[] = atoms.map(
+      (atom) => ({
+        id: nextDraftId.current++,
+        claim: {
+          claim_text: atom.claim_text,
+          response_spans: atom.response_spans,
+          label: atom.label,
+          split_from_position: position,
+        },
+      }),
+    )
+    setGroups((current) =>
+      current
+        .map((g) =>
+          g.id === groupId
+            ? { ...g, multipleFacts: true, looksGood: false }
+            : g,
+        )
+        .concat(newGroups),
+    )
+  }
 
   const submit = () => {
     if (!humanClaims) return
@@ -366,6 +394,7 @@ export function FactDecompositionCorrection({
                 current.filter((group) => group.original || group.id !== id),
               )
             }
+            onSplitConfirm={handleSplitConfirm}
           />
           <label className="flex items-start gap-2 rounded-xl border p-4 text-sm">
             <input

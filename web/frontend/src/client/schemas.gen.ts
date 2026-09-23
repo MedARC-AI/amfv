@@ -2147,6 +2147,18 @@ export const HumanClaimSchema = {
             minItems: 1,
             title: 'Response Spans',
             type: 'array'
+        },
+        split_from_position: {
+            anyOf: [
+                {
+                    minimum: 0,
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Split From Position'
         }
     },
     required: ['claim_text', 'response_spans', 'label'],

@@ -516,6 +516,7 @@ export type HumanClaim = {
     claim_text: string;
     label: 'vital' | 'semi-important' | 'unimportant';
     response_spans: Array<ResponseClaimSpan>;
+    split_from_position?: (number | null);
 };
 
 export type label = 'vital' | 'semi-important' | 'unimportant';

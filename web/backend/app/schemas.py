@@ -266,6 +266,7 @@ class HumanClaim(SQLModel):
         min_length=1, max_length=MAX_SPANS_PER_CLAIM
     )
     label: ImportanceLabel
+    split_from_position: int | None = Field(default=None, ge=0)
 
     @field_validator("claim_text")
     @classmethod
