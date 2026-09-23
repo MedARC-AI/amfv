@@ -97,11 +97,22 @@ function SplitEditor({
       atoms.map((atom) => (atom.id === id ? { ...atom, ...patch } : atom)),
     )
 
-  const canConfirm =
+  const allFilled =
     atoms.length >= 2 &&
     atoms.every(
       (a) => a.claim_text.trim() && a.response_spans.length > 0 && a.label,
     )
+  const hasDuplicateAtomText = (() => {
+    const seen = new Set<string>()
+    for (const atom of atoms) {
+      const key = atom.claim_text.trim().toLowerCase()
+      if (!key) continue
+      if (seen.has(key)) return true
+      seen.add(key)
+    }
+    return false
+  })()
+  const canConfirm = allFilled && !hasDuplicateAtomText
 
   return (
     <fieldset
@@ -174,6 +185,11 @@ function SplitEditor({
           />
         </div>
       ))}
+      {hasDuplicateAtomText ? (
+        <p className="text-sm text-destructive">
+          Two or more atoms have identical text. Each atom must be unique.
+        </p>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         <Button
           size="sm"

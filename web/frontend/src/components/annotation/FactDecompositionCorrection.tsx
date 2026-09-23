@@ -61,6 +61,17 @@ function completedHumanClaims(groups: ClaimGroup[]): HumanClaim[] | null {
   }))
 }
 
+function hasDuplicateClaimText(claims: HumanClaim[]): boolean {
+  const seen = new Set<string>()
+  for (const claim of claims) {
+    const key = claim.claim_text.trim().toLowerCase()
+    if (!key) continue
+    if (seen.has(key)) return true
+    seen.add(key)
+  }
+  return false
+}
+
 export function FactDecompositionCorrection({
   canSubmit,
   saveLabel = "Save and next",
@@ -146,6 +157,8 @@ export function FactDecompositionCorrection({
       markClass: evalItemColor(group.id).mark,
     }))
   const humanClaims = completedHumanClaims(groups)
+  const hasDuplicates =
+    humanClaims !== null && hasDuplicateClaimText(humanClaims)
   const hasPendingSplits = Object.keys(splitDrafts).length > 0
   const modelGroups = groups.filter((group) => group.original)
   const modelReviewsComplete = modelGroups.every(
@@ -196,17 +209,30 @@ export function FactDecompositionCorrection({
   }
   const startSplit = (groupId: number) => {
     if (locked) return
-    setSplitDrafts((current) =>
-      current[groupId]
-        ? current
-        : {
-            ...current,
-            [groupId]: [
+    setSplitDrafts((current) => {
+      if (current[groupId]) return current
+      const group = groups.find((g) => g.id === groupId)
+      const position = group?.original?.position ?? null
+      const existing =
+        position != null
+          ? groups.filter(
+              (g) => !g.original && g.claim.split_from_position === position,
+            )
+          : []
+      const atoms: SplitAtomDraft[] =
+        existing.length >= 2
+          ? existing.map((g, i) => ({
+              id: i,
+              claim_text: g.claim.claim_text,
+              response_spans: g.claim.response_spans,
+              label: g.claim.label as ImportanceLabel | undefined,
+            }))
+          : [
               { id: 0, claim_text: "", response_spans: [] },
               { id: 1, claim_text: "", response_spans: [] },
-            ],
-          },
-    )
+            ]
+      return { ...current, [groupId]: atoms }
+    })
     setSplitTargetId(groupId)
   }
   const closeSplit = (groupId: number) => {
@@ -243,6 +269,7 @@ export function FactDecompositionCorrection({
     }))
     setGroups((current) =>
       current
+        .filter((g) => g.original || g.claim.split_from_position !== position)
         .map((g) =>
           g.id === groupId
             ? { ...g, multipleFacts: true, looksGood: false }
@@ -488,6 +515,12 @@ export function FactDecompositionCorrection({
               {completionMessage}
             </div>
           ) : null}
+          {hasDuplicates ? (
+            <p className="text-sm text-destructive">
+              Two or more added claims have identical text. Remove the duplicate
+              before saving.
+            </p>
+          ) : null}
           <Button
             className="w-full"
             disabled={
@@ -495,6 +528,7 @@ export function FactDecompositionCorrection({
               draft !== null ||
               hasPendingSplits ||
               humanClaims === null ||
+              hasDuplicates ||
               humanClaims.length > 10000 ||
               humanClaims.some((claim) => !claim.claim_text.trim()) ||
               !modelReviewsComplete ||
