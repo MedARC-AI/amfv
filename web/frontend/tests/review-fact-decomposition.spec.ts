@@ -535,6 +535,7 @@ test("grades model claims and saves human selections through a failed request an
           text: "shows dehydration activates RAAS and efferent vasoconstriction",
         },
       ],
+      split_from_position: null,
     },
   ])
   expect(saved.existing_review.coverage_checked).toBe(true)
