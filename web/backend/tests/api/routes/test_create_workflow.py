@@ -232,7 +232,9 @@ def test_concurrent_fact_saves_with_the_same_revision_have_one_winner(
     original_claim = create_routes._claim_fact_draft_update
 
     def synchronized_claim(*args, **kwargs):
-        barrier.wait(timeout=5)
+        # 30-second timeout avoids spurious BrokenBarrierError under full-suite load,
+        # where pre-barrier SELECT queries can take longer than 5 s on a busy machine.
+        barrier.wait(timeout=30)
         return original_claim(*args, **kwargs)
 
     monkeypatch.setattr(create_routes, "_claim_fact_draft_update", synchronized_claim)
