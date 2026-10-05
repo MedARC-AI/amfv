@@ -16,6 +16,7 @@ import {
   type ImportanceLabel,
   initialModelClaim,
   Labels,
+  type SplitAtomDraft,
 } from "./ClaimCorrectionList"
 import { GradingInstructions } from "./GradingInstructions"
 import {
@@ -106,6 +107,10 @@ export function FactDecompositionCorrection({
   )
   const [draft, setDraft] = React.useState<DraftHumanClaim | null>(null)
   const [stagedSpans, setStagedSpans] = React.useState<ClaimResponseSpan[]>([])
+  const [splitDrafts, setSplitDrafts] = React.useState<
+    Record<number, SplitAtomDraft[]>
+  >({})
+  const [splitTargetId, setSplitTargetId] = React.useState<number | null>(null)
   const [activePosition, setActivePosition] = React.useState<number | null>(
     null,
   )
@@ -114,6 +119,7 @@ export function FactDecompositionCorrection({
     coverageChecked,
     draft,
     stagedSpans,
+    splitDrafts,
   })
   React.useEffect(() => {
     onSnapshotChange?.(editableValue)
@@ -140,6 +146,7 @@ export function FactDecompositionCorrection({
       markClass: evalItemColor(group.id).mark,
     }))
   const humanClaims = completedHumanClaims(groups)
+  const hasPendingSplits = Object.keys(splitDrafts).length > 0
   const modelGroups = groups.filter((group) => group.original)
   const modelReviewsComplete = modelGroups.every(
     (group) =>
@@ -187,24 +194,53 @@ export function FactDecompositionCorrection({
     setGroups((current) => [...current, { id, claim: draft }])
     setDraft(null)
   }
-  const handleSplitConfirm = (
-    groupId: number,
-    atoms: import("./ClaimCorrectionList").SplitAtomDraft[],
-  ) => {
+  const startSplit = (groupId: number) => {
+    if (locked) return
+    setSplitDrafts((current) =>
+      current[groupId]
+        ? current
+        : {
+            ...current,
+            [groupId]: [
+              { id: 0, claim_text: "", response_spans: [] },
+              { id: 1, claim_text: "", response_spans: [] },
+            ],
+          },
+    )
+    setSplitTargetId(groupId)
+  }
+  const closeSplit = (groupId: number) => {
+    if (locked) return
+    setSplitDrafts((current) => {
+      const remaining = { ...current }
+      delete remaining[groupId]
+      return remaining
+    })
+    setSplitTargetId((current) => (current === groupId ? null : current))
+  }
+  const handleSplitConfirm = (groupId: number, atoms: SplitAtomDraft[]) => {
+    if (
+      locked ||
+      !splitDrafts[groupId] ||
+      atoms.length < 2 ||
+      atoms.some(
+        (atom) =>
+          !atom.claim_text.trim() || !atom.response_spans.length || !atom.label,
+      )
+    )
+      return
     const group = groups.find((g) => g.id === groupId)
     if (!group?.original) return
     const position = group.original.position
-    const newGroups: import("./ClaimCorrectionList").ClaimGroup[] = atoms.map(
-      (atom) => ({
-        id: nextDraftId.current++,
-        claim: {
-          claim_text: atom.claim_text,
-          response_spans: atom.response_spans,
-          label: atom.label,
-          split_from_position: position,
-        },
-      }),
-    )
+    const newGroups: ClaimGroup[] = atoms.map((atom) => ({
+      id: nextDraftId.current++,
+      claim: {
+        claim_text: atom.claim_text,
+        response_spans: atom.response_spans,
+        label: atom.label,
+        split_from_position: position,
+      },
+    }))
     setGroups((current) =>
       current
         .map((g) =>
@@ -214,10 +250,11 @@ export function FactDecompositionCorrection({
         )
         .concat(newGroups),
     )
+    closeSplit(groupId)
   }
 
   const submit = () => {
-    if (!humanClaims) return
+    if (locked || draft || hasPendingSplits || !humanClaims) return
     const claimReviews: ClaimReview[] = modelGroups.map((group) => ({
       position: group.original!.position,
       label: group.claim.label ?? null,
@@ -371,6 +408,8 @@ export function FactDecompositionCorrection({
             guide={guide}
             locked={locked}
             stagedSpans={stagedSpans}
+            splitDrafts={splitDrafts}
+            splitTargetId={splitTargetId}
             onFocusClaim={focusSourceSpan}
             hiddenModels={hiddenModels}
             onChange={(id, claim, issue, duplicate, looksGood, multipleFacts) =>
@@ -395,6 +434,12 @@ export function FactDecompositionCorrection({
               )
             }
             onSplitConfirm={handleSplitConfirm}
+            onSplitStart={startSplit}
+            onSplitChange={(id, atoms) => {
+              if (!locked)
+                setSplitDrafts((current) => ({ ...current, [id]: atoms }))
+            }}
+            onSplitCancel={closeSplit}
           />
           <label className="flex items-start gap-2 rounded-xl border p-4 text-sm">
             <input
@@ -412,6 +457,11 @@ export function FactDecompositionCorrection({
           {draft ? (
             <p className="text-sm">
               Add or cancel the draft before saving your review.
+            </p>
+          ) : null}
+          {hasPendingSplits ? (
+            <p className="text-sm">
+              Confirm or cancel each split before saving your review.
             </p>
           ) : null}
           {existingReview ? (
@@ -435,6 +485,7 @@ export function FactDecompositionCorrection({
             disabled={
               locked ||
               draft !== null ||
+              hasPendingSplits ||
               humanClaims === null ||
               humanClaims.length > 10000 ||
               humanClaims.some((claim) => !claim.claim_text.trim()) ||

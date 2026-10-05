@@ -75,26 +75,26 @@ export function Labels({
 
 function SplitEditor({
   position,
+  atoms,
+  locked,
   stagedSpans,
   labels,
+  onChange,
   onConfirm,
   onCancel,
 }: {
   position: number
+  atoms: SplitAtomDraft[]
+  locked: boolean
   stagedSpans: ClaimResponseSpan[]
   labels: ImportanceGuideLabel[]
+  onChange: (atoms: SplitAtomDraft[]) => void
   onConfirm: (atoms: SplitAtomDraft[]) => void
   onCancel: () => void
 }) {
-  const nextId = React.useRef(2)
-  const [atoms, setAtoms] = React.useState<SplitAtomDraft[]>([
-    { id: 0, claim_text: "", response_spans: [], label: undefined },
-    { id: 1, claim_text: "", response_spans: [], label: undefined },
-  ])
-
   const updateAtom = (id: number, patch: Partial<SplitAtomDraft>) =>
-    setAtoms((current) =>
-      current.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+    onChange(
+      atoms.map((atom) => (atom.id === id ? { ...atom, ...patch } : atom)),
     )
 
   const canConfirm =
@@ -104,7 +104,10 @@ function SplitEditor({
     )
 
   return (
-    <div className="mt-4 space-y-3 rounded-lg border border-dashed p-3">
+    <fieldset
+      disabled={locked}
+      className="mt-4 space-y-3 rounded-lg border border-dashed p-3"
+    >
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Split into atoms — Claim {position + 1}
       </p>
@@ -123,7 +126,9 @@ function SplitEditor({
                 variant="ghost"
                 type="button"
                 onClick={() =>
-                  setAtoms((current) => current.filter((a) => a.id !== atom.id))
+                  onChange(
+                    atoms.filter((candidate) => candidate.id !== atom.id),
+                  )
                 }
               >
                 Remove
@@ -175,9 +180,9 @@ function SplitEditor({
           variant="outline"
           type="button"
           onClick={() => {
-            const id = nextId.current++
-            setAtoms((current) => [
-              ...current,
+            const id = Math.max(-1, ...atoms.map((atom) => atom.id)) + 1
+            onChange([
+              ...atoms,
               { id, claim_text: "", response_spans: [], label: undefined },
             ])
           }}
@@ -196,7 +201,7 @@ function SplitEditor({
           Cancel
         </Button>
       </div>
-    </div>
+    </fieldset>
   )
 }
 
@@ -466,10 +471,15 @@ export function ClaimCorrectionList({
   hiddenModels,
   locked,
   stagedSpans,
+  splitDrafts,
+  splitTargetId,
   onChange,
   onRemove,
   onFocusClaim,
   onSplitConfirm,
+  onSplitStart,
+  onSplitChange,
+  onSplitCancel,
 }: {
   activePosition: number | null
   groups: ClaimGroup[]
@@ -477,6 +487,8 @@ export function ClaimCorrectionList({
   hiddenModels: boolean
   locked: boolean
   stagedSpans: ClaimResponseSpan[]
+  splitDrafts: Record<number, SplitAtomDraft[]>
+  splitTargetId: number | null
   onChange: (
     id: number,
     claim: DraftHumanClaim,
@@ -488,8 +500,10 @@ export function ClaimCorrectionList({
   onRemove: (id: number) => void
   onFocusClaim: (position: number) => void
   onSplitConfirm: (groupId: number, atoms: SplitAtomDraft[]) => void
+  onSplitStart: (groupId: number) => void
+  onSplitChange: (groupId: number, atoms: SplitAtomDraft[]) => void
+  onSplitCancel: (groupId: number) => void
 }) {
-  const [splitTargetId, setSplitTargetId] = React.useState<number | null>(null)
   const models = groups.filter((group) => group.original)
   const humans = groups.filter((group) => !group.original)
 
@@ -553,38 +567,25 @@ export function ClaimCorrectionList({
       >
         {models.map((group) => {
           const isSplitting = group.id === splitTargetId
-          const splitSection =
-            !locked && isSplitting ? (
-              <SplitEditor
-                position={group.original!.position}
-                stagedSpans={stagedSpans}
-                labels={guide.labels}
-                onConfirm={(atoms) => {
-                  setSplitTargetId(null)
-                  onSplitConfirm(group.id, atoms)
-                }}
-                onCancel={() => setSplitTargetId(null)}
-              />
-            ) : undefined
-          const onSplitStart =
-            !locked && !isSplitting
-              ? () => {
-                  setSplitTargetId(group.id)
-                  onChange(
-                    group.id,
-                    group.claim,
-                    group.issue,
-                    group.duplicate,
-                    false,
-                    true,
-                  )
-                }
-              : undefined
+          const splitSection = isSplitting ? (
+            <SplitEditor
+              position={group.original!.position}
+              atoms={splitDrafts[group.id]}
+              locked={locked}
+              stagedSpans={stagedSpans}
+              labels={guide.labels}
+              onChange={(atoms) => onSplitChange(group.id, atoms)}
+              onConfirm={(atoms) => onSplitConfirm(group.id, atoms)}
+              onCancel={() => onSplitCancel(group.id)}
+            />
+          ) : undefined
+          const startSplit =
+            !locked && !isSplitting ? () => onSplitStart(group.id) : undefined
           return row(
             group,
             `Claim ${group.original!.position + 1}`,
             splitSection,
-            onSplitStart,
+            startSplit,
           )
         })}
         {!models.length ? (
