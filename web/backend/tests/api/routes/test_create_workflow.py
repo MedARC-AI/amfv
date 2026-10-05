@@ -232,26 +232,31 @@ def test_concurrent_fact_saves_with_the_same_revision_have_one_winner(
     original_claim = create_routes._claim_fact_draft_update
 
     def synchronized_claim(*args, **kwargs):
-        # 30-second timeout avoids spurious BrokenBarrierError under full-suite load,
-        # where pre-barrier SELECT queries can take longer than 5 s on a busy machine.
         barrier.wait(timeout=30)
         return original_claim(*args, **kwargs)
 
     monkeypatch.setattr(create_routes, "_claim_fact_draft_update", synchronized_claim)
 
-    def save(source_text: str) -> tuple[str, int | dict]:
+    sources = ["Concurrent revision A.", "Concurrent revision B."]
+    # Read ORM state on the owning thread: commit expired the shared dataset,
+    # so reading dataset.id in a worker would use the parent session concurrently.
+    commands = [
+        FactDecompSaveCommand.model_validate(
+            _fact_command(
+                {
+                    **_fact_payload(dataset, source_text),
+                    "item_id": initial.id,
+                    "expected_item_revision": initial.item_revision,
+                }
+            )
+        )
+        for source_text in sources
+    ]
+
+    def save(body: FactDecompSaveCommand) -> tuple[str, int | dict]:
         with Session(engine) as session:
             current_author = session.get(User, author_id)
             assert current_author is not None
-            body = FactDecompSaveCommand.model_validate(
-                _fact_command(
-                    {
-                        **_fact_payload(dataset, source_text),
-                        "item_id": initial.id,
-                        "expected_item_revision": initial.item_revision,
-                    }
-                )
-            )
             try:
                 response = create_routes._create_or_update_fact_decomp_item(
                     session,
@@ -265,9 +270,8 @@ def test_concurrent_fact_saves_with_the_same_revision_have_one_winner(
                 return "conflict", exc.detail
             return "saved", response.id
 
-    sources = ["Concurrent revision A.", "Concurrent revision B."]
     with ThreadPoolExecutor(max_workers=2) as executor:
-        outcomes = list(executor.map(save, sources))
+        outcomes = list(executor.map(save, commands))
 
     assert [outcome[0] for outcome in outcomes].count("saved") == 1
     conflicts = [outcome[1] for outcome in outcomes if outcome[0] == "conflict"]
