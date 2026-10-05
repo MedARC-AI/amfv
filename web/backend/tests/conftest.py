@@ -30,6 +30,7 @@ from sqlmodel import Session
 from app.core.config import settings
 from app.core.db import engine, init_db
 from app.main import app
+from app.services.rate_limit import rate_limiter
 from tests.utils.user import authentication_token_from_email
 from tests.utils.utils import get_superuser_token_headers
 
@@ -49,6 +50,11 @@ def _database_template() -> Generator[Path, None, None]:
     yield _TEST_DB_TEMPLATE_PATH
     engine.dispose()
     shutil.rmtree(_TEST_DB_DIRECTORY)
+
+
+@pytest.fixture(autouse=True)
+def _clear_rate_limiter() -> None:
+    rate_limiter.clear()
 
 
 @pytest.fixture(autouse=True)
