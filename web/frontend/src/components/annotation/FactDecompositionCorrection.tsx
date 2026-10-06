@@ -412,7 +412,14 @@ export function FactDecompositionCorrection({
             splitTargetId={splitTargetId}
             onFocusClaim={focusSourceSpan}
             hiddenModels={hiddenModels}
-            onChange={(id, claim, issue, duplicate, looksGood, multipleFacts) => {
+            onChange={(
+              id,
+              claim,
+              issue,
+              duplicate,
+              looksGood,
+              multipleFacts,
+            ) => {
               setGroups((current) =>
                 current.map((group) =>
                   group.id === id
