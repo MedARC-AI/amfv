@@ -412,7 +412,7 @@ export function FactDecompositionCorrection({
             splitTargetId={splitTargetId}
             onFocusClaim={focusSourceSpan}
             hiddenModels={hiddenModels}
-            onChange={(id, claim, issue, duplicate, looksGood, multipleFacts) =>
+            onChange={(id, claim, issue, duplicate, looksGood, multipleFacts) => {
               setGroups((current) =>
                 current.map((group) =>
                   group.id === id
@@ -427,7 +427,8 @@ export function FactDecompositionCorrection({
                     : group,
                 ),
               )
-            }
+              if (!multipleFacts) closeSplit(id)
+            }}
             onRemove={(id) =>
               setGroups((current) =>
                 current.filter((group) => group.original || group.id !== id),

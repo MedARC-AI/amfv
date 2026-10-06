@@ -397,6 +397,35 @@ test("preserves split drafts and review decisions until confirmation", async ({
   )
 })
 
+test("switching away from a split via a review decision clears the draft and re-enables save", async ({
+  page,
+}) => {
+  const { taskId } = await importModelRows(
+    page,
+    "e2e-split-cancel-via-decision",
+    [modelRows("e2e-split-cancel-decision")[0]],
+  )
+  await page.goto(`/review/fact-decomposition?task_id=${taskId}`)
+  const firstClaim = page.locator('[data-claim-position="0"]')
+  const secondClaim = page.locator('[data-claim-position="1"]')
+  const save = page.getByRole("button", { name: "Save and next" })
+
+  // Complete both claims and check coverage so save would normally be enabled
+  await secondClaim.getByRole("button", { name: "Looks good" }).click()
+  await page
+    .getByLabel("I checked the text for missing worthwhile claims")
+    .check()
+
+  // Start a split on the first claim — save should be blocked
+  await firstClaim.getByRole("button", { name: "Split into atoms" }).click()
+  await expect(save).toBeDisabled()
+
+  // Abandon the split by clicking a review decision instead of Cancel.
+  // This calls onChange with multipleFacts=false, which should clear the draft.
+  await firstClaim.getByRole("button", { name: "Looks good" }).click()
+  await expect(save).toBeEnabled()
+})
+
 test("protects unfinished split edits and includes them in recovery downloads", async ({
   page,
 }) => {
