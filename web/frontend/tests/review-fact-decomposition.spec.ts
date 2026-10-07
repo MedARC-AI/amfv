@@ -237,6 +237,300 @@ async function importModelRows(
   return { apiBase, headers, taskId, displayName }
 }
 
+test("preserves split drafts and review decisions until confirmation", async ({
+  page,
+}, testInfo) => {
+  const rows = modelRows("e2e-split-drafts")
+  const { apiBase, headers, taskId } = await importModelRows(
+    page,
+    "split drafts",
+    [rows[0]],
+  )
+  await page.goto(`/review/fact-decomposition?task_id=${taskId}`)
+  const firstClaim = page.locator('[data-claim-position="0"]')
+  const secondClaim = page.locator('[data-claim-position="1"]')
+  const firstLooksGood = firstClaim.getByRole("button", {
+    name: "Looks good",
+    exact: true,
+  })
+  const multipleFacts = firstClaim.getByRole("button", {
+    name: "Multiple Facts",
+    exact: true,
+  })
+  const startFirstSplit = () =>
+    firstClaim.getByRole("button", { name: "Split into atoms" }).click()
+  const save = page.getByRole("button", { name: "Save and next" })
+
+  await startFirstSplit()
+  await expect(multipleFacts).toHaveAttribute("aria-pressed", "false")
+  await firstClaim.getByRole("button", { name: "Cancel", exact: true }).click()
+  await expect(firstClaim.locator("summary")).toContainText("Needs review")
+  await firstLooksGood.click()
+  await startFirstSplit()
+  await firstClaim.getByRole("button", { name: "Cancel", exact: true }).click()
+  await expect(firstLooksGood).toHaveAttribute("aria-pressed", "true")
+  await expect(multipleFacts).toHaveAttribute("aria-pressed", "false")
+  await secondClaim.getByRole("button", { name: "Looks good" }).click()
+  await page
+    .getByLabel("I checked the text for missing worthwhile claims")
+    .check()
+  await expect(save).toBeEnabled()
+
+  await startFirstSplit()
+  await expect(save).toBeDisabled()
+  await selectSourceText(page, "dehydration activates RAAS")
+  await firstClaim
+    .getByRole("button", { name: "Use staged spans" })
+    .nth(0)
+    .click()
+  await page
+    .getByLabel("Atom 1 text", { exact: true })
+    .fill("Dehydration activates RAAS.")
+  await page
+    .getByRole("group", { name: "Atom 1 label", exact: true })
+    .getByRole("button", { name: "Vital", exact: true })
+    .click()
+  await selectSourceText(
+    page,
+    "RAAS and efferent vasoconstriction preserves filtration pressure",
+  )
+  await firstClaim
+    .getByRole("button", { name: "Use staged spans" })
+    .nth(1)
+    .click()
+  await page
+    .getByLabel("Atom 2 text", { exact: true })
+    .fill("Efferent vasoconstriction preserves filtration pressure.")
+  await page
+    .getByRole("group", { name: "Atom 2 label", exact: true })
+    .getByRole("button", { name: "Semi-important", exact: true })
+    .click()
+  await expect(
+    firstClaim.getByRole("button", { name: "Confirm split" }),
+  ).toBeEnabled()
+  await expect(save).toBeDisabled()
+  await firstClaim
+    .getByRole("button", { name: "+ Add atom", exact: true })
+    .click()
+  await page
+    .getByLabel("Atom 3 text", { exact: true })
+    .fill("Unfinished third atom")
+
+  await secondClaim.getByRole("button", { name: "Split into atoms" }).click()
+  await page
+    .getByLabel("Atom 1 text", { exact: true })
+    .fill("Second claim draft")
+  await startFirstSplit()
+  await expect(page.getByLabel("Atom 1 text", { exact: true })).toHaveValue(
+    "Dehydration activates RAAS.",
+  )
+  await expect(page.getByLabel("Atom 2 text", { exact: true })).toHaveValue(
+    "Efferent vasoconstriction preserves filtration pressure.",
+  )
+  await expect(page.getByLabel("Atom 3 text", { exact: true })).toHaveValue(
+    "Unfinished third atom",
+  )
+  await expect(
+    page
+      .getByRole("group", { name: "Atom 1 label", exact: true })
+      .getByRole("button", { name: "Vital", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true")
+  await firstClaim
+    .getByLabel("Atom 3 text", { exact: true })
+    .locator("..")
+    .getByRole("button", { name: "Remove", exact: true })
+    .click()
+  await firstClaim.getByRole("button", { name: "Confirm split" }).click()
+  await expect(multipleFacts).toHaveAttribute("aria-pressed", "true")
+  await expect(firstLooksGood).toHaveAttribute("aria-pressed", "false")
+  await expect(save).toBeDisabled()
+  await expect(
+    page.getByText("Confirm or cancel each split before saving your review."),
+  ).toBeVisible()
+  await secondClaim.getByRole("button", { name: "Split into atoms" }).click()
+  await expect(page.getByLabel("Atom 1 text", { exact: true })).toHaveValue(
+    "Second claim draft",
+  )
+  await secondClaim.getByRole("button", { name: "Cancel", exact: true }).click()
+  await expect(
+    secondClaim.getByRole("button", { name: "Looks good" }),
+  ).toHaveAttribute("aria-pressed", "true")
+  await expect(save).toBeEnabled()
+  await page.screenshot({
+    path: testInfo.outputPath("confirmed-split.png"),
+    fullPage: true,
+  })
+
+  const savedResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/review/fact-decomp/${taskId}/model-eval`) &&
+      response.request().method() === "POST",
+  )
+  await save.click()
+  const saved = await savedResponse
+  expect(saved.ok()).toBe(true)
+  const submitted = saved.request().postDataJSON()
+  expect(submitted.human_claims).toHaveLength(2)
+  expect(submitted.human_claims).toMatchObject([
+    {
+      claim_text: "Dehydration activates RAAS.",
+      label: "vital",
+      split_from_position: 0,
+    },
+    {
+      claim_text: "Efferent vasoconstriction preserves filtration pressure.",
+      label: "semi-important",
+      split_from_position: 0,
+    },
+  ])
+  await page.goto(`/review/fact-decomposition?task_id=${taskId}`)
+  await expect(page.getByLabel("Split 1 (from Claim 1) text")).toHaveValue(
+    "Dehydration activates RAAS.",
+  )
+  await expect(page.getByLabel("Split 1 (from Claim 1) text")).toBeDisabled()
+  const persisted = await page.request.get(
+    `${apiBase}/api/v1/review/fact-decomp/${taskId}`,
+    { headers },
+  )
+  expect((await persisted.json()).existing_review.human_claims).toEqual(
+    submitted.human_claims,
+  )
+})
+
+test("switching away from a split via a review decision clears the draft and re-enables save", async ({
+  page,
+}) => {
+  const { taskId } = await importModelRows(
+    page,
+    "e2e-split-cancel-via-decision",
+    [modelRows("e2e-split-cancel-decision")[0]],
+  )
+  await page.goto(`/review/fact-decomposition?task_id=${taskId}`)
+  const firstClaim = page.locator('[data-claim-position="0"]')
+  const secondClaim = page.locator('[data-claim-position="1"]')
+  const save = page.getByRole("button", { name: "Save and next" })
+
+  // Complete both claims and check coverage so save would normally be enabled
+  await secondClaim.getByRole("button", { name: "Looks good" }).click()
+  await page
+    .getByLabel("I checked the text for missing worthwhile claims")
+    .check()
+
+  // Start a split on the first claim — save should be blocked
+  await firstClaim.getByRole("button", { name: "Split into atoms" }).click()
+  await expect(save).toBeDisabled()
+
+  // Abandon the split by clicking a review decision instead of Cancel.
+  // This calls onChange with multipleFacts=false, which should clear the draft.
+  await firstClaim.getByRole("button", { name: "Looks good" }).click()
+  await expect(save).toBeEnabled()
+})
+
+test("protects unfinished split edits and includes them in recovery downloads", async ({
+  page,
+}) => {
+  const { apiBase, headers, taskId } = await importModelRows(
+    page,
+    "split recovery",
+    [modelRows("e2e-split-recovery")[0]],
+  )
+  await page.goto(`/review/fact-decomposition?task_id=${taskId}`)
+  const firstClaim = page.locator('[data-claim-position="0"]')
+  const secondClaim = page.locator('[data-claim-position="1"]')
+  await firstClaim.getByRole("button", { name: "Split into atoms" }).click()
+  await page
+    .getByLabel("Atom 1 text", { exact: true })
+    .fill("Unfinished local atom")
+  await page.getByRole("link", { name: "Home", exact: true }).click()
+  await expect(page.getByRole("dialog")).toBeVisible()
+  await page.getByRole("button", { name: "Stay", exact: true }).click()
+  await expect(page.getByLabel("Atom 1 text", { exact: true })).toHaveValue(
+    "Unfinished local atom",
+  )
+  await selectSourceText(page, "dehydration activates RAAS")
+  await firstClaim
+    .getByRole("button", { name: "Use staged spans" })
+    .nth(0)
+    .click()
+  await page
+    .getByLabel("Atom 1 text", { exact: true })
+    .fill("Unfinished local atom")
+  await page
+    .getByRole("group", { name: "Atom 1 label", exact: true })
+    .getByRole("button", { name: "Vital", exact: true })
+    .click()
+  await secondClaim.getByRole("button", { name: "Split into atoms" }).click()
+  await page
+    .getByLabel("Atom 1 text", { exact: true })
+    .fill("Paused second split")
+  await firstClaim.getByRole("button", { name: "Split into atoms" }).click()
+  await expect(page.getByLabel("Atom 1 text", { exact: true })).toHaveValue(
+    "Unfinished local atom",
+  )
+
+  const readUrl = `${apiBase}/api/v1/review/fact-decomp/${taskId}`
+  const payload = await (await page.request.get(readUrl, { headers })).json()
+  const saved = await page.request.post(`${readUrl}/model-eval`, {
+    headers,
+    data: {
+      item_revision: payload.item_revision,
+      rubric_id: payload.guide.rubric_id,
+      claim_reviews: payload.claims.map(
+        (claim: { position: number; proposed_label: string }) => ({
+          position: claim.position,
+          label: claim.proposed_label,
+          looks_good: true,
+        }),
+      ),
+      human_claims: [],
+      coverage_checked: true,
+    },
+  })
+  expect(saved.ok()).toBe(true)
+  const refreshed = page.waitForResponse(
+    (response) =>
+      response.url() === readUrl && response.request().method() === "GET",
+  )
+  await page.evaluate(() => window.dispatchEvent(new Event("offline")))
+  await page.evaluate(() => window.dispatchEvent(new Event("online")))
+  expect((await refreshed).ok()).toBe(true)
+  const loadSaved = page.getByRole("button", { name: "Load saved review" })
+  await expect(loadSaved).toBeVisible()
+  await expect(page.getByLabel("Atom 1 text", { exact: true })).toBeDisabled()
+  await expect(page.getByLabel("Atom 1 text", { exact: true })).toHaveValue(
+    "Unfinished local atom",
+  )
+
+  const downloadEvent = page.waitForEvent("download")
+  await page.getByRole("button", { name: "Download local copy" }).click()
+  const download = await downloadEvent
+  const localCopy = JSON.parse(await readFile(await download.path(), "utf8"))
+  expect(localCopy.local.splitDrafts[0][0]).toMatchObject({
+    claim_text: "Unfinished local atom",
+    label: "vital",
+    response_spans: [{ text: "dehydration activates RAAS" }],
+  })
+  expect(localCopy.local.splitDrafts[1][0].claim_text).toBe(
+    "Paused second split",
+  )
+  expect(localCopy.local.groups[0].looksGood).toBe(false)
+  expect(localCopy.local.groups[0].multipleFacts).toBe(false)
+  await loadSaved.click()
+  await page.getByRole("button", { name: "Stay", exact: true }).click()
+  await expect(page.getByLabel("Atom 1 text", { exact: true })).toHaveValue(
+    "Unfinished local atom",
+  )
+  await loadSaved.click()
+  await page.getByRole("button", { name: "Discard and leave" }).click()
+  await expect(page.getByLabel("Atom 1 text", { exact: true })).toHaveCount(0)
+  await expect(
+    firstClaim.getByRole("button", { name: "Looks good" }),
+  ).toHaveAttribute("aria-pressed", "true")
+  await expect(
+    firstClaim.getByRole("button", { name: "Looks good" }),
+  ).toBeDisabled()
+})
+
 test("grades model claims and saves human selections through a failed request and reload", async ({
   page,
 }, testInfo) => {
@@ -535,6 +829,7 @@ test("grades model claims and saves human selections through a failed request an
           text: "shows dehydration activates RAAS and efferent vasoconstriction",
         },
       ],
+      split_from_position: null,
     },
   ])
   expect(saved.existing_review.coverage_checked).toBe(true)

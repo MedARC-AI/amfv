@@ -285,6 +285,7 @@ def submit_model_eval_review(
             raise HTTPException(
                 status_code=400, detail="Each claim needs an explicit review decision"
             )
+    valid_positions = {c.position for c in claims}
     for claim in body.human_claims:
         try:
             claim.response_spans = _validate_submitted_spans(
@@ -292,6 +293,14 @@ def submit_model_eval_review(
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if (
+            claim.split_from_position is not None
+            and claim.split_from_position not in valid_positions
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=f"split_from_position {claim.split_from_position} does not reference a model claim",
+            )
     assert task.id is not None
     try:
         ratings = ModelCorrectionRating(

@@ -115,6 +115,7 @@ def _valid_submission() -> dict:
                 "claim_text": "The response mentions alpha.",
                 "label": "semi-important",
                 "response_spans": [{"start": 0, "end": 5, "text": "Alpha"}],
+                "split_from_position": None,
             }
         ],
         "coverage_checked": True,
