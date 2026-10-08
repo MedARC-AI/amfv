@@ -499,6 +499,12 @@ export function FactDecompositionCorrection({
               Confirm or cancel each split before saving your review.
             </p>
           ) : null}
+          {hasDuplicates ? (
+            <p className="text-sm text-destructive">
+              Two or more added claims have identical text. Remove the duplicate
+              before saving.
+            </p>
+          ) : null}
           {existingReview ? (
             <p className="text-sm">Previously submitted review. Read only.</p>
           ) : null}
