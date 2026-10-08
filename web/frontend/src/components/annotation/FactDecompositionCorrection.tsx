@@ -219,18 +219,21 @@ export function FactDecompositionCorrection({
               (g) => !g.original && g.claim.split_from_position === position,
             )
           : []
+      const seeded = existing.map((g, i) => ({
+        id: i,
+        claim_text: g.claim.claim_text,
+        response_spans: g.claim.response_spans,
+        label: g.claim.label as ImportanceLabel | undefined,
+      }))
       const atoms: SplitAtomDraft[] =
-        existing.length >= 2
-          ? existing.map((g, i) => ({
-              id: i,
-              claim_text: g.claim.claim_text,
-              response_spans: g.claim.response_spans,
-              label: g.claim.label as ImportanceLabel | undefined,
-            }))
-          : [
+        seeded.length === 0
+          ? [
               { id: 0, claim_text: "", response_spans: [] },
               { id: 1, claim_text: "", response_spans: [] },
             ]
+          : seeded.length === 1
+            ? [...seeded, { id: 1, claim_text: "", response_spans: [] }]
+            : seeded
       return { ...current, [groupId]: atoms }
     })
     setSplitTargetId(groupId)
