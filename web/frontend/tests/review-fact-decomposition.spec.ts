@@ -426,6 +426,63 @@ test("switching away from a split via a review decision clears the draft and re-
   await expect(save).toBeEnabled()
 })
 
+test("duplicate atom text blocks confirm split and shows a warning", async ({
+  page,
+}) => {
+  const { taskId } = await importModelRows(page, "e2e-split-duplicate-atoms", [
+    modelRows("e2e-split-duplicate-atoms")[0],
+  ])
+  await page.goto(`/review/fact-decomposition?task_id=${taskId}`)
+  const firstClaim = page.locator('[data-claim-position="0"]')
+  const confirmSplit = firstClaim.getByRole("button", {
+    name: "Confirm split",
+    exact: true,
+  })
+
+  await firstClaim.getByRole("button", { name: "Split into atoms" }).click()
+
+  // Fill atom 1 with spans and text
+  await selectSourceText(page, "dehydration activates RAAS")
+  await firstClaim
+    .getByRole("button", { name: "Use staged spans" })
+    .nth(0)
+    .click()
+  await page.getByLabel("Atom 1 text", { exact: true }).fill("Same claim text.")
+  await page
+    .getByRole("group", { name: "Atom 1 label", exact: true })
+    .getByRole("button", { name: "Vital", exact: true })
+    .click()
+
+  // Fill atom 2 with the same text — confirm should be blocked
+  await selectSourceText(
+    page,
+    "RAAS and efferent vasoconstriction preserves filtration pressure",
+  )
+  await firstClaim
+    .getByRole("button", { name: "Use staged spans" })
+    .nth(1)
+    .click()
+  await page.getByLabel("Atom 2 text", { exact: true }).fill("Same claim text.")
+  await page
+    .getByRole("group", { name: "Atom 2 label", exact: true })
+    .getByRole("button", { name: "Semi-important", exact: true })
+    .click()
+
+  await expect(confirmSplit).toBeDisabled()
+  await expect(
+    firstClaim.getByText("Two or more atoms have identical text"),
+  ).toBeVisible()
+
+  // Fix the duplicate — confirm should unblock
+  await page
+    .getByLabel("Atom 2 text", { exact: true })
+    .fill("Efferent vasoconstriction preserves filtration pressure.")
+  await expect(confirmSplit).toBeEnabled()
+  await expect(
+    firstClaim.getByText("Two or more atoms have identical text"),
+  ).not.toBeVisible()
+})
+
 test("protects unfinished split edits and includes them in recovery downloads", async ({
   page,
 }) => {
