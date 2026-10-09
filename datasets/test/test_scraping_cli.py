@@ -2,6 +2,7 @@
 
 import json
 from collections.abc import Iterator
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -11,8 +12,8 @@ from amfv_datasets.scraping.base import ScrapedDocument, ScrapeRun
 from amfv_datasets.scraping.cli import (
     ALL_SOURCES,
     SCRAPERS,
-    _expand_source,
     app,
+    scrape_documents,
     write_huggingface_dataset,
     write_jsonl,
     write_markdown_files,
@@ -229,12 +230,36 @@ def test_cli_run_rejects_an_unregistered_source() -> None:
 
     assert result.exit_code != 0
     assert "'nhs'" in result.stderr
-    assert "all, medlineplus, nice" in result.stderr
+    assert ", ".join([ALL_SOURCES, *sorted(SCRAPERS)]) in result.stderr
 
 
-def test_expand_source_runs_every_registered_scraper() -> None:
-    """The all source expands to the registry rather than a hand-written list."""
-    assert _expand_source(ALL_SOURCES) == tuple(SCRAPERS)
+@pytest.mark.parametrize("known_totals", [True, False], ids=["known-totals", "unknown-total"])
+def test_all_sources_dispatches_every_scraper_and_combines_totals(
+    monkeypatch: pytest.MonkeyPatch, known_totals: bool
+) -> None:
+    """The public dispatcher runs every registered source and combines its output."""
+    calls: list[str] = []
+    source_names = tuple(SCRAPERS)
+    for source in source_names:
+
+        def fake_scraper(
+            *, documents: int | None, link_mode: LinkMode, url: str | None, source_name: str = source
+        ) -> ScrapeRun:
+            assert documents == 2
+            assert link_mode is LinkMode.STRIP
+            assert url is None
+            calls.append(source_name)
+            document = replace(_document(), source=source_name, external_id=f"{source_name}-example")
+            total = None if not known_totals and source_name == source_names[0] else 1
+            return ScrapeRun([document], total=total)
+
+        monkeypatch.setitem(SCRAPERS, source, fake_scraper)
+
+    run = scrape_documents(ALL_SOURCES, documents=2, link_mode=LinkMode.STRIP)
+
+    assert calls == list(source_names)
+    assert [document.source for document in run] == list(source_names)
+    assert run.total == (len(source_names) if known_totals else None)
 
 
 def _document() -> ScrapedDocument:
