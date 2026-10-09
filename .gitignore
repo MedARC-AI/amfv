@@ -149,6 +149,9 @@ activemq-data/
 
 # Environments
 .env
+.env.*
+!.env.example
+!.env.*.example
 .envrc
 .venv
 env/
@@ -216,3 +219,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local scraped corpora and review handoff notes
+/data/
+/LOCAL_REVIEW.md
+/WORK_STATUS.md
+/.codex/
+
+# macOS metadata
+.DS_Store
