@@ -16,6 +16,7 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.11",
 ]
+pdf = ["amfv-datasets[pdf]"]
 
 [tool.uv]
 package = false
