@@ -25,4 +25,6 @@ Use pytest. Name test files `test_*.py` under the owning component's `test/` dir
 
 ## Commit & Pull Request Guidelines
 
+Use descriptive branch names without a `codex/` prefix, for example `cco-scraper-update`.
+
 The existing history uses short, imperative, lowercase commit subjects such as `setup ruff linting and github ci`. Keep commits scoped to one logical change. Pull requests should describe the changed component, summarize behavior and tests run, link any issue or experiment context, and include screenshots only when user-facing rendered output changes.
