@@ -16,6 +16,7 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.11",
 ]
+ocr = ["pypdfium2>=5.14.0,<6.0.0", "pillow>=11.0.0,<13.0.0"]
 
 [tool.uv]
 package = false

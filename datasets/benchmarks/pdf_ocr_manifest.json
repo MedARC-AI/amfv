@@ -1,0 +1,81 @@
+{
+  "methodology": "Two born-digital English WHO excerpts, six pages each. Native PDF text and stock Docling (OCR off) use the text layer; Tesseract receives only 300-DPI page rasters. Anchors were checked against rendered excerpt pages 1-2; checks normalize whitespace and hyphenated line breaks. Anchor presence is a diagnostic, not medical correctness, table alignment, recall, CER or WER. FinePDFs itself is not a backend in this runner.",
+  "documents": [
+    {
+      "filename": "who_9789240121805_excerpt.pdf",
+      "title": "Guidelines for the prevention of bloodstream infections and other infections associated with the use of intravascular catheters: part 2: central venous catheters",
+      "pages": 6,
+      "sha256": "4795bf865b6d84dd4606bd94264962eea06b4a03d08188b39fb445e7006f6a66",
+      "publication_url": "https://www.who.int/publications/i/item/9789240121805",
+      "public_fixture_url": "https://raw.githubusercontent.com/conscioustahoe/amfv/ca7a330fc2e87022e24e6b1b72130b3ec5002408/datasets/test/fixtures/pdf/who_9789240121805_excerpt.pdf",
+      "anchors": [
+        {
+          "name": "recommendation population",
+          "text": "daily in critically-ill adults, adolescents and children"
+        },
+        {
+          "name": "recommendation certainty",
+          "text": "Conditional recommendation, low certainty of evidence"
+        },
+        {
+          "name": "neonatal exclusion",
+          "text": "but not neonates"
+        },
+        {
+          "name": "concentration range",
+          "text": "2% to 4%"
+        },
+        {
+          "name": "risk estimate",
+          "text": "0.67; 95% confidence interval"
+        },
+        {
+          "name": "confidence interval",
+          "text": "0.45 to 0.99"
+        },
+        {
+          "name": "chemical burn rationale",
+          "text": "due to the risk of chemical burns"
+        }
+      ]
+    },
+    {
+      "filename": "who_9789240124233_excerpt.pdf",
+      "title": "Consolidated HIV guidelines: service delivery",
+      "pages": 6,
+      "sha256": "ab24426012f0add3049b2e298e0ac73e702d7aa903fee5a24341fb3f8289bd0d",
+      "publication_url": "https://www.who.int/publications/i/item/9789240124233",
+      "public_fixture_url": "https://raw.githubusercontent.com/conscioustahoe/amfv/ca7a330fc2e87022e24e6b1b72130b3ec5002408/datasets/test/fixtures/pdf/who_9789240124233_excerpt.pdf",
+      "anchors": [
+        {
+          "name": "conditional outside-facility initiation",
+          "text": "Antiretroviral therapy (ART) initiation may be offered outside the health facility"
+        },
+        {
+          "name": "rapid initiation population",
+          "text": "Rapid ART initiation should be offered to all people living with HIV"
+        },
+        {
+          "name": "adult/child certainty distinction",
+          "text": "high-certainty evidence for adults, low-certainty evidence for children"
+        },
+        {
+          "name": "clinical visit interval",
+          "text": "clinical visits every 3-6 months"
+        },
+        {
+          "name": "nonphysician task sharing",
+          "text": "Trained non-physician clinicians, midwives and nurses can initiate first-line ART"
+        },
+        {
+          "name": "integrated diabetes care",
+          "text": "Diabetes and hypertension care should be integrated with HIV services"
+        },
+        {
+          "name": "date-column footnote",
+          "text": "Date the recommendation/good practice statement was formulated"
+        }
+      ]
+    }
+  ]
+}

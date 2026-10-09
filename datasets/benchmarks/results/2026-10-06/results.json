@@ -1,0 +1,352 @@
+{
+  "created_at": "2026-10-06T22:09:29.141303+00:00",
+  "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "python": "3.13.15",
+  "methodology": "Two born-digital English WHO excerpts, six pages each. Native PDF text and stock Docling (OCR off) use the text layer; Tesseract receives only 300-DPI page rasters. Anchors were checked against rendered excerpt pages 1-2; checks normalize whitespace and hyphenated line breaks. Anchor presence is a diagnostic, not medical correctness, table alignment, recall, CER or WER. FinePDFs itself is not a backend in this runner.",
+  "backends": [
+    "native",
+    "tesseract",
+    "docling",
+    "firecrawl-auto",
+    "firecrawl-ocr"
+  ],
+  "raster_dpi": 300,
+  "tesseract_psm": 3,
+  "results": [
+    {
+      "document": "who_9789240121805_excerpt.pdf",
+      "sha256": "4795bf865b6d84dd4606bd94264962eea06b4a03d08188b39fb445e7006f6a66",
+      "pages": 6,
+      "backend": "native",
+      "version": "5.14.0",
+      "status": "ok",
+      "seconds": 0.024,
+      "characters": 17869,
+      "output": "who_9789240121805_excerpt.native.md",
+      "anchors": [
+        {
+          "name": "recommendation population",
+          "text": "daily in critically-ill adults, adolescents and children",
+          "present": true
+        },
+        {
+          "name": "recommendation certainty",
+          "text": "Conditional recommendation, low certainty of evidence",
+          "present": true
+        },
+        {
+          "name": "neonatal exclusion",
+          "text": "but not neonates",
+          "present": true
+        },
+        {
+          "name": "concentration range",
+          "text": "2% to 4%",
+          "present": true
+        },
+        {
+          "name": "risk estimate",
+          "text": "0.67; 95% confidence interval",
+          "present": true
+        },
+        {
+          "name": "confidence interval",
+          "text": "0.45 to 0.99",
+          "present": true
+        },
+        {
+          "name": "chemical burn rationale",
+          "text": "due to the risk of chemical burns",
+          "present": true
+        }
+      ],
+      "anchors_found": 7,
+      "anchors_total": 7
+    },
+    {
+      "document": "who_9789240121805_excerpt.pdf",
+      "sha256": "4795bf865b6d84dd4606bd94264962eea06b4a03d08188b39fb445e7006f6a66",
+      "pages": 6,
+      "backend": "tesseract",
+      "version": "tesseract 5.5.3",
+      "status": "ok",
+      "seconds": 17.029,
+      "characters": 17147,
+      "output": "who_9789240121805_excerpt.tesseract.md",
+      "anchors": [
+        {
+          "name": "recommendation population",
+          "text": "daily in critically-ill adults, adolescents and children",
+          "present": true
+        },
+        {
+          "name": "recommendation certainty",
+          "text": "Conditional recommendation, low certainty of evidence",
+          "present": true
+        },
+        {
+          "name": "neonatal exclusion",
+          "text": "but not neonates",
+          "present": true
+        },
+        {
+          "name": "concentration range",
+          "text": "2% to 4%",
+          "present": true
+        },
+        {
+          "name": "risk estimate",
+          "text": "0.67; 95% confidence interval",
+          "present": true
+        },
+        {
+          "name": "confidence interval",
+          "text": "0.45 to 0.99",
+          "present": true
+        },
+        {
+          "name": "chemical burn rationale",
+          "text": "due to the risk of chemical burns",
+          "present": true
+        }
+      ],
+      "anchors_found": 7,
+      "anchors_total": 7
+    },
+    {
+      "document": "who_9789240121805_excerpt.pdf",
+      "sha256": "4795bf865b6d84dd4606bd94264962eea06b4a03d08188b39fb445e7006f6a66",
+      "pages": 6,
+      "backend": "docling",
+      "version": "2.134.0",
+      "ocr": false,
+      "status": "ok",
+      "seconds": 12.787,
+      "characters": 16672,
+      "output": "who_9789240121805_excerpt.docling.md",
+      "anchors": [
+        {
+          "name": "recommendation population",
+          "text": "daily in critically-ill adults, adolescents and children",
+          "present": true
+        },
+        {
+          "name": "recommendation certainty",
+          "text": "Conditional recommendation, low certainty of evidence",
+          "present": true
+        },
+        {
+          "name": "neonatal exclusion",
+          "text": "but not neonates",
+          "present": true
+        },
+        {
+          "name": "concentration range",
+          "text": "2% to 4%",
+          "present": true
+        },
+        {
+          "name": "risk estimate",
+          "text": "0.67; 95% confidence interval",
+          "present": true
+        },
+        {
+          "name": "confidence interval",
+          "text": "0.45 to 0.99",
+          "present": true
+        },
+        {
+          "name": "chemical burn rationale",
+          "text": "due to the risk of chemical burns",
+          "present": true
+        }
+      ],
+      "anchors_found": 7,
+      "anchors_total": 7
+    },
+    {
+      "document": "who_9789240121805_excerpt.pdf",
+      "sha256": "4795bf865b6d84dd4606bd94264962eea06b4a03d08188b39fb445e7006f6a66",
+      "pages": 6,
+      "backend": "firecrawl-auto",
+      "status": "skipped",
+      "reason": "FIRECRAWL_API_KEY is not configured"
+    },
+    {
+      "document": "who_9789240121805_excerpt.pdf",
+      "sha256": "4795bf865b6d84dd4606bd94264962eea06b4a03d08188b39fb445e7006f6a66",
+      "pages": 6,
+      "backend": "firecrawl-ocr",
+      "status": "skipped",
+      "reason": "FIRECRAWL_API_KEY is not configured"
+    },
+    {
+      "document": "who_9789240124233_excerpt.pdf",
+      "sha256": "ab24426012f0add3049b2e298e0ac73e702d7aa903fee5a24341fb3f8289bd0d",
+      "pages": 6,
+      "backend": "native",
+      "version": "5.14.0",
+      "status": "ok",
+      "seconds": 0.026,
+      "characters": 14802,
+      "output": "who_9789240124233_excerpt.native.md",
+      "anchors": [
+        {
+          "name": "conditional outside-facility initiation",
+          "text": "Antiretroviral therapy (ART) initiation may be offered outside the health facility",
+          "present": true
+        },
+        {
+          "name": "rapid initiation population",
+          "text": "Rapid ART initiation should be offered to all people living with HIV",
+          "present": true
+        },
+        {
+          "name": "adult/child certainty distinction",
+          "text": "high-certainty evidence for adults, low-certainty evidence for children",
+          "present": false
+        },
+        {
+          "name": "clinical visit interval",
+          "text": "clinical visits every 3-6 months",
+          "present": true
+        },
+        {
+          "name": "nonphysician task sharing",
+          "text": "Trained non-physician clinicians, midwives and nurses can initiate first-line ART",
+          "present": true
+        },
+        {
+          "name": "integrated diabetes care",
+          "text": "Diabetes and hypertension care should be integrated with HIV services",
+          "present": true
+        },
+        {
+          "name": "date-column footnote",
+          "text": "Date the recommendation/good practice statement was formulated",
+          "present": true
+        }
+      ],
+      "anchors_found": 6,
+      "anchors_total": 7
+    },
+    {
+      "document": "who_9789240124233_excerpt.pdf",
+      "sha256": "ab24426012f0add3049b2e298e0ac73e702d7aa903fee5a24341fb3f8289bd0d",
+      "pages": 6,
+      "backend": "tesseract",
+      "version": "tesseract 5.5.3",
+      "status": "ok",
+      "seconds": 13.848,
+      "characters": 14346,
+      "output": "who_9789240124233_excerpt.tesseract.md",
+      "anchors": [
+        {
+          "name": "conditional outside-facility initiation",
+          "text": "Antiretroviral therapy (ART) initiation may be offered outside the health facility",
+          "present": true
+        },
+        {
+          "name": "rapid initiation population",
+          "text": "Rapid ART initiation should be offered to all people living with HIV",
+          "present": true
+        },
+        {
+          "name": "adult/child certainty distinction",
+          "text": "high-certainty evidence for adults, low-certainty evidence for children",
+          "present": true
+        },
+        {
+          "name": "clinical visit interval",
+          "text": "clinical visits every 3-6 months",
+          "present": true
+        },
+        {
+          "name": "nonphysician task sharing",
+          "text": "Trained non-physician clinicians, midwives and nurses can initiate first-line ART",
+          "present": true
+        },
+        {
+          "name": "integrated diabetes care",
+          "text": "Diabetes and hypertension care should be integrated with HIV services",
+          "present": true
+        },
+        {
+          "name": "date-column footnote",
+          "text": "Date the recommendation/good practice statement was formulated",
+          "present": true
+        }
+      ],
+      "anchors_found": 7,
+      "anchors_total": 7
+    },
+    {
+      "document": "who_9789240124233_excerpt.pdf",
+      "sha256": "ab24426012f0add3049b2e298e0ac73e702d7aa903fee5a24341fb3f8289bd0d",
+      "pages": 6,
+      "backend": "docling",
+      "version": "2.134.0",
+      "ocr": false,
+      "status": "ok",
+      "seconds": 5.156,
+      "characters": 23625,
+      "output": "who_9789240124233_excerpt.docling.md",
+      "anchors": [
+        {
+          "name": "conditional outside-facility initiation",
+          "text": "Antiretroviral therapy (ART) initiation may be offered outside the health facility",
+          "present": true
+        },
+        {
+          "name": "rapid initiation population",
+          "text": "Rapid ART initiation should be offered to all people living with HIV",
+          "present": true
+        },
+        {
+          "name": "adult/child certainty distinction",
+          "text": "high-certainty evidence for adults, low-certainty evidence for children",
+          "present": true
+        },
+        {
+          "name": "clinical visit interval",
+          "text": "clinical visits every 3-6 months",
+          "present": true
+        },
+        {
+          "name": "nonphysician task sharing",
+          "text": "Trained non-physician clinicians, midwives and nurses can initiate first-line ART",
+          "present": true
+        },
+        {
+          "name": "integrated diabetes care",
+          "text": "Diabetes and hypertension care should be integrated with HIV services",
+          "present": true
+        },
+        {
+          "name": "date-column footnote",
+          "text": "Date the recommendation/good practice statement was formulated",
+          "present": false
+        }
+      ],
+      "anchors_found": 6,
+      "anchors_total": 7
+    },
+    {
+      "document": "who_9789240124233_excerpt.pdf",
+      "sha256": "ab24426012f0add3049b2e298e0ac73e702d7aa903fee5a24341fb3f8289bd0d",
+      "pages": 6,
+      "backend": "firecrawl-auto",
+      "status": "skipped",
+      "reason": "FIRECRAWL_API_KEY is not configured"
+    },
+    {
+      "document": "who_9789240124233_excerpt.pdf",
+      "sha256": "ab24426012f0add3049b2e298e0ac73e702d7aa903fee5a24341fb3f8289bd0d",
+      "pages": 6,
+      "backend": "firecrawl-ocr",
+      "status": "skipped",
+      "reason": "FIRECRAWL_API_KEY is not configured"
+    }
+  ]
+}
