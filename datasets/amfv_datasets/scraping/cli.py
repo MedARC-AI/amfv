@@ -26,6 +26,7 @@ from rich.progress import (
 )
 
 from amfv_datasets.scraping.base import ScrapedDocument, ScrapeRun
+from amfv_datasets.scraping.cco import scrape_cco
 from amfv_datasets.scraping.html import LinkMode
 from amfv_datasets.scraping.medlineplus import scrape_medlineplus
 from amfv_datasets.scraping.nice import scrape_nice
@@ -42,6 +43,7 @@ class Scraper(Protocol):
 ALL_SOURCES = "all"
 
 SCRAPERS: dict[str, Scraper] = {
+    "cco": scrape_cco,
     "medlineplus": scrape_medlineplus,
     "nice": scrape_nice,
 }
