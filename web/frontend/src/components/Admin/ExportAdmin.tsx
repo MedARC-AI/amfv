@@ -3,6 +3,11 @@ import { Download } from "lucide-react"
 import { useState } from "react"
 
 import { type AdminExport, AdminService } from "@/client"
+import {
+  downloadJson,
+  type ExportProgress,
+  fetchExportBundle,
+} from "@/components/Admin/grades/exportAll"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -64,6 +69,23 @@ export default function ExportAdmin() {
     },
     onError: (error) => setErrorMessage(apiErrorMessage(error)),
   })
+  const [allProgress, setAllProgress] = useState<ExportProgress | null>(null)
+  const exportEverything = useMutation({
+    mutationFn: (selected: number | null) =>
+      fetchExportBundle(selected, (next) => setAllProgress(next)),
+    onSuccess: (bundle) => {
+      downloadJson(
+        bundle,
+        `amfv-export-${bundle.dataset_id ?? "all"}-complete-${bundle.exported_at.slice(0, 10)}.json`,
+      )
+      setErrorMessage(null)
+      setAllProgress(null)
+    },
+    onError: (error) => {
+      setErrorMessage(apiErrorMessage(error))
+      setAllProgress(null)
+    },
+  })
 
   const selectedDatasetId = datasetId === "all" ? null : Number(datasetId)
   const items = exportData?.items ?? []
@@ -118,6 +140,24 @@ export default function ExportAdmin() {
               ? "Loading export page"
               : "Load export page"}
           </Button>
+          <Button
+            disabled={exportEverything.isPending}
+            onClick={() => exportEverything.mutate(selectedDatasetId)}
+            type="button"
+            variant="outline"
+          >
+            <Download />
+            {exportEverything.isPending
+              ? "Collecting every page"
+              : "Download everything as one file"}
+          </Button>
+          <p className="text-muted-foreground text-xs">
+            Walks every export page and adds the reviewer list, so the file
+            stands on its own.
+            {allProgress
+              ? ` Loaded ${allProgress.loaded}${allProgress.total !== null ? ` of ${allProgress.total}` : ""} records.`
+              : ""}
+          </p>
           {errorMessage ? (
             <p className="text-destructive text-sm" role="alert">
               {errorMessage}

@@ -1,6 +1,7 @@
 import DatasetsAdmin from "@/components/Admin/DatasetsAdmin"
 import DocumentsAdmin from "@/components/Admin/DocumentsAdmin"
 import ExportAdmin from "@/components/Admin/ExportAdmin"
+import GradesAdmin from "@/components/Admin/GradesAdmin"
 import MetricsAdmin from "@/components/Admin/MetricsAdmin"
 import ModerationAdmin from "@/components/Admin/ModerationAdmin"
 import TaskGenerationAdmin from "@/components/Admin/TaskGenerationAdmin"
@@ -25,6 +26,7 @@ export default function AmfvAdminPage() {
           <TabsTrigger value="moderation">Moderation</TabsTrigger>
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="export">Export</TabsTrigger>
+          <TabsTrigger value="grades">Grades</TabsTrigger>
           <TabsTrigger value="metrics">Metrics</TabsTrigger>
         </TabsList>
 
@@ -52,6 +54,10 @@ export default function AmfvAdminPage() {
 
         <TabsContent value="export">
           <ExportAdmin />
+        </TabsContent>
+
+        <TabsContent value="grades">
+          <GradesAdmin />
         </TabsContent>
 
         <TabsContent value="metrics">
