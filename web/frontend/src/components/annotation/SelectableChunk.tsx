@@ -220,9 +220,9 @@ function SelectableText({
         className={cn(
           "inline-flex items-baseline gap-1 rounded-sm px-0.5 text-foreground ring-1",
           searchHighlight?.active
-            ? "bg-amber-300/90 ring-amber-600"
+            ? "bg-amber-300/90 ring-amber-600 dark:bg-amber-500/45"
             : searchHighlight
-              ? "bg-amber-200/80 ring-amber-300"
+              ? "bg-amber-200/80 ring-amber-300 dark:bg-amber-500/30"
               : evidenceHighlight?.committed
                 ? (evidenceHighlight.span.markClass ??
                   "bg-primary/10 ring-primary/15")

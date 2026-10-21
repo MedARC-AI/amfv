@@ -4,6 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AMFV Web</title>
+    <script>
+      // Apply the saved theme before the first paint so dark mode does not flash white.
+      try {
+        var storedTheme = localStorage.getItem("amfv-theme")
+        var prefersDark =
+          storedTheme === "dark" ||
+          (storedTheme === null &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches)
+        if (prefersDark) document.documentElement.classList.add("dark")
+      } catch (error) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

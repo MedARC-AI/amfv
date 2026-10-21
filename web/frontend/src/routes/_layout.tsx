@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router"
 
+import ThemeToggle from "@/components/Common/ThemeToggle"
 import AppSidebar from "@/components/Sidebar/AppSidebar"
 import {
   SidebarInset,
@@ -46,6 +47,7 @@ function Layout() {
               {pageTitle}
             </h1>
           ) : null}
+          <ThemeToggle className="ml-auto" />
         </header>
         <main className="flex-1 overflow-y-auto p-6 md:p-8">
           <div className="mx-auto max-w-[120rem]">
