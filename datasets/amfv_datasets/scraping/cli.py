@@ -25,7 +25,8 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-from amfv_datasets.scraping.base import ScrapedDocument, ScrapeRun
+from amfv_datasets.scraping.base import ScrapedDocument, ScrapeError, ScrapeRun
+from amfv_datasets.scraping.drugs_com import scrape_drugs_com
 from amfv_datasets.scraping.html import LinkMode
 from amfv_datasets.scraping.medlineplus import scrape_medlineplus
 from amfv_datasets.scraping.nice import scrape_nice
@@ -42,10 +43,14 @@ class Scraper(Protocol):
 ALL_SOURCES = "all"
 
 SCRAPERS: dict[str, Scraper] = {
+    "drugscom": scrape_drugs_com,
     "medlineplus": scrape_medlineplus,
     "nice": scrape_nice,
 }
 """Scraper entry point by source name. Adding a source is an import and an entry here."""
+
+RESTRICTED_SOURCES = frozenset({"drugscom"})
+"""Sources that require explicit selection and publisher permission."""
 
 
 class OutputFormat(StrEnum):
@@ -73,8 +78,8 @@ def scrape_documents(
             source.
         documents: Number of documents to scrape. When unset, each source runs
             until it is exhausted (default: None).
-        link_mode: Whether links are kept as markdown links or stripped to their
-            visible text.
+        link_mode: Whether links are kept as markdown links or stripped to
+            their visible text.
         url: Source URL to scrape as a single document (default: None).
     """
     if documents is not None and documents < 1:
@@ -135,7 +140,7 @@ def write_markdown_files(documents: Iterable[ScrapedDocument], output_path: Path
 
 def _expand_source(source: str) -> tuple[str, ...]:
     if source == ALL_SOURCES:
-        return tuple(SCRAPERS)
+        return tuple(name for name in SCRAPERS if name not in RESTRICTED_SOURCES)
     if source not in SCRAPERS:
         raise typer.BadParameter(f"unknown source {source!r}; choose from {', '.join([ALL_SOURCES, *SCRAPERS])}")
     return (source,)
@@ -166,7 +171,10 @@ def run(
         progress: Whether to show a Rich progress bar (default: True).
     """
     parsed_documents = _parse_documents(documents)
-    scrape_run = scrape_documents(source, documents=parsed_documents, link_mode=link_mode, url=url)
+    try:
+        scrape_run = scrape_documents(source, documents=parsed_documents, link_mode=link_mode, url=url)
+    except ScrapeError as error:
+        raise typer.BadParameter(str(error)) from error
     scraped_documents = scrape_run.documents
     if progress:
         scraped_documents = _progress_documents(scraped_documents, total=scrape_run.total)

@@ -117,6 +117,7 @@ def html_to_markdown(
 
 def _absolutize_links(html_text: str, *, base_url: str) -> str:
     root = lxml_html.fragment_fromstring(html_text, create_parent="div")
+
     for link in root.xpath(".//a[@href]"):
         href = link.get("href")
         link.set("href", href if href.startswith("#") else urljoin(base_url, href))
